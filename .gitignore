@@ -1,0 +1,7 @@
+node_modules
+dist
+.local-build
+*.log
+.DS_Store
+test-results
+playwright-report

@@ -1,0 +1,64 @@
+# 08. Decisions and open questions
+
+## Decisions already made in these docs
+
+The owner asked for these behaviours; the details were filled in so the build is unambiguous.
+Change any of them here and in the referenced doc.
+
+| # | Decision | Why | Where |
+|---|---|---|---|
+| D1 | One alert per game, always on, chosen by rating band and miss map | Owner: "trigger one of these a game" | 02 s2 |
+| D2 | A different mode every match via a shuffled deck with no repeats | Owner: "different game type each time" | 02 s3 |
+| D3 | Modifiers are assigned from the rating gap: buffs to the underdog, handicaps to the favourite | Owner: "modifiers trigger based on ratings" | 02 s4 |
+| D4 | Completing a secret mission wins the game at once | Owner: "a secret mission that will end the game" | 02 s5 |
+| D5 | Missions go live after each player's move 10 | Without a gate, a mission could end the game in four moves | 02 s5 |
+| D6 | Only Medium and Hard missions end the game. Easy ones become open training goals; four that only make sense at game end became bonus objectives | "Castle before move 8" or "win without losing your queen" cannot sensibly end a game | 03 |
+| D7 | The favourite gets a Hard mission when the gap is 200 or more | Ties missions to ratings like the modifiers | 02 s5 |
+| D8 | Cards are single use and permanently removed when played; earned through chess achievements | Owner: "played one time, then burned" | 02 s6 |
+| D9 | Hand of up to 3 cards; one card per turn; upgrade and summon cards use the move | Keeps games recognisably chess | 02 s6 |
+| D10 | Bots get missions and modifiers; bots rated 1000 or more carry one signature card | Stronger bots feel like characters | 05 |
+| D11 | Hidden-information items are used against bots and online, never in pass-and-play | Two people share one screen | 02 s7, 09 |
+| D12 | Custom rules engine and AI; no Stockfish | Variants and modifiers need a custom engine anyway, and Stockfish's GPL licence would bind an app that is sold | 04, CLAUDE.md |
+| D13 | No backend in phases 0 to 5. Phase 6 adds a room server for online play. No accounts or personal data in any designed phase | Owner: "definitely multiplayer"; child users | CLAUDE.md, 09 |
+| D14 | 18 bots built from opening books plus the shared AI, not trained models | Same result for the player at a fraction of the work | 05 |
+| D15 | Several rules from the brainstorm were tightened to be implementable (Safe king, Long jump, Boss battle, Capture the flag, Lava squares, Bodyguard, Twin and others) | The originals were one-liners | 03 |
+
+| D16 | Online play uses room codes, an authoritative server and preset emotes only | Hidden missions and roles must not reach other clients; no chat for children | 09 s2 |
+| D17 | Three-player chess uses the four-player cross board with one side empty | One board and one rule set instead of a separate three-sided geometry | 09 s4 |
+| D18 | With 3 or 4 players, kings are captured rather than checkmated | Checkmate is not well defined when two other players move before you | 09 s4 |
+| D19 | "Territory king of the hill" became two modes: Hill wars (score for holding the centre) and Paint the board (most squares coloured) | Two readings of the idea, both cheap to build | 09 s5 |
+| D20 | Assassins, saboteurs and the last pawn became a hidden-roles layer of 8 roles, plus the Contract mode | Owner's idea was one line; this is a first design | 09 s6 |
+
+## Resolved questions
+
+The owner asked for these to be decided on one principle: **favour fun and learning how to play.**
+
+| # | Question | Decision | Where |
+|---|---|---|---|
+| 1 | Does a mission win count fully for rating? | Half the normal rating change. Checkmate stays the most rewarded skill | 02 s1 |
+| 2 | Mission gate | Move 10; move 8 when either player is under 800 | 02 s5 |
+| 3 | Card burn | Permanent, as the owner specified. Earn conditions repeat, and players under 800 get a free Common card every third game so they are never empty-handed | 02 s6, s8 |
+| 4 | Bots with cards | Yes: bots rated 1000 or more carry one signature card | 05 |
+| 5 | Modifiers in training | Yes, buffs for the underdog only. No handicaps in training | 02 s4 |
+| 6 | Standard chess in the mode deck | Three copies, so real chess comes up about one match in four | 02 s3 |
+| 7 | Arcade duel style | Dice plus a timing tap. No real-time combat | 07 phase 9 |
+| 8 | Name | "Chess Tutor" stays as the working title. Not blocking; a name search is needed before public release | README |
+| 9 | Selling | Build it free to play first. No payment code in any designed phase. Decide the model after a classroom pilot | CLAUDE.md |
+| 10 | Chess.com terms | Cannot be decided here. The Chess.com screen sits behind a settings toggle so it can be removed, and the terms check remains a required step before any paid release | 06 |
+| 11 | Teacher dashboard | Not needed for a pilot. The per-device progress screen gets a printable "share progress" report | 01 |
+| 12 | Art and sound | The implementing agent makes simple original SVG art and synthesised sounds, behind a theme module for later replacement | CLAUDE.md |
+| 13 | Roles | Approved as designed. Unlock after 5 party matches; dealt in about half of matches so they stay a surprise | 09 s6 |
+| 14 | Contract mode | Approved: capture your secret target's king to win | 09 s5 |
+| 15 | Online ratings | Stay on the device. No public matchmaking | 09 s2 |
+| 16 | Server cost | Choose a host with a free tier and stay inside it until the app earns money. If no free tier fits, stop and ask the owner | 09 s2 |
+| 17 | Build order | Unchanged. Training comes first because learning is the point; multiplayer depends on the modes being finished, and the Chess.com phase is small | 07 |
+
+## Still needs the owner (not blocking the build)
+
+- Final name, before public release.
+- Chess.com API terms review, before any paid release.
+- Approval of any hosting cost beyond a free tier.
+
+## Log
+
+Implementing agent: add dated entries below when you resolve an ambiguity or record a spike result.
