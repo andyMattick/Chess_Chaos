@@ -62,3 +62,15 @@ The owner asked for these to be decided on one principle: **favour fun and learn
 ## Log
 
 Implementing agent: add dated entries below when you resolve an ambiguity or record a spike result.
+
+### 2026-11-17: Phases 0 and 1 built
+
+- **Engine.** `src/core` supports 2 to 4 seats, any board size and blocked squares from the start. Perft matches the reference counts for five positions (start position to depth 4). Castling is a king move with a `castle` flag rather than a separate action type, so tapping the king and its destination works naturally.
+- **Fifty-move rule** is applied automatically at 100 half-moves (no claim needed), which is simpler for children.
+- **AI.** Alpha-beta with iterative deepening, quiescence, a transposition table and killer moves. Scores are from the root player's view with all other seats as opponents, so it already works for 3 and 4 players. Legality is checked lazily during search; depth 4 takes about 0.5 s in a middlegame. Positional terms are computed from board geometry instead of fixed tables so they work on any board.
+- **Bots.** All 18 bots have opening books; a test checks every line is legal. Strength values are the starting table from doc 05 and have not been calibrated by self-play yet (still to do for phase 1 sign-off).
+- **Zustand dropped.** State is React state plus a tiny `useSyncExternalStore` wrapper around storage. Add Zustand later only if it is needed.
+- **Pass-and-play does not change ratings yet.** Only one profile is active per device session; rating both players needs a second-profile picker (phase 3).
+- **Build environment.** This session had no package registry access. The engine and AI were type-checked with `tsc` and tested with a Vitest-compatible runner; the UI was bundled and tested in Chromium with a different bundler. `npm run build` with Vite has not been run yet. The first `npm install && npm run build` (or the CI workflow) is the check. `build` does not run the type check so a type-only error cannot block a deploy; CI runs `typecheck` separately.
+- **Worker.** The AI runs in a Web Worker and falls back to the main thread if the worker cannot start.
+

@@ -4,8 +4,22 @@ A standalone web app that teaches kids chess through small, visible wins, wrappe
 party-game layer (rotating game modes, rating-based modifiers, secret missions, power-piece
 cards), with opening bots and Chess.com public data on top.
 
-This repo starts as a design handoff. No code exists yet. An implementing agent should read
-`CLAUDE.md` first, then the docs in order.
+Phases 0 and 1 are built: the rules engine, the board, pass-and-play, the AI, 18 opening
+bots, local profiles and ratings, and saved-game replay. An implementing agent should read
+`CLAUDE.md` first, then the docs in order, then the log at the end of
+`docs/08-decisions-and-open-questions.md`.
+
+## Run it
+
+```
+npm install
+npm run dev        # local dev server
+npm test           # engine, AI and bot-book tests (Vitest)
+npm run typecheck
+npm run build      # static site in dist/, deploy to Vercel or GitHub Pages
+```
+
+On Vercel, import the repo and accept the detected Vite settings.
 
 ## What the app is
 
@@ -39,5 +53,5 @@ This repo starts as a design handoff. No code exists yet. An implementing agent 
 
 ## Status
 
-Design complete for phases 0 to 7. Phases 8 to 10 are outlined only.
+Built: phases 0 and 1. Designed: phases 2 to 7. Outlined: phases 8 to 10.
 Items the owner still needs to confirm are in `docs/08-decisions-and-open-questions.md`.
