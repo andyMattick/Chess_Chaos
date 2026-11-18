@@ -1,4 +1,6 @@
-import { activeProfile } from '../storage/storage';
+import { activeProfile, type Opponent } from '../storage/storage';
+import { BOTS } from '../content/bots';
+import type { GameRecord } from '../core/record';
 import { useSave } from './store';
 
 /**
@@ -12,7 +14,7 @@ export function Leaderboard({ back }: { back: () => void }) {
   if (!p) return null;
   const rows = [
     { key: 'me', name: p.nickname, kind: 'you' as const, rating: p.rating, w: 0, l: 0, d: 0, last: Date.now() },
-    ...Object.entries(p.opponents ?? {}).map(([key, o]) => ({ key, ...o })),
+    ...Object.entries(withHistory(p.opponents ?? {}, p.botRecords ?? {}, save.games[p.id] ?? [], p.nickname)).map(([key, o]) => ({ key, ...o })),
     // Other players on this device count too.
     ...save.profiles.filter((x) => x.id !== p.id).map((x) => ({ key: `local:${x.id}`, name: x.nickname, kind: 'device' as const, rating: x.rating, w: 0, l: 0, d: 0, last: 0 })),
   ].sort((a, b) => b.rating - a.rating);
@@ -30,11 +32,41 @@ export function Leaderboard({ back }: { back: () => void }) {
               <b>{r.name}{r.kind === 'you' ? ' (you)' : ''}</b>
               <small>{r.kind === 'bot' ? '🤖 bot' : r.kind === 'online' ? '🌐 online' : r.kind === 'device' ? '📱 this device' : ''}{r.kind === 'bot' || r.kind === 'online' ? ` · you: W ${r.w} · L ${r.l} · D ${r.d}` : ''}</small>
             </span>
-            <span className="bot-rating">★ {r.rating}</span>
+            <span className="bot-rating">{r.rating ? `★ ${r.rating}` : '★ ?'}</span>
           </li>
         ))}
       </ol>
       <button className="btn" onClick={back}>← Home</button>
     </div>
   );
+}
+
+/**
+ * Games played before the leaderboard existed: fill in bots from the bot path
+ * record and online players from saved games (their rating is unknown until you
+ * play them again).
+ */
+function withHistory(known: Record<string, Opponent>, botRecords: Record<string, { w: number; l: number; d: number }>, games: GameRecord[], me: string): Record<string, Opponent> {
+  const out = { ...known };
+  for (const [id, r] of Object.entries(botRecords)) {
+    const b = BOTS.find((x) => x.id === id);
+    if (b && !out[`bot:${b.id}`]) out[`bot:${b.id}`] = { name: b.name, kind: 'bot', rating: b.rating, ...r, last: 0 };
+  }
+  const added = new Set<string>();
+  const botNames = new Set(BOTS.flatMap((b) => [b.name.toLowerCase(), `${b.emoji} ${b.name}`.toLowerCase()]));
+  for (const g of games) {
+    if (g.id.startsWith('cc-') || g.setup.kind !== 'fen' || !g.meta.result) continue;
+    const names = Object.entries(g.meta.players);
+    const mine = names.find(([, n]) => n === me)?.[0];
+    if (!mine) continue;
+    for (const [seat, n] of names) {
+      const key = `online:${n.toLowerCase()}`;
+      if (seat === mine || botNames.has(n.toLowerCase()) || (out[key] && !added.has(key)) || n === '…') continue;
+      const w = g.meta.result.winners;
+      const prev = out[key] ?? { name: n, kind: 'online' as const, rating: 0, w: 0, l: 0, d: 0, last: 0 };
+      added.add(key);
+      out[key] = { ...prev, w: prev.w + (w.includes(mine as never) ? 1 : 0), l: prev.l + (w.length && !w.includes(mine as never) ? 1 : 0), d: prev.d + (w.length ? 0 : 1), last: Math.max(prev.last, g.meta.startedAt) };
+    }
+  }
+  return out;
 }
