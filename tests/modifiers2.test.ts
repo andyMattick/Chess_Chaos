@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applySetup, fromFEN, legalActions, parseSAN, play, standardStart, toSAN, parseSquare, IMPLEMENTED, replay, newRecord } from '../src/core';
+import { applySetup, fromFEN, legalActions, parseSAN, play, standardStart, toSAN, parseSquare, IMPLEMENTED } from '../src/core';
 import type { GameState } from '../src/core';
 import { MODIFIERS, BONUS_MISSIONS } from '../src/content/party';
 import { bonusDone } from '../src/systems/missions';

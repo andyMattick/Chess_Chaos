@@ -153,7 +153,7 @@ export function OpeningTrainer({ back, botId: startBot }: { back: () => void; bo
               return (
                 <button key={b.id} className="mode-tile trainer-tile" onClick={() => setBot(b)}>
                   <span className="mode-emoji">{b.emoji}</span>
-                  <b>{b.id === `${NEMESIS_PREFIX}${MIRROR_KEY}` ? 'Your own openings' : b.name}</b>
+                  <b>{(b.id as string) === `${NEMESIS_PREFIX}${MIRROR_KEY}` ? 'Your own openings' : b.name}</b>
                   <small>{b.opening}</small>
                   <small>{w.learned + bl.learned}/{w.total + bl.total} learned{due ? ` · 🔔 ${due} due` : ''}</small>
                 </button>
