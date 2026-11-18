@@ -1,5 +1,6 @@
 import type { GameRecord } from '../core/record';
 import { START_RATING } from '../systems/rating';
+import { DEFAULT_SKINS, type LandscapeId, type SkinChoice } from '../content/cosmetics';
 
 /**
  * Local persistence (docs/04 section 7). Everything lives in localStorage under
@@ -29,7 +30,8 @@ export interface Profile {
 export interface Settings {
   sound: boolean;
   showCoordinates: boolean;
-  boardTheme: 'meadow' | 'ocean' | 'candy';
+  landscape: LandscapeId;
+  skins: SkinChoice;
   chesscomEnabled: boolean;
 }
 
@@ -44,7 +46,7 @@ export interface SaveData {
 const KEY = 'chess-chaos:save';
 const MAX_GAMES = 50;
 
-export const DEFAULT_SETTINGS: Settings = { sound: true, showCoordinates: true, boardTheme: 'meadow', chesscomEnabled: true };
+export const DEFAULT_SETTINGS: Settings = { sound: true, showCoordinates: true, landscape: 'meadow', skins: DEFAULT_SKINS, chesscomEnabled: true };
 
 function empty(): SaveData {
   return { version: 1, profiles: [], activeProfileId: null, games: {}, settings: { ...DEFAULT_SETTINGS } };
@@ -57,7 +59,7 @@ function migrate(raw: unknown): SaveData {
   return {
     ...empty(),
     ...d,
-    settings: { ...DEFAULT_SETTINGS, ...(d.settings ?? {}) },
+    settings: { ...DEFAULT_SETTINGS, ...(d.settings ?? {}), skins: { ...DEFAULT_SKINS, ...(d.settings?.skins ?? {}) } },
     profiles: (d.profiles ?? []).map((p) => ({ ...newProfile(p.nickname ?? 'Player', p.colour ?? '#4a90d9'), ...p })),
   } as SaveData;
 }

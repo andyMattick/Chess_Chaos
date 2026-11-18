@@ -1,22 +1,26 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { requestMove } from '../ai/client';
 import { botById } from '../content/bots';
+import { skinFor } from '../content/cosmetics';
 import { pieceType } from '../core/pieces';
 import { newRecord, replay, type GameRecord } from '../core/record';
-import { legalActions, play } from '../core/rules';
+import { legalActions } from '../core/rules';
 import { toSAN } from '../core/san';
 import { newSeed } from '../core/rng';
-import type { GameState, MoveAction, PlayerId } from '../core/types';
+import type { Action, GameState, MoveAction, PlayerId } from '../core/types';
+import { online } from '../net/client';
+import { EMOTES } from '../net/protocol';
 import { activeProfile, addGame, update, upsertProfile } from '../storage/storage';
 import { updateRating } from '../systems/rating';
 import { Board } from './Board';
-import { PieceGlyph } from './PieceGlyph';
+import { Character } from './skins';
 import { useSave } from './store';
 
 export interface GameConfig {
-  kind: 'local' | 'bot';
+  /** 'local' is only used to replay saved games. */
+  kind: 'local' | 'bot' | 'online';
   botId?: string;
-  /** In bot games, the seat the human plays. */
+  /** In bot games, the seat the human plays. Online, the server decides. */
   humanSeat: PlayerId;
   names: Record<string, string>;
 }
@@ -30,37 +34,51 @@ interface Props {
 }
 
 const REASON_TEXT: Record<string, string> = {
-  checkmate: 'by checkmate',
-  resign: 'by resignation',
+  checkmate: 'by checkmate!',
+  resign: '(the other side gave up)',
   stalemate: 'Stalemate: no legal moves, but no check.',
-  'draw-repetition': 'Draw: the same position happened three times.',
+  'draw-repetition': 'Draw: same position three times.',
   'draw-50': 'Draw: 50 moves with no capture or pawn move.',
-  'draw-material': 'Draw: nobody has enough pieces left to checkmate.',
+  'draw-material': 'Draw: nobody can checkmate with what is left.',
   'draw-agreed': 'Draw agreed.',
 };
 
-function pick<T>(list: T[]): T {
+function pick<T>(list: readonly T[]): T {
   return list[Math.floor(Math.random() * list.length)];
 }
 
+const other = (p: PlayerId): PlayerId => (p === 'p1' ? 'p2' : 'p1');
+
 export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   const save = useSave();
+  const net = useSyncExternalStore(online.subscribe, online.get, online.get);
+  const isOnline = config.kind === 'online';
   const bot = config.botId ? botById(config.botId) : undefined;
-  const botSeat: PlayerId | null = config.kind === 'bot' ? (config.humanSeat === 'p1' ? 'p2' : 'p1') : null;
+  const me: PlayerId = isOnline ? net.seat ?? 'p1' : config.humanSeat;
+  const botSeat: PlayerId | null = config.kind === 'bot' ? other(config.humanSeat) : null;
 
-  const [rec, setRec] = useState<GameRecord>(() => reviewRecord ?? newRecord(newSeed(), config.names));
+  const [localRec, setLocalRec] = useState<GameRecord>(() => reviewRecord ?? newRecord(newSeed(), config.names));
+  const rec = isOnline && net.record ? net.record : localRec;
+  const names: Record<string, string> = isOnline
+    ? { p1: net.seats.p1?.name ?? '…', p2: net.seats.p2?.name ?? '…' }
+    : config.names;
   const states = useMemo(() => replay(rec), [rec]);
   const live = states[states.length - 1];
   const [view, setView] = useState<number | null>(reviewRecord ? 0 : null);
-  const shown = view === null ? live : states[view];
+  const shown = view === null ? live : states[Math.min(view, states.length - 1)];
   const [selected, setSelected] = useState<number | null>(null);
   const [promo, setPromo] = useState<MoveAction[] | null>(null);
-  const [speech, setSpeech] = useState<string | null>(bot ? pick(bot.lines.greet) : null);
+  const [speech, setSpeech] = useState<{ seat: PlayerId; text: string } | null>(bot && botSeat ? { seat: botSeat, text: pick(bot.lines.greet) } : null);
   const [thinking, setThinking] = useState(false);
   const [flipped, setFlipped] = useState(false);
   const [ratingChange, setRatingChange] = useState<{ before: number; after: number } | null>(null);
   const finishedRef = useRef(!!reviewRecord);
   const reviewing = !!reviewRecord || view !== null;
+
+  function push(a: Action) {
+    if (isOnline) online.act(a);
+    else setLocalRec((r) => ({ ...r, actions: [...r.actions, a] }));
+  }
 
   const sanList = useMemo(() => {
     const out: string[] = [];
@@ -70,7 +88,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     return out;
   }, [rec, states]);
 
-  const isHumanTurn = !live.result && (config.kind === 'local' || live.turn === config.humanSeat);
+  const isHumanTurn = !live.result && !reviewRecord && live.turn === me;
   const legal = useMemo(() => (isHumanTurn && !reviewing ? legalActions(live) : []), [live, isHumanTurn, reviewing]);
   const targets = selected === null ? [] : legal.filter((m) => m.piece === shown.sq[selected]);
 
@@ -82,13 +100,9 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   }, [rec, states, view]);
 
   function commit(m: MoveAction) {
-    const before = live;
-    const after = play(before, m);
-    if (bot && botSeat && before.turn !== botSeat && before.sq[m.to] >= 0 && Math.random() < 0.3) setSpeech('Hey! I liked that piece.');
-    setRec((r) => ({ ...r, actions: [...r.actions, m] }));
+    push(m);
     setSelected(null);
     setPromo(null);
-    return after;
   }
 
   function onSquare(sq: number) {
@@ -103,7 +117,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     else setSelected(null);
   }
 
-  // Bot turn.
+  // Bot turn (runs on this device).
   useEffect(() => {
     if (!botSeat || live.result || live.turn !== botSeat || reviewing) return;
     let cancelled = false;
@@ -111,80 +125,110 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     requestMove(live, bot?.rating ?? 800, bot?.id).then((m) => {
       if (cancelled || !m) return;
       setThinking(false);
-      if (live.sq[m.to] >= 0 && bot && Math.random() < 0.5) setSpeech(pick(bot.lines.capture));
-      setRec((r) => ({ ...r, actions: [...r.actions, m] }));
+      if (live.sq[m.to] >= 0 && bot && Math.random() < 0.5) setSpeech({ seat: botSeat, text: pick(bot.lines.capture) });
+      setLocalRec((r) => ({ ...r, actions: [...r.actions, m] }));
     });
     return () => { cancelled = true; setThinking(false); };
   }, [live, botSeat, bot, reviewing]);
+
+  // Online emotes show as speech bubbles for a few seconds.
+  useEffect(() => {
+    if (!isOnline || !net.lastEmote) return;
+    const e = EMOTES.find((x) => x.id === net.lastEmote!.id);
+    if (e) setSpeech({ seat: net.lastEmote.from, text: e.text });
+    const t = setTimeout(() => setSpeech(null), 3500);
+    return () => clearTimeout(t);
+  }, [isOnline, net.lastEmote]);
+
+  // A rematch online starts a fresh record.
+  useEffect(() => {
+    if (isOnline && !live.result && rec.actions.length === 0) {
+      finishedRef.current = false;
+      setRatingChange(null);
+      setView(null);
+    }
+  }, [isOnline, live.result, rec.actions.length]);
 
   // Game over: rating, records, saved game.
   useEffect(() => {
     if (!live.result || finishedRef.current) return;
     finishedRef.current = true;
-    const profile = activeProfile(save);
-    const finalRec: GameRecord = { ...rec, meta: { ...rec.meta, result: live.result, san: sanList } };
-    if (bot && botSeat) {
-      const won = live.result.winners.includes(config.humanSeat);
-      const lost = live.result.winners.includes(botSeat);
-      setSpeech(pick(won ? bot.lines.lose : lost ? bot.lines.win : bot.lines.greet));
-    }
-    if (!profile) return;
+    const finalRec: GameRecord = { ...rec, meta: { ...rec.meta, players: names, result: live.result, san: sanList } };
+    const won = live.result.winners.includes(me);
+    const drawn = live.result.winners.length === 0;
+    if (bot && botSeat) setSpeech({ seat: botSeat, text: pick(won ? bot.lines.lose : !drawn ? bot.lines.win : bot.lines.greet) });
+    if (!activeProfile(save)) return;
+    const oppRating = bot?.rating ?? (isOnline ? net.seats[other(me)]?.rating : undefined);
     update((d) => {
       let p = activeProfile(d)!;
-      if (bot && botSeat) {
-        const score = live.result!.winners.includes(config.humanSeat) ? 1 : live.result!.winners.length === 0 ? 0.5 : 0;
-        const rating = updateRating(p.rating, bot.rating, score, p.gamesPlayed);
+      if (oppRating !== undefined && rec.actions.length >= 2) {
+        const score = won ? 1 : drawn ? 0.5 : 0;
+        const rating = updateRating(p.rating, oppRating, score, p.gamesPlayed);
         setRatingChange({ before: p.rating, after: rating });
-        const rec0 = p.botRecords[bot.id] ?? { w: 0, l: 0, d: 0 };
-        const botRecords = { ...p.botRecords, [bot.id]: { w: rec0.w + (score === 1 ? 1 : 0), l: rec0.l + (score === 0 ? 1 : 0), d: rec0.d + (score === 0.5 ? 1 : 0) } };
-        p = { ...p, rating, gamesPlayed: p.gamesPlayed + 1, botRecords, ratingHistory: [...p.ratingHistory, { at: Date.now(), rating }].slice(-200) };
+        p = { ...p, rating, gamesPlayed: p.gamesPlayed + 1, ratingHistory: [...p.ratingHistory, { at: Date.now(), rating }].slice(-200) };
+        if (bot) {
+          const r0 = p.botRecords[bot.id] ?? { w: 0, l: 0, d: 0 };
+          p = { ...p, botRecords: { ...p.botRecords, [bot.id]: { w: r0.w + (score === 1 ? 1 : 0), l: r0.l + (score === 0 ? 1 : 0), d: r0.d + (score === 0.5 ? 1 : 0) } } };
+        }
       }
       return addGame(upsertProfile(d, p), p.id, finalRec);
     });
   }, [live.result]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function undo() {
-    if (!rec.actions.length || live.result) return;
+    if (!rec.actions.length || live.result || isOnline) return;
     let n = rec.actions.length - 1;
     if (botSeat) {
-      // Take back to the human's turn.
       while (n > 0 && states[n].turn !== config.humanSeat) n--;
       if (states[n].turn !== config.humanSeat) return;
     }
-    setRec((r) => ({ ...r, actions: r.actions.slice(0, n) }));
+    setLocalRec((r) => ({ ...r, actions: r.actions.slice(0, n) }));
     setSelected(null);
   }
 
   function resign() {
     if (live.result) return;
-    const by = config.kind === 'bot' ? config.humanSeat : live.turn;
-    setRec((r) => ({ ...r, actions: [...r.actions, { t: 'resign', by }] }));
+    push({ t: 'resign', by: me });
   }
 
-  const bottom = useMemo(() => {
-    const base = config.kind === 'bot' ? config.humanSeat : 'p1';
-    return flipped ? (base === 'p1' ? 'p2' : 'p1') : base;
-  }, [config, flipped]);
-  const top = bottom === 'p1' ? 'p2' : 'p1';
+  const bottom: PlayerId = flipped ? other(me) : me;
+  const top = other(bottom);
 
   const captured = (owner: PlayerId) =>
     shown.pieces.filter((p) => p.at < 0 && p.owner === owner).sort((a, b) => pieceType(b.type).value - pieceType(a.type).value);
 
-  const turnName = config.names[shown.turn] ?? shown.turn;
   let status: string;
   if (shown.result) {
     const w = shown.result.winners;
-    status = w.length ? `${w.map((x) => config.names[x]).join(' & ')} wins ${REASON_TEXT[shown.result.reason] ?? ''}` : REASON_TEXT[shown.result.reason] ?? 'Draw';
-  } else if (thinking) status = `${turnName} is thinking…`;
-  else status = `${turnName} to move`;
+    status = w.length ? `${w.map((x) => names[x]).join(' & ')} wins ${REASON_TEXT[shown.result.reason] ?? ''}` : REASON_TEXT[shown.result.reason] ?? 'Draw';
+  } else if (thinking) status = `${names[shown.turn]} is thinking…`;
+  else if (!reviewRecord && shown.turn === me) status = 'Your move!';
+  else status = `${names[shown.turn]} to move`;
 
   const resultView = live.result && view === null && !reviewRecord;
-  const humanWon = live.result?.winners.includes(config.humanSeat);
+  const won = live.result?.winners.includes(me);
+  const opp = isOnline ? net.seats[other(me)] : undefined;
+  const iVotedRematch = isOnline && net.rematchVotes.includes(me);
+  const theyVotedRematch = isOnline && net.rematchVotes.includes(other(me));
+
+  const avatar = (seat: PlayerId) => {
+    if (bot && seat === botSeat) return <span className="avatar-emoji">{bot.emoji}</span>;
+    return (
+      <svg viewBox="0 0 100 100">
+        <Character skin={skinFor(save.settings.skins, seat, 'king')} type="king" owner={seat} seed={seat === 'p1' ? 3 : 9} />
+      </svg>
+    );
+  };
 
   return (
     <div className="game">
       <div className="game-main">
-        <PlayerBar name={config.names[top] ?? top} seat={top} active={shown.turn === top && !shown.result} captured={captured(bottom)} bot={botSeat === top ? bot : undefined} speech={botSeat === top ? speech : null} />
+        <PlayerBar
+          name={names[top]} rating={bot && top === botSeat ? bot.rating : net.seats[top]?.rating} avatar={avatar(top)}
+          active={shown.turn === top && !shown.result} captured={captured(bottom)} speech={speech?.seat === top ? speech.text : null}
+          colour={bot && top === botSeat ? bot.colour : undefined}
+          note={isOnline && opp && top !== me ? (opp.botControlled ? '🤖 a bot took over' : !opp.connected ? '📡 reconnecting…' : null) : null}
+        />
         <div className="board-wrap">
           <Board
             state={shown}
@@ -193,59 +237,78 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             targets={reviewing ? [] : targets}
             lastMove={lastMove}
             showCoordinates={save.settings.showCoordinates}
-            theme={save.settings.boardTheme}
+            landscape={save.settings.landscape}
+            skins={save.settings.skins}
             interactive={!reviewing && isHumanTurn}
             onSquare={onSquare}
           />
           {promo && (
             <div className="promo" role="dialog" aria-label="Choose a piece">
-              <p>Pick your new piece!</p>
+              <p>Your pawn made it! Turn it into…</p>
               <div className="promo-row">
                 {promo.map((m) => (
                   <button key={m.promo} className="promo-btn" onClick={() => commit(m)} aria-label={m.promo}>
-                    <svg viewBox="0 0 100 100"><PieceGlyph type={m.promo!} light={live.turn === 'p1'} /></svg>
+                    <svg viewBox="0 0 100 100"><Character skin={skinFor(save.settings.skins, me, m.promo!)} type={m.promo!} owner={me} badge /></svg>
                   </button>
                 ))}
               </div>
-              <button className="link" onClick={() => setPromo(null)}>Cancel</button>
+              <button className="link" onClick={() => setPromo(null)}>never mind</button>
             </div>
           )}
           {resultView && (
             <div className="result-card" role="dialog" aria-label="Game over">
-              <div className="result-emoji">{config.kind === 'bot' ? (humanWon ? '🏆' : live.result!.winners.length ? '💪' : '🤝') : '🏁'}</div>
-              <h2>{config.kind === 'bot' ? (humanWon ? 'You won!' : live.result!.winners.length ? 'Good fight!' : 'A draw!') : 'Game over'}</h2>
+              <div className="result-emoji">{won ? '🏆' : live.result!.winners.length ? '💥' : '🤝'}</div>
+              <h2>{won ? 'YOU WON!' : live.result!.winners.length ? 'Ooof. Good fight!' : 'A draw!'}</h2>
               <p>{status}</p>
               {ratingChange && (
                 <p className="rating-change">
-                  Rating {ratingChange.before} → <b>{ratingChange.after}</b> ({ratingChange.after >= ratingChange.before ? '+' : ''}{ratingChange.after - ratingChange.before})
+                  ★ {ratingChange.before} → <b>{ratingChange.after}</b> ({ratingChange.after >= ratingChange.before ? '+' : ''}{ratingChange.after - ratingChange.before})
                 </p>
               )}
-              <div className="row">
-                <button className="btn primary" onClick={() => onRematch({ ...config, humanSeat: config.kind === 'bot' ? (config.humanSeat === 'p1' ? 'p2' : 'p1') : 'p1' })}>Play again</button>
-                <button className="btn" onClick={() => setView(0)}>Replay game</button>
+              <div className="row center">
+                {isOnline ? (
+                  <button className="btn primary" onClick={() => online.rematch()} disabled={iVotedRematch}>
+                    {iVotedRematch ? 'Waiting for them…' : theyVotedRematch ? 'They want a rematch! Go!' : 'Rematch'}
+                  </button>
+                ) : (
+                  <button className="btn primary" onClick={() => onRematch({ ...config, humanSeat: other(config.humanSeat) })}>Play again</button>
+                )}
+                <button className="btn" onClick={() => setView(0)}>Replay it</button>
                 <button className="btn" onClick={onExit}>Home</button>
               </div>
             </div>
           )}
         </div>
-        <PlayerBar name={config.names[bottom] ?? bottom} seat={bottom} active={shown.turn === bottom && !shown.result} captured={captured(top)} bot={botSeat === bottom ? bot : undefined} speech={botSeat === bottom ? speech : null} />
+        <PlayerBar
+          name={names[bottom]} rating={bot && bottom === botSeat ? bot.rating : net.seats[bottom]?.rating} avatar={avatar(bottom)}
+          active={shown.turn === bottom && !shown.result} captured={captured(top)} speech={speech?.seat === bottom ? speech.text : null}
+          colour={bot && bottom === botSeat ? bot.colour : undefined}
+        />
       </div>
 
       <aside className="game-side">
+        {isOnline && <div className="room-code">Room <b>{net.code}</b></div>}
         <div className={`status ${shown.result ? 'over' : ''}`} aria-live="polite">{status}</div>
         {reviewing ? (
           <div className="review-controls">
             <button className="btn small" onClick={() => setView(0)} aria-label="First move">⏮</button>
             <button className="btn small" onClick={() => setView((v) => Math.max(0, (v ?? states.length - 1) - 1))} aria-label="Previous move">◀</button>
-            <span className="review-count">{(view ?? states.length - 1)}/{states.length - 1}</span>
+            <span className="review-count">{view ?? states.length - 1}/{states.length - 1}</span>
             <button className="btn small" onClick={() => setView((v) => Math.min(states.length - 1, (v ?? 0) + 1))} aria-label="Next move">▶</button>
             <button className="btn small" onClick={() => setView(reviewRecord ? states.length - 1 : null)} aria-label="Last move">⏭</button>
           </div>
         ) : (
           <div className="row wrap">
-            <button className="btn small" onClick={undo} disabled={!rec.actions.length || !!live.result || thinking}>↩ Take back</button>
+            {!isOnline && <button className="btn small" onClick={undo} disabled={!rec.actions.length || !!live.result || thinking}>↩ Take back</button>}
             <button className="btn small" onClick={() => setFlipped((f) => !f)}>⇅ Flip</button>
-            <button className="btn small danger" onClick={resign} disabled={!!live.result}>🏳 Resign</button>
+            <button className="btn small danger" onClick={resign} disabled={!!live.result}>🏳 Give up</button>
+          </div>
+        )}
+        {isOnline && (
+          <div className="emotes" aria-label="Send a reaction">
+            {EMOTES.map((e) => (
+              <button key={e.id} className="emote" onClick={() => online.emote(e.id)} title={e.text}>{e.text.split(' ')[0]}</button>
+            ))}
           </div>
         )}
         <ol className="moves" aria-label="Moves">
@@ -272,25 +335,25 @@ function MoveCell({ san, idx, view, onPick }: { san?: string; idx: number; view:
   );
 }
 
-function PlayerBar({ name, seat, active, captured, bot, speech }: {
-  name: string; seat: string; active: boolean; captured: GameState['pieces'];
-  bot?: ReturnType<typeof botById>; speech: string | null;
+function PlayerBar({ name, rating, avatar, active, captured, speech, colour, note }: {
+  name: string; rating?: number; avatar: ReactNode; active: boolean; captured: GameState['pieces'];
+  speech: string | null; colour?: string; note?: string | null;
 }) {
+  const save = useSave();
   return (
     <div className={`player-bar ${active ? 'active' : ''}`}>
-      <div className="avatar" style={{ background: bot?.colour ?? (seat === 'p1' ? '#fffaf0' : '#2d2a3e'), color: !bot && seat !== 'p1' ? '#fffaf0' : undefined }}>
-        {bot ? bot.emoji : seat === 'p1' ? '♙' : '♟'}
-      </div>
+      <div className="avatar" style={{ background: colour ?? '#fff' }}>{avatar}</div>
       <div className="pname">
         {name}
-        {bot && <span className="prating">{bot.rating}</span>}
-      </div>
-      <div className="captured" aria-label="Captured pieces">
-        {captured.map((p) => (
-          <svg key={p.id} viewBox="0 0 100 100"><PieceGlyph type={p.type} light={p.owner === 'p1'} /></svg>
-        ))}
+        {rating !== undefined && <span className="prating">★{rating}</span>}
+        {note && <span className="pnote">{note}</span>}
       </div>
       {speech && <div className="speech">{speech}</div>}
+      <div className="captured" aria-label="Captured pieces">
+        {captured.map((p) => (
+          <svg key={p.id} viewBox="0 0 100 100"><Character skin={skinFor(save.settings.skins, p.owner, p.type)} type={p.type} owner={p.owner} seed={p.id + 1} /></svg>
+        ))}
+      </div>
     </div>
   );
 }

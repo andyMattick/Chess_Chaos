@@ -74,3 +74,11 @@ Implementing agent: add dated entries below when you resolve an ambiguity or rec
 - **Build environment.** This session had no package registry access. The engine and AI were type-checked with `tsc` and tested with a Vitest-compatible runner; the UI was bundled and tested in Chromium with a different bundler. `npm run build` with Vite has not been run yet. The first `npm install && npm run build` (or the CI workflow) is the check. `build` does not run the type check so a type-only error cannot block a deploy; CI runs `typecheck` separately.
 - **Worker.** The AI runs in a Web Worker and falls back to the main thread if the worker cannot start.
 
+### 2026-11-17: Owner changes after the first build
+
+- **No pass-and-play.** The owner wants each player on their own device. "Play a friend" is now **Play online** (room code). Online two-player play was pulled forward from phase 6 and is built: `src/net/room.ts` (authoritative, runs the shared engine, tested), a Bun dev server and a Cloudflare Durable Object adapter (`server/`, `wrangler.toml`). Seat held 60 s on disconnect, then a bot takes over until the player returns. Rematch swaps colours. Emotes only, rate-limited; nicknames filtered. The Cloudflare adapter has not been deployed from this session; deploy steps are in the README.
+- Pass-and-play remains possible in the engine; 3 and 4 player games (doc 09) should also go online-first. MODE-10 Tag team needs rethinking as an online team mode.
+- **No AI in the game.** The owner wants little to no AI. The bots already use a classic hand-written search, not machine learning, and nothing calls an AI service. The parked "plain-language AI coach" idea is **removed**. Any future explanation text (one fix, name the idea) must come from the scripted tactic detectors.
+- **Cosmetics.** Piece skins per army with per-piece overrides, and seven board landscapes, chosen in the Wardrobe. All art is drawn in code. Characters wear the hat of their piece type and can show a small classic badge, so the board stays readable for learners. Skins and landscapes are good candidates for unlockable rewards later (badges, missions), in place of or alongside power cards.
+- **Look.** Deliberately scrappy: wonky borders, tape, tilted cards, a wobble filter on the board. Fonts come from Bunny Fonts (no visitor logging); self-host them before a paid release.
+

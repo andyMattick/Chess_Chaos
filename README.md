@@ -4,8 +4,8 @@ A standalone web app that teaches kids chess through small, visible wins, wrappe
 party-game layer (rotating game modes, rating-based modifiers, secret missions, power-piece
 cards), with opening bots and Chess.com public data on top.
 
-Phases 0 and 1 are built: the rules engine, the board, pass-and-play, the AI, 18 opening
-bots, local profiles and ratings, and saved-game replay. An implementing agent should read
+Built so far: the rules engine, the board, the AI and 18 opening bots, local profiles and
+ratings, saved-game replay, online play by room code, piece skins and board landscapes. An implementing agent should read
 `CLAUDE.md` first, then the docs in order, then the log at the end of
 `docs/08-decisions-and-open-questions.md`.
 
@@ -13,16 +13,35 @@ bots, local profiles and ratings, and saved-game replay. An implementing agent s
 
 ```
 npm install
-npm run dev        # local dev server
-npm test           # engine, AI and bot-book tests (Vitest)
+npm run dev        # the game, on http://localhost:5173
+npm run server     # the online room server, on ws://localhost:8787 (needs Bun)
+npm test           # engine, AI, bot-book and room-server tests (Vitest)
 npm run typecheck
-npm run build      # static site in dist/, deploy to Vercel or GitHub Pages
+npm run build      # static site in dist/
 ```
 
-On Vercel, import the repo and accept the detected Vite settings.
+## Put it online (free)
+
+**The game (static site).** Import the repo on Vercel and accept the detected Vite settings.
+
+**The room server (online play).** It runs on Cloudflare's free tier:
+
+1. Make a free Cloudflare account.
+2. In this folder: `npx wrangler login`, then `npx wrangler deploy`.
+3. Wrangler prints a URL like `https://chess-chaos-rooms.<you>.workers.dev`.
+4. On Vercel, add an environment variable `VITE_ROOM_SERVER` = `wss://chess-chaos-rooms.<you>.workers.dev/ws` and redeploy.
+
+Without step 4 the game still works (bots, wardrobe, replays); the Play online screen just says it isn't switched on.
+
+## No AI at runtime
+
+Nothing in the game calls an AI service. The bots use a classic hand-written chess search
+(alpha-beta), opening books written by hand, and fixed rules for how often they slip up.
+All art is drawn in code (SVG), so it can be edited directly.
 
 ## What the app is
 
+0. **Looks.** Piece skins (gremlins, robots, ghosts, critters, angry veg, classic) per army or per piece, and seven board landscapes.
 1. **Training mode.** One teaching alert is switched on for a whole game (for example,
    "danger squares always shown"). Post-game review celebrates one good move and fixes one mistake.
 2. **Party match.** Every match draws a different game mode, applies buffs or handicaps

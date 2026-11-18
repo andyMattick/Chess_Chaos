@@ -7,7 +7,7 @@ acceptance criteria.
 ## Target
 
 - Standalone web app, hosted as static files (Vercel or GitHub Pages). No backend in phases 0 to 5.
-- Phase 6 adds a small room server for online multiplayer (doc 09). `core/`, `tactics/`,
+- A small room server handles online play (doc 09): `npm run server` locally, Cloudflare in production. `core/`, `tactics/`,
   `content/` and `systems/` are shared by client and server, so keep them free of browser
   and Node specifics.
 - The engine supports 2 to 4 seats and non-rectangular boards from phase 0.
@@ -39,6 +39,7 @@ src/
   chesscom/    API client, cache, PGN import.
   ui/          React components and screens.
   storage/     persistence.
+  net/         online room protocol, authoritative room server, browser client.
 server/        online room server (phase 6); imports core, tactics, content, systems.
 ```
 
@@ -67,5 +68,6 @@ with the Web Audio API. Keep all art behind a theme module so an artist's set ca
 
 ## Out of scope until the owner says otherwise
 
-Accounts, public matchmaking, teacher dashboard, AI coach, payments, native app wrappers.
-Online multiplayer by room code is in scope (phase 6).
+Accounts, public matchmaking, teacher dashboard, payments, native app wrappers.
+Never: calls to AI services or generated content at runtime (owner decision, doc 08 log).
+Online two-player play by room code is built (src/net, server/). No pass-and-play UI.

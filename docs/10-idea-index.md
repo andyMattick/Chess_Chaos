@@ -83,7 +83,12 @@ design before building), **Parked** (kept for later, not designed).
 
 | Idea | Status | Where |
 |---|---|---|
-| Multiplayer, definitely | Specified | 09 s1, s2 |
+| Multiplayer, definitely | Built for 2 players online (room codes) | 09 s1, s2, src/net |
+| No pass-and-play; each player on their own device | Built | 08 log |
+| Piece skins per army or per piece | Built (6 skins) | src/ui/skins.tsx |
+| Board landscapes | Built (7 landscapes) | src/ui/landscapes.tsx |
+| Chaotic, hand-made look | Built | src/ui/styles.css |
+| Little to no AI in the game | Done: no AI services; scripted bots | 08 log |
 | Three-way chess | Specified | 09 s4, MODE-26 |
 | Four-way chess | Specified | 09 s4, MODE-27, MODE-28 |
 | King of the hill where everyone fights for territory | Specified | MODE-29 Hill wars, MODE-30 Paint the board |
@@ -96,6 +101,6 @@ design before building), **Parked** (kept for later, not designed).
 | Idea | Status | Where |
 |---|---|---|
 | Opening trainer: bots quiz you on their line, spaced repetition | Outlined | 07 phase 8 |
-| Plain-language AI coach explaining why a move was bad | Parked (needs a paid AI service and a server-side key) | 07 phase 10 |
+| Plain-language AI coach explaining why a move was bad | Removed (owner: no AI in the game) | 08 log |
 | Teacher dashboard with class-wide miss map | Parked | 07 phase 10 |
 | Tag team (two kids alternate without talking) | Specified | MODE-10 |

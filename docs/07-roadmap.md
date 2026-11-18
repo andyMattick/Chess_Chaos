@@ -113,4 +113,4 @@ Design (confirmed: dice plus timing, no real-time combat):
 
 ## Phase 10. Accounts and classroom (not designed)
 
-Accounts, teacher dashboard with class miss maps and assignable drills, class improvement ladder, public matchmaking, plain-language AI coach. Requires a privacy review for child users before any design work.
+Accounts, teacher dashboard with class miss maps and assignable drills, class improvement ladder, public matchmaking. Requires a privacy review for child users before any design work.

@@ -1,0 +1,11 @@
+name = "chess-chaos-rooms"
+main = "server/cloudflare.ts"
+compatibility_date = "2026-11-01"
+
+[[durable_objects.bindings]]
+name = "LOBBY"
+class_name = "Lobby"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["Lobby"]

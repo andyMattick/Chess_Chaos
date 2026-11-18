@@ -19,13 +19,18 @@ export function ProfileChip({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function Home({ go }: { go: (screen: 'local' | 'bots' | 'profiles' | 'history') => void }) {
+export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe') => void }) {
   const save = useSave();
   const p = activeProfile(save);
   return (
     <div className="home">
       <header className="home-head">
-        <h1 className="logo">Chess <span>Chaos</span></h1>
+        <h1 className="logo" aria-label="Chess Chaos">
+          {'CHESS'.split('').map((c, i) => <span key={i} className="l1" style={{ ['--r' as string]: `${[-8, 5, -3, 9, -6][i]}deg` }}>{c}</span>)}
+          <span className="gap" />
+          {'CHAOS'.split('').map((c, i) => <span key={i} className="l2" style={{ ['--r' as string]: `${[7, -10, 4, -5, 12][i]}deg` }}>{c}</span>)}
+          <span className="splat" aria-hidden>💥</span>
+        </h1>
         <ProfileChip onClick={() => go('profiles')} />
       </header>
       <p className="tagline">{p ? `Hi ${p.nickname}! What shall we play?` : 'Make a player to get started.'}</p>
@@ -35,10 +40,15 @@ export function Home({ go }: { go: (screen: 'local' | 'bots' | 'profiles' | 'his
           <span className="big-title">Play the bots</span>
           <span className="big-sub">18 bots, each with its own opening</span>
         </button>
-        <button className="big" style={{ ['--c' as string]: '#4aa8ff' }} onClick={() => go('local')}>
-          <span className="big-emoji">👫</span>
-          <span className="big-title">Play a friend</span>
-          <span className="big-sub">Pass the device back and forth</span>
+        <button className="big" style={{ ['--c' as string]: '#4aa8ff' }} onClick={() => go('online')} disabled={!p}>
+          <span className="big-emoji">🌐</span>
+          <span className="big-title">Play online</span>
+          <span className="big-sub">Send a friend a 4-letter code</span>
+        </button>
+        <button className="big" style={{ ['--c' as string]: '#ff9f43' }} onClick={() => go('wardrobe')}>
+          <span className="big-emoji">🧌</span>
+          <span className="big-title">Wardrobe</span>
+          <span className="big-sub">Monsters, robots, ghosts… and lava boards</span>
         </button>
         <button className="big" style={{ ['--c' as string]: '#a77bff' }} onClick={() => go('history')} disabled={!p}>
           <span className="big-emoji">📜</span>
@@ -74,14 +84,6 @@ function Settings() {
     <details className="settings">
       <summary>⚙️ Settings</summary>
       <label><input type="checkbox" checked={s.showCoordinates} onChange={(e) => set({ showCoordinates: e.target.checked })} /> Show board letters and numbers</label>
-      <label>
-        Board colours{' '}
-        <select value={s.boardTheme} onChange={(e) => set({ boardTheme: e.target.value as typeof s.boardTheme })}>
-          <option value="meadow">Meadow</option>
-          <option value="ocean">Ocean</option>
-          <option value="candy">Candy</option>
-        </select>
-      </label>
     </details>
   );
 }

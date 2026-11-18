@@ -1,0 +1,143 @@
+import type { GameRecord } from '../core/record';
+import type { Action, PlayerId } from '../core/types';
+import type { ClientMsg, EmoteId, SeatInfo, ServerMsg } from './protocol';
+
+/**
+ * Browser side of online play. Keeps one WebSocket, reconnects with the seat
+ * token if the connection drops (phones sleeping, tunnels), and exposes a
+ * snapshot for React.
+ */
+
+export interface OnlineSnapshot {
+  status: 'idle' | 'connecting' | 'open' | 'closed';
+  code: string | null;
+  seat: PlayerId | null;
+  record: GameRecord | null;
+  seats: Partial<Record<PlayerId, SeatInfo>>;
+  rematchVotes: PlayerId[];
+  error: string | null;
+  lastEmote: { from: PlayerId; id: EmoteId; at: number } | null;
+}
+
+const SESSION_KEY = 'chess-chaos:online';
+
+export function roomServerUrl(): string | null {
+  const env = (import.meta as unknown as { env?: Record<string, string> }).env;
+  if (env?.VITE_ROOM_SERVER) return env.VITE_ROOM_SERVER;
+  if (typeof location !== 'undefined' && /^(localhost|127\.|192\.168\.)/.test(location.hostname)) return `ws://${location.hostname}:8787/ws`;
+  return null;
+}
+
+class OnlineSession {
+  snap: OnlineSnapshot = { status: 'idle', code: null, seat: null, record: null, seats: {}, rematchVotes: [], error: null, lastEmote: null };
+  private ws: WebSocket | null = null;
+  private listeners = new Set<() => void>();
+  private queue: ClientMsg[] = [];
+  private wantOpen = false;
+  private retry = 0;
+
+  subscribe = (l: () => void) => {
+    this.listeners.add(l);
+    return () => { this.listeners.delete(l); };
+  };
+  get = () => this.snap;
+
+  private set(patch: Partial<OnlineSnapshot>) {
+    this.snap = { ...this.snap, ...patch };
+    this.listeners.forEach((l) => l());
+  }
+
+  private connect() {
+    const url = roomServerUrl();
+    if (!url) { this.set({ status: 'closed', error: 'Online play is not set up on this site yet.' }); return; }
+    this.wantOpen = true;
+    this.set({ status: 'connecting', error: null });
+    const ws = new WebSocket(url);
+    this.ws = ws;
+    ws.onopen = () => {
+      this.retry = 0;
+      this.set({ status: 'open' });
+      const saved = this.saved();
+      const pending = this.queue.splice(0);
+      // After a drop, rejoin our seat before anything else.
+      if (saved && !pending.some((m) => m.t === 'create' || m.t === 'join')) ws.send(JSON.stringify({ t: 'rejoin', code: saved.code, token: saved.token }));
+      pending.forEach((m) => ws.send(JSON.stringify(m)));
+    };
+    ws.onmessage = (e) => this.onMessage(JSON.parse(String(e.data)) as ServerMsg);
+    ws.onclose = () => {
+      if (this.ws !== ws) return;
+      this.ws = null;
+      this.set({ status: 'closed' });
+      if (this.wantOpen && this.retry < 8) {
+        const delay = Math.min(8000, 500 * 2 ** this.retry++);
+        setTimeout(() => this.wantOpen && !this.ws && this.connect(), delay);
+      }
+    };
+  }
+
+  private onMessage(m: ServerMsg) {
+    switch (m.t) {
+      case 'joined':
+        try { localStorage.setItem(SESSION_KEY, JSON.stringify({ code: m.code, token: m.token })); } catch { /* ignore */ }
+        this.set({ code: m.code, seat: m.seat, error: null });
+        break;
+      case 'room':
+        this.set({ code: m.code, record: m.record, seats: m.seats, rematchVotes: m.rematchVotes });
+        break;
+      case 'emote':
+        this.set({ lastEmote: { from: m.from, id: m.id, at: Date.now() } });
+        break;
+      case 'error':
+        if (m.message === 'That game has ended.') this.forget();
+        this.set({ error: m.message });
+        break;
+    }
+  }
+
+  send(m: ClientMsg) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(m));
+    else {
+      this.queue.push(m);
+      if (!this.ws) this.connect();
+    }
+  }
+
+  saved(): { code: string; token: string } | null {
+    try { return JSON.parse(localStorage.getItem(SESSION_KEY) ?? 'null'); } catch { return null; }
+  }
+
+  forget() {
+    try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
+  }
+
+  create(name: string, rating: number, colour: 'p1' | 'p2' | 'random') {
+    this.forget();
+    this.set({ record: null, code: null, seat: null, seats: {}, error: null });
+    this.send({ t: 'create', name, rating, colour });
+  }
+
+  join(code: string, name: string, rating: number) {
+    this.forget();
+    this.set({ record: null, code: null, seat: null, seats: {}, error: null });
+    this.send({ t: 'join', code: code.toUpperCase(), name, rating });
+  }
+
+  resume() {
+    if (this.saved()) this.send({ t: 'rejoin', ...this.saved()! });
+  }
+
+  act(action: Action) { this.send({ t: 'action', action }); }
+  emote(id: EmoteId) { this.send({ t: 'emote', id }); }
+  rematch() { this.send({ t: 'rematch' }); }
+
+  leave() {
+    this.send({ t: 'leave' });
+    this.forget();
+    this.wantOpen = false;
+    this.ws?.close();
+    this.ws = null;
+    this.set({ status: 'idle', code: null, seat: null, record: null, seats: {}, rematchVotes: [], error: null });
+  }
+}
+
+export const online = new OnlineSession();
