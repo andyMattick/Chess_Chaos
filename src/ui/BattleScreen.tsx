@@ -19,6 +19,7 @@ import { Character } from './skins';
 import { setSoundEnabled, sfx } from './sound';
 import { useYourTurn } from './yourTurn';
 import { useSave } from './store';
+import { QuickToggles } from './QuickToggles';
 
 /**
  * Three and four player battles (docs/09 s4-5): everyone for themselves or
@@ -280,6 +281,7 @@ export function BattleScreen({ local, onExit, onAgain }: { local?: LocalBattle; 
           </div>
         )}
         {!live.result && myStatus === 'active' && <button className="btn small danger" onClick={() => push({ t: 'resign', by: me })}>🏳 Give up</button>}
+        <QuickToggles />
         <button className="btn" onClick={onExit}>← Home</button>
       </aside>
     </div>

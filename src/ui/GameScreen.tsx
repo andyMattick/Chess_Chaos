@@ -31,6 +31,7 @@ import { missionById } from '../content/party';
 import { moveEvents, shakeFor, type MoveEvents } from './effects';
 import { setSoundEnabled, sfx } from './sound';
 import { useYourTurn } from './yourTurn';
+import { QuickToggles } from './QuickToggles';
 
 export interface GameConfig {
   /** 'local' is only used to replay saved games. */
@@ -597,6 +598,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             </li>
           ))}
         </ol>
+        <QuickToggles />
         <button className="btn" onClick={onExit}>← Home</button>
       </aside>
     </div>

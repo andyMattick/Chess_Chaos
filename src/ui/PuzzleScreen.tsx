@@ -8,6 +8,7 @@ import { Board } from './Board';
 import { moveEvents, shakeFor, type MoveEvents } from './effects';
 import { setSoundEnabled, sfx } from './sound';
 import { useSave } from './store';
+import { QuickToggles } from './QuickToggles';
 
 /**
  * Puzzles (docs/06 CC-02, CC-03): Chess.com's daily and random puzzles played
@@ -235,6 +236,7 @@ export function PuzzleScreen({ back }: { back: () => void }) {
         {(phase === 'solved' || phase === 'shown') && !reward && <button className="btn primary" onClick={nextPuzzle}>Next puzzle →</button>}
         {phase === 'error' && <button className="btn primary" onClick={() => load('warmup')}>🌱 Play a warm-up</button>}
         <p className="muted small">Puzzles don't change your rating. A hint halves the coins.</p>
+        <QuickToggles />
         <button className="btn" onClick={back}>← Home</button>
       </aside>
     </div>

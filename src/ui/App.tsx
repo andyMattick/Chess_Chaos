@@ -14,6 +14,7 @@ import { PuzzleScreen } from './PuzzleScreen';
 import { BattleSetup } from './BattleSetup';
 import { BattleScreen, type LocalBattle } from './BattleScreen';
 import { useSave } from './store';
+import { setShakeEnabled, setSoundEnabled } from './sound';
 
 type Screen =
   | { name: 'home' }
@@ -45,6 +46,14 @@ export function App() {
     document.body.style.background = inGame ? landscapeById(lookOf(save).landscape).scene : '';
     document.body.dataset.land = inGame ? lookOf(save).landscape : '';
   }, [inGame, lookOf(save).landscape]);
+
+  // Sound and shake settings apply everywhere.
+  useEffect(() => {
+    setSoundEnabled(save.settings.sound);
+    setShakeEnabled(save.settings.shake !== false);
+    if (save.settings.shake === false) document.body.dataset.calm = '1';
+    else delete document.body.dataset.calm;
+  }, [save.settings.sound, save.settings.shake]);
 
   return (
     <main className="app">

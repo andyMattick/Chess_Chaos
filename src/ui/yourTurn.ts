@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { sfx } from './sound';
+import { buzz, sfx } from './sound';
 
 /**
  * Make "it's your turn" impossible to miss: a chime and a buzz when your turn
@@ -34,14 +34,14 @@ export function useYourTurn(myTurn: boolean, opts: { wrap: React.RefObject<HTMLE
     document.title = '🟡 Your move! · Chess Chaos';
     if (opts.announce) {
       sfx.yourTurn();
-      try { navigator.vibrate?.([60, 40, 60]); } catch { /* not supported */ }
+      buzz([60, 40, 60]);
     }
     let nudges = 0;
     const t = setInterval(() => {
       if (nudges >= MAX_NUDGES) return;
       nudges++;
       sfx.nudge();
-      try { navigator.vibrate?.(200); } catch { /* ignore */ }
+      buzz(200);
       if (el) {
         el.classList.remove('nudge');
         void el.offsetWidth;

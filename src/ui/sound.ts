@@ -5,8 +5,21 @@
 let ctx: AudioContext | null = null;
 let enabled = true;
 
+let shaking = true;
+
 export function setSoundEnabled(on: boolean) {
   enabled = on;
+}
+
+/** Board shake and phone buzz on or off (the CSS side is body[data-calm]). */
+export function setShakeEnabled(on: boolean) {
+  shaking = on;
+}
+
+/** Vibrate the phone, unless shaking is switched off. */
+export function buzz(pattern: number | number[]) {
+  if (!shaking) return;
+  try { navigator.vibrate?.(pattern); } catch { /* not supported */ }
 }
 
 function audio(): AudioContext | null {

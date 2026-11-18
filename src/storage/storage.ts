@@ -54,6 +54,8 @@ export interface Settings {
   landscape: LandscapeId;
   skins: SkinChoice;
   chesscomEnabled: boolean;
+  /** Board shake, nudges and phone buzz. */
+  shake: boolean;
 }
 
 export interface SaveData {
@@ -67,7 +69,7 @@ export interface SaveData {
 const KEY = 'chess-chaos:save';
 const MAX_GAMES = 50;
 
-export const DEFAULT_SETTINGS: Settings = { sound: true, showCoordinates: true, landscape: 'meadow', skins: DEFAULT_SKINS, chesscomEnabled: true };
+export const DEFAULT_SETTINGS: Settings = { sound: true, showCoordinates: true, landscape: 'meadow', skins: DEFAULT_SKINS, chesscomEnabled: true, shake: true };
 
 function empty(): SaveData {
   return { version: 1, profiles: [], activeProfileId: null, games: {}, settings: { ...DEFAULT_SETTINGS } };
