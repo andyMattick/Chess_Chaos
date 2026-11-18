@@ -2,7 +2,9 @@ import { newRecord, replay, play, parseSAN, initialState, legalActions } from '.
 import type { Action, GameState } from '../src/core';
 import { MISSIONS, MODIFIERS } from '../src/content/party';
 import { IMPLEMENTED } from '../src/core/modifiers';
-import { dealMissions, drawMode, pickModifiers, refereeMission, setupParty, slotsForGap, redactParty, PARTY_DECK } from '../src/systems/party';
+import { dealMissions, drawMode, missionOff, pickModifiers, refereeAll, refereeMission, setupParty, slotsForGap, redactParty, undoingMoves, PARTY_DECK } from '../src/systems/party';
+import { missionChallenges } from '../src/core/rules';
+import { MISSION_DEFENCE_TURNS } from '../src/content/party';
 import { missionDone, MISSION_CHECKS } from '../src/systems/missions';
 import { fromFEN } from '../src/core';
 
@@ -85,6 +87,29 @@ function partyGame(missions: Record<string, string>, gate = 0, mods = {}) {
   return rec;
 }
 
+function partyFen(fen: string, missions: Record<string, string>) {
+  const rec = newRecord(1, { p1: 'A', p2: 'B' }, fen);
+  rec.setup.party = { modifiers: {}, missions, gate: { p1: 0, p2: 0 } };
+  return rec;
+}
+
+/** Play a line with the referee after every move, like the app does. */
+function go(rec: ReturnType<typeof partyGame>, line: string) {
+  let states = [initialState(rec)];
+  let actions: Action[] = [];
+  const added: Action[] = [];
+  for (const san of line.split(' ')) {
+    const s = states.at(-1)!;
+    if (s.result) break;
+    const m = parseSAN(s, san);
+    if (!m) throw new Error('bad ' + san);
+    actions = [...actions, m]; states = [...states, play(s, m)];
+    const r = refereeAll(states, actions, rec.setup.party!);
+    states = r.states; actions = r.actions; added.push(...r.added);
+  }
+  return { last: states.at(-1)!, added };
+}
+
 function run(rec: ReturnType<typeof partyGame>, line: string): { states: GameState[]; actions: Action[]; done: Action | null } {
   const states = [initialState(rec)];
   const actions: Action[] = [];
@@ -101,12 +126,46 @@ function run(rec: ReturnType<typeof partyGame>, line: string): { states: GameSta
 }
 
 describe('secret missions', () => {
-  it('MISSION-12 check three times', () => {
+  it('MISSION-12 check three times: shown, then undone by capturing the checker', () => {
     const rec = partyGame({ p1: 'MISSION-12', p2: 'MISSION-23' });
     const r = run(rec, 'e4 f5 Qh5+ g6 Qxg6+ hxg6 Bc4 Rh5 Bf7+');
-    expect(r.done).toEqual({ t: 'mission', by: 'p1', id: 'MISSION-12' });
-    const end = play(r.states.at(-1)!, r.done!);
-    expect(end.result).toEqual({ reason: 'mission', winners: ['p1'] });
+    const bishop = r.actions.at(-1)!.t === 'move' ? (r.actions.at(-1) as { piece: number }).piece : -1;
+    expect(r.done).toEqual({ t: 'mission', by: 'p1', id: 'MISSION-12', stage: 'reveal', target: [bishop], turns: MISSION_DEFENCE_TURNS });
+    const shown = play(r.states.at(-1)!, r.done!);
+    expect(shown.result).toBeFalsy();
+    expect(missionChallenges(shown).p1).toEqual({ id: 'MISSION-12', left: MISSION_DEFENCE_TURNS, target: [bishop] });
+    // Black can undo it: the king takes the bishop.
+    const undo = undoingMoves(shown, 'p2');
+    expect(undo.length).toBeGreaterThan(0);
+    const g = go(rec, 'e4 f5 Qh5+ g6 Qxg6+ hxg6 Bc4 Rh5 Bf7+ Kxf7');
+    expect(g.added.map((a) => a.t === 'mission' && a.stage)).toEqual(['reveal', 'off']);
+    expect(g.last.result).toBeFalsy();
+    expect(missionOff(g.last, 'p1')).toBe(true);
+    expect(missionChallenges(g.last).p1).toBeUndefined();
+  });
+  it('a shown mission that still stands after the defender\'s turns wins', () => {
+    const rec = partyFen('k7/8/8/8/3P4/8/8/K7 w - - 0 1', { p1: 'MISSION-17', p2: 'MISSION-23' });
+    const g = go(rec, 'd5 Kb7 Ka2 Kc7');
+    expect(g.added.map((a) => a.t === 'mission' && a.stage)).toEqual(['reveal', 'win']);
+    expect(g.last.result).toEqual({ reason: 'mission', winners: ['p1'] });
+    // Not yet after only one defender move.
+    expect(go(rec, 'd5 Kb7 Ka2').last.result).toBeFalsy();
+  });
+  it('a board mission is undone when the position changes', () => {
+    const rec = partyFen('8/8/8/2k5/3P4/8/8/R6K w - - 0 1', { p1: 'MISSION-17', p2: 'MISSION-23' });
+    const shown = go(rec, 'd5');
+    expect(shown.added[0]).toMatchObject({ stage: 'reveal' });
+    const undo = undoingMoves(shown.last, 'p2');
+    expect(undo.length).toBeGreaterThan(0);
+    expect(undo.every((m) => shown.last.sq[m.to] >= 0)).toBe(true); // only taking the pawn undoes it
+    const g = go(rec, 'd5 Kxd5');
+    expect(g.added.map((a) => a.t === 'mission' && a.stage)).toEqual(['reveal', 'off']);
+    // Out of play: a new passed pawn later does not bring it back.
+    expect(missionOff(g.last, 'p1')).toBe(true);
+  });
+  it('older games where a mission won at once still replay', () => {
+    const s = play(initialState(partyGame({ p1: 'MISSION-12', p2: 'MISSION-23' })), { t: 'mission', by: 'p1', id: 'MISSION-12' });
+    expect(s.result).toEqual({ reason: 'mission', winners: ['p1'] });
   });
   it('missions do not count before the gate', () => {
     const rec = partyGame({ p1: 'MISSION-12', p2: 'MISSION-23' }, 10);

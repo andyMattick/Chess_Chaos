@@ -11,7 +11,8 @@
 import { newRecord, initialState } from '../src/core/record';
 import { play } from '../src/core/rules';
 import { chooseMove } from '../src/ai/strength';
-import { PARTY_DECK, setupParty, refereeMission } from '../src/systems/party';
+import { PARTY_DECK, setupParty, refereeMission, undoingMoves } from '../src/systems/party';
+import { strengthFor } from '../src/ai/strength';
 import type { Action, GameState, PlayerId } from '../src/core/types';
 
 const GAMES = Number(process.argv[2] ?? 8);
@@ -26,6 +27,9 @@ function seeded(seed: number) {
 }
 
 interface Out { winner: 'under' | 'fav' | 'draw' | 'stall' | 'crash'; reason: string; plies: number; mods: string[]; missions: string[] }
+
+const stats = { reveal: 0, off: 0, win: 0 };
+const byId: Record<string, number> = {};
 
 function playOne(mode: string, seed: number): Out {
   const rand = seeded(seed * 104729);
@@ -46,11 +50,18 @@ function playOne(mode: string, seed: number): Out {
       const pawns = s.pieces.filter((x) => x.owner === s.turn && x.type === 'pawn' && x.at >= 0);
       if (pawns.length) { push({ t: 'buff', by: s.turn, id: 'MODE-19', piece: pawns[Math.floor(rand() * pawns.length)].id }); continue; }
     }
-    const c = chooseMove(s, { rating: rating[s.turn as 'p1' | 'p2'], random: rand });
+    const r = rating[s.turn as 'p1' | 'p2'];
+    // Bots try to undo a shown mission (weaker bots sometimes miss it, like in the app).
+    const undo = rand() < strengthFor(r).weakChance ? [] : undoingMoves(s, s.turn);
+    const c = chooseMove(s, { rating: r, random: rand, only: undo.length ? undo : undefined });
     if (!c) break;
     push(c.move);
-    const done = refereeMission(states, actions, party);
-    if (done) push(done);
+    for (let i = 0; i < 4 && !s.result; i++) {
+      const done = refereeMission(states, actions, party);
+      if (!done) break;
+      push(done);
+      if (done.t === 'mission') { stats[done.stage ?? 'win']++; byId[`${done.id}:${done.stage}`] = (byId[`${done.id}:${done.stage}`] ?? 0) + 1; }
+    }
   }
   const w = s.result?.winners ?? [];
   return {
@@ -72,7 +83,9 @@ for (const mode of [...new Set(PARTY_DECK)]) {
   const reasons: Record<string, number> = {};
   for (const g of games) reasons[g.reason] = (reasons[g.reason] ?? 0) + 1;
   out[mode] = { underdog: count('under'), favourite: count('fav'), draw: count('draw'), stall: count('stall'), crash: count('crash'),
-    avgMoves: Math.round(games.reduce((a, g) => a + g.plies, 0) / games.length / 2), reasons };
+    avgMoves: Math.round(games.reduce((a, g) => a + g.plies, 0) / games.length / 2), reasons, missions: { ...stats } };
+  stats.reveal = 0; stats.off = 0; stats.win = 0;
   console.error(mode, JSON.stringify(out[mode]));
 }
 console.log(JSON.stringify(out, null, 2));
+console.error("byId", JSON.stringify(byId));

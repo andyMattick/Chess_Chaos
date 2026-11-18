@@ -75,25 +75,35 @@ export interface MissionDef {
   blurb: string;
   category: 'Medium' | 'Hard';
   tags?: string[];
+  /**
+   * What the other player must do once it is shown. 'piece': capture the
+   * piece that did it. 'board': change the board so it is no longer true.
+   */
+  undo: 'piece' | 'board';
+  /** Short kid-facing hint for the defender. */
+  stop: string;
 }
+
+/** Turns the other player gets to undo a shown mission (owner rule, 2026-11-18). */
+export const MISSION_DEFENCE_TURNS = 2;
 
 /** Game-ending secret missions (docs/02 s5). Easy ones are training goals; bonus ones come later. */
 export const MISSIONS: MissionDef[] = [
-  { id: 'MISSION-05', category: 'Medium', name: 'Fork it!', blurb: 'Attack two pieces at once with one piece (a fork).' },
-  { id: 'MISSION-06', category: 'Medium', name: 'Pin it!', blurb: 'Pin an enemy piece so it can\'t move without exposing its king.', tags: ['needsCheck'] },
-  { id: 'MISSION-07', category: 'Medium', name: 'Rook raid', blurb: 'Get a rook to the enemy\'s pawn row and keep it there for a turn.', tags: ['needsRooks'] },
-  { id: 'MISSION-10', category: 'Medium', name: 'Own the centre', blurb: 'Sit on 2 of the 4 middle squares and attack or hold all 4.' },
-  { id: 'MISSION-11', category: 'Medium', name: 'Queen swap', blurb: 'Trade queens while you\'re 2+ points ahead.', tags: ['needsQueen'] },
-  { id: 'MISSION-12', category: 'Medium', name: 'Check ×3', blurb: 'Give check three times.', tags: ['needsCheck'] },
-  { id: 'MISSION-17', category: 'Medium', name: 'Runaway pawn', blurb: 'Get a pawn to the 5th row with no enemy pawns in its way.', tags: ['needsPawns'] },
-  { id: 'MISSION-18', category: 'Medium', name: 'Pawn pile-up', blurb: 'Make the enemy have two pawns on the same column.', tags: ['needsPawns'] },
-  { id: 'MISSION-19', category: 'Medium', name: 'Bishop buddies', blurb: 'Still have both bishops after your move 20.', tags: ['needsBishops'] },
-  { id: 'MISSION-21', category: 'Medium', name: 'Knight fortress', blurb: 'Park a knight deep in enemy land, guarded by a pawn, where no pawn can chase it.', tags: ['needsKnights', 'needsPawns'] },
-  { id: 'MISSION-23', category: 'Medium', name: 'Rook tower', blurb: 'Stack both rooks on a column with no pawns.', tags: ['needsRooks'] },
-  { id: 'MISSION-04', category: 'Hard', name: 'Crown a pawn', blurb: 'Promote a pawn.', tags: ['needsPawns'] },
-  { id: 'MISSION-14', category: 'Hard', name: 'Sneak attack', blurb: 'Move one piece out of the way so another attacks something big.' },
-  { id: 'MISSION-15', category: 'Hard', name: 'Skewer', blurb: 'Attack a big piece with a smaller one hiding behind it.' },
-  { id: 'MISSION-16', category: 'Hard', name: 'En passant!', blurb: 'Capture a pawn en passant (the sneaky pawn capture).', tags: ['needsPawns'] },
+  { id: 'MISSION-05', category: 'Medium', name: 'Fork it!', blurb: 'Attack two pieces at once with one piece (a fork).', undo: 'piece', stop: 'Capture the piece that made the fork!' },
+  { id: 'MISSION-06', category: 'Medium', name: 'Pin it!', blurb: 'Pin an enemy piece so it can\'t move without exposing its king.', tags: ['needsCheck'], undo: 'piece', stop: 'Capture the piece that made the pin!' },
+  { id: 'MISSION-07', category: 'Medium', name: 'Rook raid', blurb: 'Get a rook to the enemy\'s pawn row and keep it there for a turn.', tags: ['needsRooks'], undo: 'board', stop: 'Chase every rook off your pawn row!' },
+  { id: 'MISSION-10', category: 'Medium', name: 'Own the centre', blurb: 'Sit on 2 of the 4 middle squares and attack or hold all 4.', undo: 'board', stop: 'Take back a middle square, or stop them guarding all four!' },
+  { id: 'MISSION-11', category: 'Medium', name: 'Queen swap', blurb: 'Trade queens while you\'re 2+ points ahead.', tags: ['needsQueen'], undo: 'board', stop: 'Win back material so they are not 2 points ahead!' },
+  { id: 'MISSION-12', category: 'Medium', name: 'Check ×3', blurb: 'Give check three times.', tags: ['needsCheck'], undo: 'piece', stop: 'Capture the piece that gave the third check!' },
+  { id: 'MISSION-17', category: 'Medium', name: 'Runaway pawn', blurb: 'Get a pawn to the 5th row with no enemy pawns in its way.', tags: ['needsPawns'], undo: 'board', stop: 'Capture the runaway pawn, or get a pawn in its way!' },
+  { id: 'MISSION-18', category: 'Medium', name: 'Pawn pile-up', blurb: 'Make the enemy have two pawns on the same column.', tags: ['needsPawns'], undo: 'board', stop: 'Move or trade a doubled pawn so they are not on one column!' },
+  { id: 'MISSION-19', category: 'Medium', name: 'Bishop buddies', blurb: 'Still have both bishops after your move 20.', tags: ['needsBishops'], undo: 'board', stop: 'Capture one of their bishops!' },
+  { id: 'MISSION-21', category: 'Medium', name: 'Knight fortress', blurb: 'Park a knight deep in enemy land, guarded by a pawn, where no pawn can chase it.', tags: ['needsKnights', 'needsPawns'], undo: 'board', stop: 'Capture the knight or the pawn guarding it!' },
+  { id: 'MISSION-23', category: 'Medium', name: 'Rook tower', blurb: 'Stack both rooks on a column with no pawns.', tags: ['needsRooks'], undo: 'board', stop: 'Split the rooks, or put a pawn on their column!' },
+  { id: 'MISSION-04', category: 'Hard', name: 'Crown a pawn', blurb: 'Promote a pawn.', tags: ['needsPawns'], undo: 'piece', stop: 'Capture the new piece!' },
+  { id: 'MISSION-14', category: 'Hard', name: 'Sneak attack', blurb: 'Move one piece out of the way so another attacks something big.', undo: 'piece', stop: 'Capture the piece that moved out of the way!' },
+  { id: 'MISSION-15', category: 'Hard', name: 'Skewer', blurb: 'Attack a big piece with a smaller one hiding behind it.', undo: 'piece', stop: 'Capture the piece that made the skewer!' },
+  { id: 'MISSION-16', category: 'Hard', name: 'En passant!', blurb: 'Capture a pawn en passant (the sneaky pawn capture).', tags: ['needsPawns'], undo: 'piece', stop: 'Capture the pawn that took en passant!' },
 ];
 
 export function missionById(id: string): MissionDef | undefined {

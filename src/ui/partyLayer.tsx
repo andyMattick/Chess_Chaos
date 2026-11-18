@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { requestRanking } from '../ai/client';
-import { missionById, modifierById, type BuffTarget } from '../content/party';
+import { MISSION_DEFENCE_TURNS, missionById, modifierById, type BuffTarget } from '../content/party';
 import { MODE_INFO } from '../core/modes';
 import { makeMove } from '../core/movegen';
 import { play } from '../core/rules';
 import type { Action, GameState, MoveAction, PlayerId } from '../core/types';
 import type { PartySetup } from '../systems/party';
 import { missionsLive } from '../systems/party';
+import { missionChallenges } from '../core/rules';
 import { attackersOf, defendersOf, hanging } from '../tactics/attacks';
 import type { BoardOverlays } from './Board';
 import { cardById } from '../content/cards';
@@ -58,6 +59,10 @@ const PROMPTS: Record<BuffTarget, string[]> = {
   'double-step': ['Tap the piece', 'Tap its first stop', 'Tap its second stop'],
 };
 
+function other_(p: PlayerId): PlayerId {
+  return p === 'p1' ? 'p2' : 'p1';
+}
+
 export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, selected }: Args): PartyApi {
   const [aiming, setAiming] = useState<{ id: string; target: BuffTarget; taps: number[] } | null>(null);
   // A power card waiting for taps.
@@ -83,8 +88,29 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
   // "Missions are live" announcement.
   const live_ = party ? missionsLive(live, party, me) : false;
   useEffect(() => {
-    if (party && live_ && !announced.current) { announced.current = true; say('🎯 Secret missions are LIVE! Finish yours to win.'); }
+    if (party && live_ && !announced.current) { announced.current = true; say(`🎯 Secret missions are LIVE! Do yours, then keep it safe for ${MISSION_DEFENCE_TURNS} turns to win.`); }
   }, [live_, party]);
+
+  // Secret missions shown and stopped (owner rule: the other player gets a few turns to undo it).
+  const challenges = missionChallenges(live);
+  const offMap = (live.modeData?.missionsOff as Partial<Record<PlayerId, string>> | undefined) ?? {};
+  const chKey = Object.entries(challenges).map(([o, c]) => `${o}:${c!.id}`).join(',');
+  const offKey = Object.keys(offMap).join(',');
+  const seen = useRef({ ch: '', off: '' });
+  useEffect(() => {
+    if (!party) return;
+    if (chKey && chKey !== seen.current.ch) {
+      const [owner, c] = Object.entries(challenges).find(([o]) => !seen.current.ch.includes(o)) ?? Object.entries(challenges)[0];
+      const def = missionById(c!.id);
+      say(owner === me ? `🎯 You did your secret mission: ${def?.name}! Now hold on!` : `⚠️ ${names[owner as PlayerId]} did a secret mission: ${def?.name}! Stop it!`);
+    }
+    if (offKey && offKey !== seen.current.off) {
+      const owner = (Object.keys(offMap) as PlayerId[]).find((o) => !seen.current.off.includes(o)) ?? (Object.keys(offMap)[0] as PlayerId);
+      const def = missionById(offMap[owner]!);
+      say(owner === me ? `🛡️ ${names[other_(owner)]} stopped your ${def?.name}. Keep playing!` : `🛡️ You stopped ${def?.name}! It is out of the game.`);
+    }
+    seen.current = { ch: chKey, off: offKey };
+  }, [chKey, offKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // HCAP-07 short clock: 10 seconds a move, then a random legal move.
   useEffect(() => {
@@ -209,6 +235,15 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
     if (hint !== null && myTurn) o.glow = new Set([hint]);
     if (aiming) o.glow = new Set(aiming.taps);
     if (cardAim) o.glow = new Set(cardAim.taps);
+    // Shown missions: mark the pieces that did it.
+    for (const c of Object.values(challenges)) {
+      const def = missionById(c!.id);
+      if (!def || c!.id === 'MISSION-18') continue;
+      for (const id of c!.target) {
+        const p = live.pieces[id];
+        if (p && p.at >= 0) (o.badges ??= new Map()).set(p.at, '🎯');
+      }
+    }
     if (xrayUntil > live.ply && myTurn) {
       o.counts = new Map();
       for (const p of live.pieces) {
@@ -244,6 +279,20 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
     });
   };
 
+  function missionBanner(): string | null {
+    const turnsWord = (n: number) => (n <= 1 ? 'this turn' : `${n} turns`);
+    for (const [owner, c] of Object.entries(challenges) as [PlayerId, NonNullable<(typeof challenges)[PlayerId]>][]) {
+      const def = missionById(c.id);
+      if (!def) continue;
+      const left = Math.max(1, c.left);
+      if (owner === me) return `🎯 Secret mission shown: ${def.name}! ${names[other_(me)]} has ${turnsWord(left)} to undo it. Keep it safe!`;
+      return `⚠️ ${names[owner]}'s secret mission: ${def.name}. ${def.stop} You have ${turnsWord(left)}.`;
+    }
+    return null;
+  }
+  const myChallenge = challenges[me];
+  const myOff = offMap[me];
+
   const panel = (
     <div className="party-panel">
       {mode && <div className="party-mode">{mode.emoji} <b>{mode.name}</b><small>{mode.blurb}</small></div>}
@@ -257,7 +306,9 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
         onKeyDown={(e) => e.key === ' ' && setPeek(true)} onKeyUp={() => setPeek(false)}
         aria-label="Hold to see your secret mission"
       >
-        {peek && missionText ? <>🎯 <b>{missionText.name}</b><small>{missionText.blurb}</small></> : <>🤫 Secret mission<small>{live_ ? 'LIVE! Hold to peek' : `Hold to peek · live after move ${party.gate[me] ?? 10}`}</small></>}
+        {myOff ? <>🛡️ <b>{missionById(myOff)?.name}</b><small>Stopped. It is out of the game.</small></>
+          : myChallenge ? <>🎯 <b>{missionById(myChallenge.id)?.name}</b><small>Shown! Keep it safe for {Math.max(1, myChallenge.left)} more {myChallenge.left > 1 ? 'turns' : 'turn'}.</small></>
+          : peek && missionText ? <>🎯 <b>{missionText.name}</b><small>{missionText.blurb}</small></> : <>🤫 Secret mission<small>{live_ ? 'LIVE! Hold to peek' : `Hold to peek · live after move ${party.gate[me] ?? 10}`}</small></>}
       </button>
       {(myCards.length > 0 || (other && (party.cards?.[other]?.length ?? 0) > 0)) && (
         <div className="party-cards">
@@ -320,7 +371,7 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
     hideHints: has('HCAP-16'),
     lockSelection: has('HCAP-04') && selected !== null,
     panel,
-    banner: cardAim ? `${cardById(cardAim.id)?.emoji} ${cardById(cardAim.id)?.taps[cardAim.taps.length]?.prompt} (tap Cancel to stop)` : aiming ? `${modifierById(aiming.id)?.emoji} ${PROMPTS[aiming.target][aiming.taps.length]} (tap the button again to cancel)` : null,
+    banner: cardAim ? `${cardById(cardAim.id)?.emoji} ${cardById(cardAim.id)?.taps[cardAim.taps.length]?.prompt} (tap Cancel to stop)` : aiming ? `${modifierById(aiming.id)?.emoji} ${PROMPTS[aiming.target][aiming.taps.length]} (tap the button again to cancel)` : missionBanner(),
     modal,
     toast,
   };

@@ -134,6 +134,13 @@ export function Profiles({ done }: { done: () => void }) {
           📱 <b>Played before in Safari or another browser?</b> The home-screen app keeps its own save. Open the game there, tap ⚙️ Settings → 💾 Back up my progress, save the file, then come back here and tap 📂 Load a backup.
         </p>
       )}
+      {!save.profiles.length && !lost && (
+        <div className="welcome">
+          <h1>♟️💥 Chess Chaos</h1>
+          <p>Learn chess by playing! Beat friendly bots, solve puzzles, and try wild party modes with a friend.</p>
+          <p className="small muted">No sign-up. Just pick a nickname (not your real name).</p>
+        </div>
+      )}
       <h2>Who is playing?</h2>
       <div className="profile-grid">
         {save.profiles.map((p) => (

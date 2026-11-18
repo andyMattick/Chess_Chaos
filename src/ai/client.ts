@@ -61,9 +61,9 @@ async function run(body: Req): Promise<AIResponse> {
   return handle(req);
 }
 
-export async function requestMove(state: GameState, rating: number, bot?: string | CustomBook, minDelayMs = 450): Promise<MoveAction | null> {
+export async function requestMove(state: GameState, rating: number, bot?: string | CustomBook, minDelayMs = 450, only?: MoveAction[]): Promise<MoveAction | null> {
   const started = Date.now();
-  const res = await run(typeof bot === 'string' || !bot ? { kind: 'move', state, rating, botId: bot } : { kind: 'move', state, rating, book: bot });
+  const res = await run(typeof bot === 'string' || !bot ? { kind: 'move', state, rating, botId: bot, only } : { kind: 'move', state, rating, book: bot, only });
   const wait = minDelayMs - (Date.now() - started);
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   if (res.error) console.warn('AI error', res.error);

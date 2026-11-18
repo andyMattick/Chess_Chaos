@@ -38,6 +38,8 @@ export interface ChooseOptions {
   rating: number;
   /** Random numbers in [0, 1); injectable for tests. */
   random?: () => number;
+  /** Only pick from these moves (a bot undoing a shown secret mission). */
+  only?: MoveAction[];
 }
 
 export interface Choice {
@@ -50,6 +52,15 @@ export function chooseMove(s: GameState, opts: ChooseOptions): Choice | null {
   const legal = legalActions(s);
   if (legal.length === 0) return null;
   if (legal.length === 1) return { move: legal[0], source: 'forced' };
+
+  if (opts.only?.length) {
+    // Best of the allowed moves by a short search.
+    const st = strengthFor(opts.rating);
+    const same = (a: MoveAction, b: MoveAction) => a.piece === b.piece && a.to === b.to && a.promo === b.promo && a.castle === b.castle;
+    const ranked = rankMoves(s, Math.min(2, st.depth), false, st.timeMs);
+    const hit = ranked.find((r) => opts.only!.some((o) => same(o, r.move)));
+    return { move: hit?.move ?? opts.only[0], source: 'undo-mission' };
+  }
 
   if (opts.bot && BOOK_MODES.has(s.mode) && s.seats.length === 2) {
     const lines = s.turn === 'p1' ? opts.bot.asWhite : opts.bot.asBlack;

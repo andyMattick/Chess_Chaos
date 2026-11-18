@@ -149,6 +149,16 @@ export function play(s: GameState, action: Action): GameState {
       || s.pieces.filter((p) => p.at >= 0 && others.includes(p.owner) && p.type !== 'king').length >= 2;
     return { ...s, result: { reason: 'time', winners: canMate ? others : [] } };
   }
+  if (action.t === 'mission' && action.stage === 'reveal') {
+    const ch = missionChallenges(s);
+    return { ...s, modeData: { ...(s.modeData ?? {}), missionChallenges: { ...ch, [action.by]: { id: action.id, left: action.turns ?? 2, target: action.target ?? [] } } } };
+  }
+  if (action.t === 'mission' && action.stage === 'off') {
+    const { [action.by]: _gone, ...rest } = missionChallenges(s);
+    void _gone;
+    const off = (s.modeData?.missionsOff as Record<string, string> | undefined) ?? {};
+    return { ...s, modeData: { ...(s.modeData ?? {}), missionChallenges: rest, missionsOff: { ...off, [action.by]: action.id } } };
+  }
   if (action.t === 'mission') {
     const team = s.seats.find((x) => x.id === action.by)?.team;
     const winners = team ? s.seats.filter((x) => x.team === team).map((x) => x.id) : [action.by];
@@ -173,11 +183,27 @@ export function play(s: GameState, action: Action): GameState {
   }
   if (!isLegal(s, action)) throw new Error(`Illegal move ${JSON.stringify(action)}`);
   const mover = s.turn;
-  let n = afterMove(makeMove(s, action), s);
+  let n = tickChallenges(afterMove(makeMove(s, action), s), mover);
   const key = positionKey(n);
   n = { ...n, positionCounts: { ...s.positionCounts, [key]: (s.positionCounts[key] ?? 0) + 1 } };
   const result = detectEnd(n, s, action, mover);
   return result ? { ...n, result } : n;
+}
+
+/** Revealed secret missions waiting to be undone, by owner: mission, defender moves left, pieces that did it. */
+export interface MissionChallenge { id: string; left: number; target: number[] }
+export function missionChallenges(s: GameState): Partial<Record<PlayerId, MissionChallenge>> {
+  return (s.modeData?.missionChallenges as Partial<Record<PlayerId, MissionChallenge>> | undefined) ?? {};
+}
+
+/** A move by anyone but the mission's owner uses up one of the defender's turns. */
+function tickChallenges(n: GameState, mover: PlayerId): GameState {
+  const ch = missionChallenges(n);
+  const owners = Object.keys(ch) as PlayerId[];
+  if (!owners.some((o) => o !== mover)) return n;
+  const next: Partial<Record<PlayerId, MissionChallenge>> = {};
+  for (const o of owners) next[o] = o === mover ? ch[o] : { ...ch[o]!, left: ch[o]!.left - 1 };
+  return { ...n, modeData: { ...(n.modeData ?? {}), missionChallenges: next } };
 }
 
 /** Modes whose rules change the position after a move (explosions, double moves, drops…) or end the game their own way. */

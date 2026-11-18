@@ -11,7 +11,7 @@ import type { GameState, MoveAction, PlayerId } from '../core/types';
  * for the training alerts, and post-game reviews.
  */
 export type AIRequest =
-  | { id: number; kind: 'move'; state: GameState; rating: number; botId?: string; book?: CustomBook }
+  | { id: number; kind: 'move'; state: GameState; rating: number; botId?: string; book?: CustomBook; only?: MoveAction[] }
   | { id: number; kind: 'rank'; state: GameState; depth: number }
   | { id: number; kind: 'review'; record: GameRecord; player: PlayerId }
   | { id: number; kind: 'analyze'; record: GameRecord };
@@ -42,7 +42,7 @@ export function handle(req: AIRequest): AIResponse {
     switch (req.kind) {
       case 'move': {
         const bot = req.book ? customBook(req.book) : req.botId ? botById(req.botId) : undefined;
-        const c = chooseMove(req.state, { bot, rating: req.rating });
+        const c = chooseMove(req.state, { bot, rating: req.rating, only: req.only });
         return { id: req.id, kind: 'move', move: c?.move ?? null, source: c?.source };
       }
       case 'rank':

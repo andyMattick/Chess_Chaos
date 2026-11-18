@@ -1,9 +1,10 @@
-import { MISSIONS, MODIFIERS, type ModifierDef } from '../content/party';
+import { MISSION_DEFENCE_TURNS, MISSIONS, MODIFIERS, type ModifierDef } from '../content/party';
+import { legalActions, missionChallenges, play } from '../core/rules';
 import { IMPLEMENTED } from '../core/modifiers';
 import { movesMade } from '../core/modifiers';
 import type { GameRecord } from '../core/record';
 import type { Action, GameState, MoveAction, PlayerId } from '../core/types';
-import { missionDone } from './missions';
+import { missionDone, missionHolds, missionTarget } from './missions';
 
 /**
  * Party match pipeline (docs/02): draw a mode from the player's mode deck,
@@ -170,21 +171,66 @@ export function redactParty(p: PartySetup, viewer: PlayerId | null): PartySetup 
 }
 
 /**
- * Referee: call after every move. If the player who just moved has now
- * completed their secret mission (after the gate), returns the mission action
- * to append; otherwise null.
+ * Referee: call after every action, and again after appending what it
+ * returns, until it returns null. Owner rule (2026-11-18): a completed
+ * mission is shown ("reveal"), then the other player has
+ * MISSION_DEFENCE_TURNS moves to undo it. Undone: it is out of play ("off").
+ * Still standing after those moves: the mission's owner wins ("win").
  */
 export function refereeMission(states: GameState[], actions: Action[], party: PartySetup): Action | null {
+  const now = states[states.length - 1];
+  if (!now || now.result) return null;
+  // 1. Shown missions: undone, or time is up.
+  const ch = missionChallenges(now);
+  for (const [owner, c] of Object.entries(ch) as [PlayerId, NonNullable<(typeof ch)[PlayerId]>][]) {
+    if (!missionHolds(c.id, now, owner, c.target)) return { t: 'mission', by: owner, id: c.id, stage: 'off' };
+  }
+  for (const [owner, c] of Object.entries(ch) as [PlayerId, NonNullable<(typeof ch)[PlayerId]>][]) {
+    if (c.left <= 0) return { t: 'mission', by: owner, id: c.id, stage: 'win' };
+  }
+  // 2. Did the move just played complete the mover's mission?
   const ply = actions.length - 1;
   const a = actions[ply];
-  const after = states[ply + 1];
-  if (!a || a.t !== 'move' || !after || after.result) return null;
+  if (!a || a.t !== 'move' || states.length !== actions.length + 1) return null;
   const player = states[ply].turn;
   const id = party.missions[player];
-  if (!id || id === '?') return null;
-  const made = movesMade(after, player);
+  if (!id || id === '?' || ch[player] || missionOff(now, player)) return null;
+  const made = movesMade(now, player);
   if (made <= (party.gate[player] ?? 10)) return null;
-  return missionDone(id, { states, ply, move: a as MoveAction, player, movesMade: made }) ? { t: 'mission', by: player, id } : null;
+  const ctx = { states, ply, move: a as MoveAction, player, movesMade: made };
+  if (!missionDone(id, ctx)) return null;
+  return { t: 'mission', by: player, id, stage: 'reveal', target: missionTarget(id, ctx), turns: MISSION_DEFENCE_TURNS };
+}
+
+/** Run the referee until it has nothing more to add. Returns the new states and actions. */
+export function refereeAll(states: GameState[], actions: Action[], party: PartySetup): { states: GameState[]; actions: Action[]; added: Action[] } {
+  const added: Action[] = [];
+  for (let i = 0; i < 4; i++) {
+    const a = refereeMission(states, actions, party);
+    if (!a) break;
+    added.push(a);
+    actions = [...actions, a];
+    states = [...states, play(states[states.length - 1], a)];
+  }
+  return { states, actions, added };
+}
+
+/** The player's mission was undone and is out of play. */
+export function missionOff(s: GameState, player: PlayerId): boolean {
+  return !!(s.modeData?.missionsOff as Record<string, string> | undefined)?.[player];
+}
+
+/** Moves that undo a shown mission of the other player (for bots, and for hints). */
+export function undoingMoves(s: GameState, defender: PlayerId): MoveAction[] {
+  const ch = missionChallenges(s);
+  const owners = (Object.keys(ch) as PlayerId[]).filter((o) => o !== defender);
+  if (!owners.length || s.turn !== defender) return [];
+  return legalActions(s).filter((m) => {
+    try {
+      const n = play(s, m);
+      return owners.some((o) => !missionHolds(ch[o]!.id, n, o, ch[o]!.target));
+    } catch { return false; }
+  });
 }
 
 /** Missions go live after this many moves (for the "missions are live" banner). */

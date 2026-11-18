@@ -31,7 +31,8 @@ import { GoalList, useTraining, type TrainingConfig } from './training';
 import { alertMode, chooseAlert } from '../systems/alerts';
 import { EASY_GOALS, type EasyGoalId } from '../tactics/missions';
 import { usePartyLayer } from './partyLayer';
-import { refereeMission, type PartySetup } from '../systems/party';
+import { refereeMission, undoingMoves, type PartySetup } from '../systems/party';
+import { strengthFor } from '../ai/strength';
 import { missionById } from '../content/party';
 import { moveEvents, shakeFor, type MoveEvents } from './effects';
 import { setSoundEnabled, sfx } from './sound';
@@ -307,7 +308,9 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     }
     let cancelled = false;
     setThinking(true);
-    requestMove(live, bot?.rating ?? 800, nemesis && bot ? { id: bot.id, asWhite: bot.asWhite, asBlack: bot.asBlack } : bot?.id).then((m) => {
+    // A shown secret mission of yours: the bot tries to undo it (weaker bots sometimes miss).
+    const undo = partySetup && Math.random() >= strengthFor(bot?.rating ?? 800).weakChance ? undoingMoves(live, botSeat) : [];
+    requestMove(live, bot?.rating ?? 800, nemesis && bot ? { id: bot.id, asWhite: bot.asWhite, asBlack: bot.asBlack } : bot?.id, 450, undo.length ? undo : undefined).then((m) => {
       if (cancelled || !m) return;
       setThinking(false);
       if (live.sq[m.to] >= 0 && bot && Math.random() < 0.5) setSpeech({ seat: botSeat, text: pick(bot.lines.capture) });

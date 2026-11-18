@@ -262,15 +262,14 @@ export class Room {
     this.state = play(this.state, a);
     this.record = { ...this.record, actions: [...this.record.actions, a] };
     this.states.push(this.state);
-    // Party referee: did that move complete the mover's secret mission?
+    // Party referee: missions shown, undone or won after that move.
     const party = this.record.setup.party;
-    if (party && !this.state.result) {
+    for (let i = 0; party && !this.state.result && i < 4; i++) {
       const done = refereeMission(this.states, this.record.actions, party);
-      if (done) {
-        this.state = play(this.state, done);
-        this.record = { ...this.record, actions: [...this.record.actions, done] };
-        this.states.push(this.state);
-      }
+      if (!done) break;
+      this.state = play(this.state, done);
+      this.record = { ...this.record, actions: [...this.record.actions, done] };
+      this.states.push(this.state);
     }
     if (this.state.result) {
       this.record.meta.result = this.state.result;

@@ -109,6 +109,10 @@ export type Action =
   | { t: 'timeout'; by: PlayerId }
   /** A one-shot buff (party match). Fields used depend on the buff. */
   | { t: 'buff'; by: PlayerId; id: string; piece?: number; target?: number; to?: number; to2?: number }
-  /** A secret mission was completed (checked by the referee: server or this device). */
-  | { t: 'mission'; by: PlayerId; id: string }
+  /**
+   * Secret missions (checked by the referee: server or this device).
+   * reveal: done and shown; the other player gets a few turns to undo it (target: the pieces that did it).
+   * off: the other player undid it, so it is out of play.  win (or no stage, older games): it stood, the player wins.
+   */
+  | { t: 'mission'; by: PlayerId; id: string; stage?: 'reveal' | 'off' | 'win'; target?: number[]; turns?: number }
   | { t: 'draw-agreed' };
