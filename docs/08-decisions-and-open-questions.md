@@ -129,3 +129,8 @@ Implementing agent: add dated entries below when you resolve an ambiguity or rec
 - **Built:** "🔍 Full analysis" on any finished 1 vs 1 game (after the game, and when replaying My games, including Chess.com imports). Every move is graded (Great move, Good, Hmm, Oops, Big oops) against our own engine at depth 2 with quiescence, with a plain-words reason from the tactic detectors (piece left hanging, missed fork, allowed checkmate) and arrows for the move played and the better one. A who-was-winning graph and a simple 0 to 100 game score per player.
 - **No AI service.** It is the same search the bots use, so it sees about as far as a 1400 player.
 - Fixed while building it: the search scores a position with only one legal move as 0, which hid blunders such as a queen sacrifice the king must take. Analysis and the post-game review now look one move further in that case.
+
+### 2026-11-17: Training wheels by request (owner change)
+
+- Training wheels are no longer switched on in the lobby. Once both players are in the room and before the first move, a player taps "Ask for training wheels". The other player answers: **Yes, just for fun** (their own rating does not change), **Yes, and it counts** (both ratings count), or **No thanks**. After a no, the asker chooses to play without them or leave. Moves wait while a question is open. Against a bot that took over a seat, the request is accepted at once.
+- The asker's rating always counts (earlier owner decision). The answer stays with the players across rematches in the same room.

@@ -199,10 +199,10 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     return { alertId: alert.id, mode: alertMode(p.rating), goals };
   }, [myWheels, rec.id, rec.seed]); // eslint-disable-line react-hooks/exhaustive-deps
   const trainingCfg = config.training ?? wheelsCfg;
-  // Playing someone with training wheels: you may play just for fun (no rating change). Decide before your first move.
-  const [forFun, setForFun] = useState(false);
-  useEffect(() => setForFun(false), [rec.id, rec.seed]);
-  const iHaveMoved = rec.actions.some((a, i) => a.t === 'move' && states[i]?.turn === me);
+  // You agreed to their training wheels "just for fun": your rating stays the same this game.
+  const forFun = isOnline && !!seatsNow[me]?.forFun && oppWheels;
+  const ask = isOnline ? net.wheelsAsk ?? null : null;
+  const canAskWheels = isOnline && !reviewRecord && net.seatIds.length === 2 && rec.actions.length === 0 && !live.result && !myWheels && !ask && net.seatIds.every((k) => !!seatsNow[k]);
 
   const moveActions = useMemo(() => rec.actions.filter((a): a is MoveAction => a.t === 'move'), [rec]);
   const training = useTraining({
@@ -322,7 +322,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
         setCoinAward(award);
         p = { ...p, coins: (p.coins ?? 0) + award.total };
       }
-      if (oppRating !== undefined && rec.actions.length >= 2 && !(oppWheels && forFun)) {
+      if (oppRating !== undefined && rec.actions.length >= 2 && !forFun) {
         const score = won ? 1 : drawn ? 0.5 : 0;
         const rating = updateRating(p.rating, oppRating, score, p.gamesPlayed, live.result!.reason === 'mission' ? 0.5 : 1);
         setRatingChange({ before: p.rating, after: rating });
@@ -466,6 +466,25 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             overlays={retrying && retry!.reveal && fix ? revealOverlay(states[fix.ply], fix.goodMoves[0]) : note && view === note.ply ? noteOverlay(note) : withFlags(shown, training.overlays ?? party.overlays)}
           />
           {training.modal}
+          {ask?.status === 'pending' && ask.from !== me && (
+            <div className="promo" role="dialog" aria-label="Training wheels request">
+              <p>🚲 <b>{names[ask.from]}</b> asks for training wheels: danger alerts and hints that only they can see.</p>
+              <div className="wheels-answers">
+                <button className="btn primary" onClick={() => online.answerWheels('fun')}>Yes, just for fun<small>your rating stays the same</small></button>
+                <button className="btn primary" onClick={() => online.answerWheels('rated')}>Yes, and it counts<small>for both ratings</small></button>
+                <button className="btn" onClick={() => online.answerWheels('no')}>No thanks</button>
+              </div>
+            </div>
+          )}
+          {ask?.status === 'declined' && ask.from === me && (
+            <div className="promo" role="dialog" aria-label="Training wheels answer">
+              <p>{names[other(me)]} said no to training wheels this time. Still want to play?</p>
+              <div className="wheels-answers">
+                <button className="btn primary" onClick={() => online.wheelsOk()}>Play without them</button>
+                <button className="btn" onClick={onExit}>Leave the room</button>
+              </div>
+            </div>
+          )}
           {party.modal}
           {promo && (
             <div className="promo" role="dialog" aria-label="Choose a piece">
@@ -520,7 +539,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
                   <small>{coinAward.lines.map((l) => `${l.label} +${l.coins}`).join(' · ')}</small>
                 </div>
               )}
-              {!ratingChange && oppWheels && forFun && <p className="rating-change">🚲 Played for fun: your rating stays the same.</p>}
+              {!ratingChange && forFun && <p className="rating-change">🚲 Played for fun: your rating stays the same.</p>}
               {newCards.length > 0 && (
                 <div className="new-cards" aria-label="New power cards">
                   <b>🃏 New card{newCards.length > 1 ? 's' : ''}!</b>
@@ -570,19 +589,16 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             <small>{net.gamesPlayed ? `after ${net.gamesPlayed} game${net.gamesPlayed > 1 ? 's' : ''}` : 'first game'}</small>
           </div>
         )}
-        {isOnline && !reviewRecord && net.seatIds.length === 2 && rec.actions.length === 0 && !live.result && (
-          <label className="wheels-toggle small">
-            <input type="checkbox" checked={myWheels} onChange={(e) => online.setWheels(e.target.checked)} />
-            <span>🚲 Training wheels for me</span>
-          </label>
+        {canAskWheels && (
+          <button className="btn small wheels-ask" onClick={() => online.askWheels()}>🚲 Ask for training wheels</button>
         )}
-        {oppWheels && !reviewRecord && (
+        {ask?.status === 'pending' && ask.from === me && <div className="wheels-note">🚲 Asked {names[other(me)]} for training wheels. Waiting for an answer…</div>}
+        {(myWheels || oppWheels) && !reviewRecord && (
           <div className="wheels-note">
-            🚲 <b>{names[other(me)]}</b> has training wheels on: danger alerts and hints.
-            <label>
-              <input type="checkbox" checked={!forFun} disabled={iHaveMoved || !!live.result} onChange={(e) => setForFun(!e.target.checked)} />
-              {' '}Count this game for my rating{iHaveMoved || live.result ? (forFun ? ' (playing for fun)' : '') : ' (choose before your first move)'}
-            </label>
+            🚲 <b>{myWheels ? 'You have' : `${names[other(me)]} has`}</b> training wheels on: danger alerts and hints.
+            {(myWheels ? seatsNow[other(me)]?.forFun : forFun)
+              ? <small> Played for fun: {myWheels ? `${names[other(me)]}'s` : 'your'} rating won't change.</small>
+              : <small> Counts for rating.</small>}
           </div>
         )}
         {!reviewRecord && training.panel}

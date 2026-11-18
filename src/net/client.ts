@@ -1,7 +1,7 @@
 import type { SkinChoice, SkinId } from '../content/cosmetics';
 import type { GameRecord } from '../core/record';
 import type { Action, PlayerId } from '../core/types';
-import type { ArmyLook, ClientMsg, ClockSetting, ClockState, EmoteId, RoomGame, SeatInfo, ServerMsg } from './protocol';
+import type { WheelsAsk, ArmyLook, ClientMsg, ClockSetting, ClockState, EmoteId, RoomGame, SeatInfo, ServerMsg } from './protocol';
 
 /**
  * Browser side of online play. Keeps one WebSocket, reconnects with the seat
@@ -15,6 +15,7 @@ export interface OnlineSnapshot {
   seat: PlayerId | null;
   record: GameRecord | null;
   seats: Partial<Record<PlayerId, SeatInfo>>;
+  wheelsAsk?: WheelsAsk | null;
   rematchVotes: PlayerId[];
   error: string | null;
   lastEmote: { from: PlayerId; id: EmoteId; at: number } | null;
@@ -92,7 +93,7 @@ class OnlineSession {
         this.set({ code: m.code, seat: m.seat, error: null });
         break;
       case 'room':
-        this.set({ code: m.code, record: m.record, seats: m.seats, rematchVotes: m.rematchVotes, clock: m.clock ?? null, clockAt: Date.now(), seatIds: m.seatIds ?? ['p1', 'p2'], game: m.game ?? 'standard', host: m.host ?? null, score: m.score ?? {}, gamesPlayed: m.gamesPlayed ?? 0 });
+        this.set({ code: m.code, record: m.record, seats: m.seats, rematchVotes: m.rematchVotes, clock: m.clock ?? null, clockAt: Date.now(), seatIds: m.seatIds ?? ['p1', 'p2'], game: m.game ?? 'standard', host: m.host ?? null, score: m.score ?? {}, gamesPlayed: m.gamesPlayed ?? 0, wheelsAsk: m.wheelsAsk ?? null });
         break;
       case 'emote':
         this.set({ lastEmote: { from: m.from, id: m.id, at: Date.now() } });
@@ -141,7 +142,9 @@ class OnlineSession {
   }
 
   /** Training wheels on or off for my seat (before the first move). */
-  setWheels(on: boolean) { this.send({ t: 'wheels', on }); }
+  askWheels() { this.send({ t: 'wheels-ask' }); }
+  answerWheels(answer: 'fun' | 'rated' | 'no') { this.send({ t: 'wheels-answer', answer }); }
+  wheelsOk() { this.send({ t: 'wheels-ok' }); }
   /** Share my rating after a game ends. */
   shareRating(rating: number) { this.send({ t: 'rating', rating }); }
   act(action: Action) { this.send({ t: 'action', action }); }

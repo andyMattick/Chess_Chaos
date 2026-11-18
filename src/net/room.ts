@@ -4,7 +4,7 @@ import { BOTS } from '../content/bots';
 import { PARTY_DECK, redactParty, refereeMission, setupParty } from '../systems/party';
 import { play } from '../core/rules';
 import type { Action, GameState, PlayerId } from '../core/types';
-import { cleanHand, cleanLook, cleanName, EMOTES, ROOM_GAMES, type ArmyLook, type ClientMsg, type ClockSetting, type ClockState, type RoomGame, type SeatInfo, type ServerMsg } from './protocol';
+import { cleanHand, cleanLook, cleanName, EMOTES, ROOM_GAMES, type ArmyLook, type ClientMsg, type ClockSetting, type ClockState, type RoomGame, type SeatInfo, type ServerMsg, type WheelsAsk } from './protocol';
 
 /**
  * Transport-agnostic room server. Adapters (Bun for local dev, Cloudflare
@@ -47,6 +47,8 @@ export class Room {
   turnStart: number | null = null;
 
   seatIds: PlayerId[];
+  /** A training wheels request waiting for (or turned down by) the other player. */
+  wheelsAsk: WheelsAsk | null = null;
   host: PlayerId | null = null;
   /** Match score across rematches, keyed by seat token so it follows players when seats rotate. */
   tally = new Map<string, number>();
@@ -142,7 +144,8 @@ export class Room {
   }
 
   addPlayer(conn: Conn, seat: PlayerId, name: string, rating: number, look?: ArmyLook, wheels = false, hand: string[] = []): Seat {
-    const s: Seat = { hand: cleanHand(hand), wheels: wheels && this.seatIds.length === 2, look: cleanLook(look), name: cleanName(name), rating: Math.max(100, Math.min(3000, Math.round(rating) || 600)), connected: true, botControlled: false, token: token(), conn, leftAt: null };
+    void wheels; // training wheels are asked for in the game now, not set when joining
+    const s: Seat = { hand: cleanHand(hand), wheels: false, look: cleanLook(look), name: cleanName(name), rating: Math.max(100, Math.min(3000, Math.round(rating) || 600)), connected: true, botControlled: false, token: token(), conn, leftAt: null };
     this.seats[seat] = s;
     this.host ??= seat;
     this.maybeStartParty();
@@ -248,6 +251,8 @@ export class Room {
         if (a.t === 'resign') {
           if (this.state.result) return;
           this.apply({ t: 'resign', by: seat });
+        } else if (a.t === 'move' && this.wheelsAsk?.status === 'pending') {
+          return conn.send({ t: 'error', message: 'Waiting for the training wheels answer first.' });
         } else if (a.t === 'move') {
           if (this.state.turn !== seat) return conn.send({ t: 'error', message: 'Not your turn.' });
           // A move that arrives after the flag fell does not count.
@@ -284,11 +289,35 @@ export class Room {
         for (const s of Object.values(this.seats)) s?.conn?.send({ t: 'emote', from: seat, id: msg.id });
         return;
       }
-      case 'wheels': {
-        // Only in 1 vs 1 games, and only before the first move, so the other player always knows before they start.
-        if (this.seatIds.length !== 2 || this.record.actions.length > 0) return conn.send({ t: 'error', message: 'Training wheels can only change before the first move.' });
-        this.seats[seat]!.wheels = !!msg.on;
+      case 'wheels-ask': {
+        // 1 vs 1 only, once everyone is here, before the first move. The other player decides.
+        if (this.seatIds.length !== 2 || !this.allSeated() || this.record.actions.length > 0) return conn.send({ t: 'error', message: 'Training wheels can only be asked for before the first move.' });
+        const other = this.seatIds.find((k) => k !== seat)!;
+        if (this.seats[seat]!.wheels) return;
+        if (this.seats[other]!.botControlled) {
+          this.seats[seat]!.wheels = true; // a bot doesn't mind
+          this.broadcast();
+          return;
+        }
+        this.wheelsAsk = { from: seat, status: 'pending' };
         this.broadcast();
+        return;
+      }
+      case 'wheels-answer': {
+        const ask = this.wheelsAsk;
+        if (!ask || ask.status !== 'pending' || ask.from === seat) return;
+        if (msg.answer === 'no') {
+          this.wheelsAsk = { ...ask, status: 'declined' };
+        } else {
+          this.seats[ask.from]!.wheels = true;
+          this.seats[seat]!.forFun = msg.answer === 'fun';
+          this.wheelsAsk = null;
+        }
+        this.broadcast();
+        return;
+      }
+      case 'wheels-ok': {
+        if (this.wheelsAsk?.from === seat && this.wheelsAsk.status === 'declined') { this.wheelsAsk = null; this.broadcast(); }
         return;
       }
       case 'rating': {
@@ -349,6 +378,7 @@ export class Room {
     this.state = replay(this.record)[0];
     this.states = [this.state];
     this.counted = false;
+    this.wheelsAsk = null;
     this.setClock(this.clockSetting);
     this.maybeStartParty();
     this.rematchVotes.clear();
@@ -361,10 +391,10 @@ export class Room {
   broadcast() {
     const seats: Partial<Record<PlayerId, SeatInfo>> = {};
     for (const k of Object.keys(this.seats) as PlayerId[]) {
-      const { name, rating, connected, botControlled, look, wheels } = this.seats[k]!;
-      seats[k] = { name, rating, connected, botControlled, look, wheels: !!wheels };
+      const { name, rating, connected, botControlled, look, wheels, forFun } = this.seats[k]!;
+      seats[k] = { name, rating, connected, botControlled, look, wheels: !!wheels, forFun: !!forFun };
     }
-    const base = { t: 'room' as const, code: this.code, seats, seatIds: this.seatIds, game: this.game, host: this.host, rematchVotes: [...this.rematchVotes], clock: this.clockSnapshot(), score: this.scoreboard(), gamesPlayed: this.gamesPlayed };
+    const base = { t: 'room' as const, code: this.code, seats, seatIds: this.seatIds, game: this.game, host: this.host, rematchVotes: [...this.rematchVotes], clock: this.clockSnapshot(), score: this.scoreboard(), gamesPlayed: this.gamesPlayed, wheelsAsk: this.wheelsAsk };
     const party = this.record.setup.party;
     for (const k of this.seatIds) {
       const s = this.seats[k];

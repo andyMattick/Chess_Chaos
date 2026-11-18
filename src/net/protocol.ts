@@ -44,6 +44,8 @@ export interface SeatInfo {
   botControlled: boolean;
   /** Training wheels: this player has danger alerts and hints on (2-player games only). */
   wheels?: boolean;
+  /** This player agreed to play a training-wheels game just for fun: their rating does not change. */
+  forFun?: boolean;
 }
 
 /** Minutes per player plus seconds added after each move. null = no clock. */
@@ -90,7 +92,12 @@ export type ClientMsg =
   | { t: 'rejoin'; code: string; token: string }
   | { t: 'action'; action: Action }
   | { t: 'emote'; id: EmoteId }
-  | { t: 'wheels'; on: boolean }
+  /** Ask the other player to allow training wheels for me (before the first move). */
+  | { t: 'wheels-ask' }
+  /** Answer a training wheels request: yes just for fun, yes and it counts, or no. */
+  | { t: 'wheels-answer'; answer: 'fun' | 'rated' | 'no' }
+  /** The asker saw the "no" and plays on without. */
+  | { t: 'wheels-ok' }
   /** After a game: my new rating, so everyone's leaderboard shows it. */
   | { t: 'rating'; rating: number }
   /** hand: power cards for the next party game (some may have burned). */
@@ -99,7 +106,7 @@ export type ClientMsg =
 
 export type ServerMsg =
   | { t: 'joined'; code: string; seat: PlayerId; token: string }
-  | { t: 'room'; code: string; record: GameRecord; seats: Partial<Record<PlayerId, SeatInfo>>; seatIds: PlayerId[]; game: RoomGame; host: PlayerId | null; rematchVotes: PlayerId[]; clock: ClockState | null; score?: Partial<Record<PlayerId, number>>; gamesPlayed?: number }
+  | { t: 'room'; code: string; record: GameRecord; seats: Partial<Record<PlayerId, SeatInfo>>; seatIds: PlayerId[]; game: RoomGame; host: PlayerId | null; rematchVotes: PlayerId[]; clock: ClockState | null; score?: Partial<Record<PlayerId, number>>; gamesPlayed?: number; wheelsAsk?: WheelsAsk | null }
   | { t: 'emote'; from: PlayerId; id: EmoteId }
   | { t: 'error'; message: string };
 
@@ -117,3 +124,5 @@ export function cleanHand(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   return [...new Set(raw.filter((x): x is string => typeof x === 'string' && PLAYABLE_CARDS.has(x)))].slice(0, 3);
 }
+
+export interface WheelsAsk { from: PlayerId; status: 'pending' | 'declined' }

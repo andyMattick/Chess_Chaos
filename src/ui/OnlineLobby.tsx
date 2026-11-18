@@ -55,8 +55,6 @@ function ShareCode({ code }: { code: string }) {
   );
 }
 
-const WHEELS_KEY = 'chess-chaos:wheels';
-
 export function OnlineLobby({ back, initialCode }: { back: () => void; initialCode?: string | null }) {
   const save = useSave();
   const net = useSyncExternalStore(online.subscribe, online.get, online.get);
@@ -74,9 +72,6 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
   };
   const rating = p?.rating ?? 600;
   const hand = useHand();
-  // Training wheels: my own danger alerts and hints in 1 vs 1 games. Remembered on this device.
-  const [wheels, setWheelsState] = useState(() => { try { return localStorage.getItem(WHEELS_KEY) === '1'; } catch { return false; } });
-  const setWheels = (on: boolean) => { setWheelsState(on); try { localStorage.setItem(WHEELS_KEY, on ? '1' : '0'); } catch { /* ignore */ } };
 
   // Opened from a shared link: join straight away. Otherwise, coming back mid-game? Rejoin the seat.
   const joinedRef = useRef(false);
@@ -84,7 +79,7 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
     if (joinedRef.current) return;
     joinedRef.current = true;
     if (initialCode && !net.code) {
-      online.join(initialCode, name, rating, lookFor('p1'), wheels, hand);
+      online.join(initialCode, name, rating, lookFor('p1'), false, hand);
       try { history.replaceState(null, '', location.pathname); } catch { /* ignore */ }
     } else if (!net.code && online.saved()) online.resume();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -136,10 +131,6 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
       <p className="muted">Play a friend on their own phone, tablet or computer.</p>
       {net.error && <p className="error-note">⚠️ {net.error}</p>}
       {net.status === 'connecting' && <p className="muted">Connecting…</p>}
-      <label className="wheels-toggle">
-        <input type="checkbox" checked={wheels} onChange={(e) => setWheels(e.target.checked)} />
-        <span>🚲 <b>Training wheels for me</b>: danger alerts, hints and goals, just like Train. Only you see them. Your opponent is told, and can choose to play just for fun. (1 vs 1 games only.)</span>
-      </label>
       <details className="settings">
         <summary>🃏 Power cards for Party matches{hand.length ? ` (${hand.length} picked)` : ''}</summary>
         <HandPicker />
@@ -164,9 +155,9 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
           <div className="row">
             {seatsFor === 2 ? (
               <>
-                <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock, game, lookFor('p1'), wheels, hand)}>I'll be White</button>
-                <button className="btn primary dark" onClick={() => online.create(name, rating, 'p2', clock, game, lookFor('p2'), wheels, hand)}>I'll be Black</button>
-                <button className="btn" onClick={() => online.create(name, rating, 'random', clock, game, lookFor('p1'), wheels, hand)}>🎲 Whatever</button>
+                <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock, game, lookFor('p1'), false, hand)}>I'll be White</button>
+                <button className="btn primary dark" onClick={() => online.create(name, rating, 'p2', clock, game, lookFor('p2'), false, hand)}>I'll be Black</button>
+                <button className="btn" onClick={() => online.create(name, rating, 'random', clock, game, lookFor('p1'), false, hand)}>🎲 Whatever</button>
               </>
             ) : (
               <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock, game, lookFor('p1'))}>Make the room ({seatsFor} players)</button>
@@ -178,9 +169,9 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
           <input
             className="code-input" aria-label="Room code" placeholder="ABCD" maxLength={4} value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))}
-            onKeyDown={(e) => e.key === 'Enter' && code.length === 4 && online.join(code, name, rating, lookFor('p1'), wheels, hand)}
+            onKeyDown={(e) => e.key === 'Enter' && code.length === 4 && online.join(code, name, rating, lookFor('p1'), false, hand)}
           />
-          <button className="btn primary" disabled={code.length !== 4} onClick={() => online.join(code, name, rating, lookFor('p1'), wheels, hand)}>Join!</button>
+          <button className="btn primary" disabled={code.length !== 4} onClick={() => online.join(code, name, rating, lookFor('p1'), false, hand)}>Join!</button>
         </section>
       </div>
       <button className="btn" onClick={exit}>← Home</button>
