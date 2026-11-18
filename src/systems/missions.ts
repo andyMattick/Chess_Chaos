@@ -164,3 +164,99 @@ export function missionDone(id: string, c: MissionCtx): boolean {
 }
 
 export { makeMove };
+
+/* ---------------------------------------------------------------------------
+ * Bonus objectives (docs/02 s5): checked once the game is over, never end it.
+ * `states[i]` is the position before `actions[i]`; the last state is the end.
+ * ------------------------------------------------------------------------- */
+type AnyAction = { t: string; piece?: number; to?: number };
+
+/** The mating move and the piece that made it, when the player won by checkmate. */
+function matingMove(states: GameState[], actions: AnyAction[], player: PlayerId) {
+  const end = states[states.length - 1];
+  if (end.result?.reason !== 'checkmate' || !end.result.winners.includes(player)) return null;
+  for (let i = actions.length - 1; i >= 0; i--) {
+    const a = actions[i];
+    if (a.t !== 'move' || a.piece === undefined) continue;
+    if (states[i].turn !== player) return null;
+    return { before: states[i], piece: states[i].pieces[a.piece], at: end.pieces[a.piece].at };
+  }
+  return null;
+}
+
+/** "Back rank" for a player: their own first row. */
+const backRow = (s: GameState, p: PlayerId, sq: number) => rel(s, p, sq) === 0;
+
+export const BONUS_CHECKS: Record<string, (states: GameState[], actions: AnyAction[], player: PlayerId) => boolean> = {
+  /** MISSION-03: won, and the queen you started with is still on the board. */
+  'MISSION-03': (states, _a, player) => {
+    const end = states[states.length - 1];
+    if (!end.result?.winners.includes(player)) return false;
+    const queens = states[0].pieces.filter((p) => p.owner === player && p.at >= 0 && base(p.type) === 'queen');
+    return queens.length > 0 && queens.every((q) => end.pieces[q.id].at >= 0);
+  },
+  /** MISSION-09: checkmate made by a knight or bishop move. */
+  'MISSION-09': (states, actions, player) => {
+    const m = matingMove(states, actions, player);
+    return !!m && ['knight', 'bishop'].includes(base(m.piece.type));
+  },
+  /**
+   * MISSION-20: checkmate by a rook or queen standing on the enemy's back row,
+   * with the enemy king on that row and every square in front of it filled by its own pieces.
+   */
+  'MISSION-20': (states, actions, player) => {
+    const m = matingMove(states, actions, player);
+    if (!m || !['rook', 'queen'].includes(base(m.piece.type))) return false;
+    const end = states[states.length - 1];
+    const enemy = enemyOf(end, player);
+    const king = end.pieces.find((p) => p.owner === enemy && p.type === 'king' && p.at >= 0);
+    if (!king || !backRow(end, enemy, king.at) || !backRow(end, enemy, m.at)) return false;
+    const [fx, fy] = seatOf(end, enemy).forward;
+    const f = fileOf(end.board, king.at), r = rankOf(end.board, king.at);
+    let front = 0;
+    for (const df of [-1, 0, 1]) {
+      const nf = f + df + fx, nr = r + fy;
+      if (nf < 0 || nf >= end.board.width || nr < 0 || nr >= end.board.height) continue;
+      const sq = nr * end.board.width + nf;
+      if (end.board.blocked[sq]) continue;
+      const id = end.sq[sq];
+      if (id < 0 || end.pieces[id].owner !== enemy) return false;
+      front++;
+    }
+    return front > 0;
+  },
+  /**
+   * MISSION-24: one of your moves is answered by a capture that leaves you at
+   * least 2 points down on balance, you are still that far down 3 of your
+   * moves later (or when the game ends), and you win.
+   */
+  'MISSION-24': (states, actions, player) => {
+    const end = states[states.length - 1];
+    if (!end.result?.winners.includes(player)) return false;
+    const enemy = enemyOf(end, player);
+    const bal = (s: GameState) => material(s, player) - material(s, enemy);
+    for (let i = 0; i + 1 < actions.length; i++) {
+      if (actions[i].t !== 'move' || states[i].turn !== player) continue;
+      const reply = actions[i + 1];
+      if (reply.t !== 'move' || states[i + 1].turn !== enemy || reply.to === undefined) continue;
+      const victim = states[i + 1].sq[reply.to];
+      if (victim < 0 || states[i + 1].pieces[victim].owner !== player) continue;
+      const before = bal(states[i]);
+      if (bal(states[i + 2]) > before - 2) continue;
+      // Three of your own moves later (or the end).
+      let mine = 0, j = i + 2;
+      while (j < states.length - 1 && mine < 3) { if (states[j].turn === player) mine++; j++; }
+      let still = true;
+      for (let k = i + 2; k <= j; k++) if (bal(states[k]) > before - 2) { still = false; break; }
+      if (still) return true;
+    }
+    return false;
+  },
+};
+
+/** Was this bonus objective done? (Only checked once the game has ended.) */
+export function bonusDone(id: string, states: GameState[], actions: AnyAction[], player: PlayerId): boolean {
+  const f = BONUS_CHECKS[id];
+  if (!f || !states[states.length - 1].result) return false;
+  try { return f(states, actions, player); } catch { return false; }
+}

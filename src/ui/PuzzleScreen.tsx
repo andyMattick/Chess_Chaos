@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { chesscom, ChessComError } from '../chesscom/api';
+import { chesscom, ChessComError, recentGames } from '../chesscom/api';
+import { recordFromPGN } from '../chesscom/pgn';
+import { requestSlips } from '../ai/client';
+import { parseSAN } from '../core/san';
+import { slipReady, SLIPS_PER_SESSION, type Slip } from '../systems/slips';
+import { mergeMiss } from '../systems/review';
 import { legalActions, play } from '../core/rules';
 import type { GameState, MoveAction } from '../core/types';
-import { activeProfile, lookOf, updateProfile } from '../storage/storage';
+import { activeProfile, load as loadSave, lookOf, updateProfile } from '../storage/storage';
 import { builtInPuzzles, checkMove, puzzleFrom, currentStreak, EMPTY_PROGRESS, recordSolve, solverMoves, type Puzzle } from '../systems/puzzle';
 import { Board } from './Board';
 import { moveEvents, shakeFor, type MoveEvents } from './effects';
@@ -18,7 +23,7 @@ import type { GameConfig } from './GameScreen';
  * back; one hint per puzzle (the right piece glows). Daily solves build a
  * streak. Puzzles never change the rating (docs/02).
  */
-type Tab = 'daily' | 'random' | 'warmup' | 'gauntlet' | 'survival';
+type Tab = 'daily' | 'random' | 'warmup' | 'gauntlet' | 'survival' | 'slips';
 type Phase = 'loading' | 'play' | 'wrong' | 'reply' | 'solved' | 'shown' | 'error';
 
 export function PuzzleScreen({ back, startGame }: { back: () => void; startGame?: (c: GameConfig) => void }) {
@@ -40,6 +45,10 @@ export function PuzzleScreen({ back, startGame }: { back: () => void; startGame?
   const [warmIdx, setWarmIdx] = useState(0);
   // MODE-11 Puzzle gauntlet: three lives, keep going as long as you can.
   const [run, setRun] = useState<{ lives: number; score: number; idx: number; seen: string[]; over: boolean } | null>(null);
+  // Blunder replay: looking through games for your slips.
+  const [scan, setScan] = useState<{ done: number; total: number; found: number; source: string } | null>(null);
+  const [ccName, setCcName] = useState('');
+  const [slipIdx, setSlipIdx] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
   const timers = useRef<number[]>([]);
   const later = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)); };
@@ -62,6 +71,16 @@ export function PuzzleScreen({ back, startGame }: { back: () => void; startGame?
     const stale = () => my !== loadId.current;
     setTab(t); setPhase('loading'); setPuzzle(null); setError(null);
     if (t === 'survival') { setPhase('play'); return; }
+    if (t === 'slips') {
+      const pending = activeProfile(loadSave())?.slips?.pending ?? [];
+      if (!pending.length) { setPhase('play'); return; }
+      const slip = pending[idx % pending.length];
+      const pz = puzzleFrom({ id: slip.id, title: slip.text, source: 'slip', fen: slip.fen, san: [slip.best] });
+      if (!pz) { setPhase('play'); return; }
+      pz.ok = slip.ok.map((x) => parseSAN(pz.start, x)).filter((m): m is MoveAction => !!m);
+      start(pz);
+      return;
+    }
     if (t === 'gauntlet') {
       const r = run && !run.over ? run : { lives: 3, score: 0, idx: 0, seen: [], over: false };
       setRun(r);
@@ -129,6 +148,8 @@ export function PuzzleScreen({ back, startGame }: { back: () => void; startGame?
     const score = tab === 'gauntlet' && run ? run.score + 1 : 0;
     if (tab === 'gauntlet' && run) setRun({ ...run, score, idx: run.idx + 1 });
     if (!p) return;
+    // A solved slip leaves the list.
+    if (pz.source === 'slip') updateProfile((x) => ({ ...x, slips: { pending: (x.slips?.pending ?? []).filter((y) => y.id !== pz.id), solved: [pz.id, ...(x.slips?.solved ?? [])].slice(0, 300), scanned: x.slips?.scanned ?? [] } }));
     const r = recordSolve(progress, pz, hint);
     updateProfile((x) => ({ ...x, coins: (x.coins ?? 0) + r.coins, puzzles: { ...r.progress, gauntletBest: Math.max(x.puzzles?.gauntletBest ?? 0, score) } }));
     setReward({ coins: r.coins, streakUp: r.streakUp, streak: r.progress.streak });
@@ -182,6 +203,58 @@ export function PuzzleScreen({ back, startGame }: { back: () => void; startGame?
     });
   }
 
+  /** Look through games for big slips (docs/06 CC-05): up to 10 new puzzles per session, shown as they are found. */
+  async function lookForSlips(source: 'here' | 'chesscom') {
+    if (!p || scan) return;
+    const known = new Set([...(p.slips?.scanned ?? []), ...(p.slips?.pending ?? []).map((x) => x.id.split(':')[0])]);
+    let games: { rec: import('../core/record').GameRecord; seat: 'p1' | 'p2' }[] = [];
+    const me = p.nickname.trim().toLowerCase();
+    if (source === 'here') {
+      for (const rec of loadSave().games[p.id] ?? []) {
+        if (!slipReady(rec) || known.has(rec.id)) continue;
+        const n1 = rec.meta.players.p1?.trim().toLowerCase(), n2 = rec.meta.players.p2?.trim().toLowerCase();
+        const seat = n1 === me && n2 !== me ? 'p1' : n2 === me && n1 !== me ? 'p2' : null;
+        if (seat) games.push({ rec, seat });
+      }
+    } else {
+      const u = ccName.trim().toLowerCase();
+      if (!u) return;
+      setScan({ done: 0, total: 0, found: 0, source: 'Chess.com' });
+      try {
+        for (const g of await recentGames(u, 20)) {
+          if (!g.pgn || g.rules !== 'chess') continue;
+          const rec = recordFromPGN(g.pgn, g.url);
+          const seat = g.white.username.toLowerCase() === u ? 'p1' : g.black.username.toLowerCase() === u ? 'p2' : null;
+          if (rec && seat && slipReady(rec) && !known.has(rec.id)) games.push({ rec, seat });
+        }
+      } catch (e) {
+        setScan(null);
+        setError(e instanceof ChessComError ? e.message : 'Chess.com is not answering right now.');
+        return;
+      }
+    }
+    games = games.slice(0, 20);
+    let found = 0;
+    let shownOne = false;
+    setScan({ done: 0, total: games.length, found: 0, source: source === 'here' ? 'your games' : 'Chess.com' });
+    for (let i = 0; i < games.length && found < SLIPS_PER_SESSION; i++) {
+      const { rec, seat } = games[i];
+      const slips: Slip[] = await requestSlips(rec, seat, source, Math.min(3, SLIPS_PER_SESSION - found));
+      found += slips.length;
+      updateProfile((x) => {
+        const solved = new Set(x.slips?.solved ?? []);
+        const pending = [...(x.slips?.pending ?? []), ...slips.filter((y) => !solved.has(y.id) && !(x.slips?.pending ?? []).some((z) => z.id === y.id))].slice(-40);
+        // The miss map learns which tactics you missed (docs/06 CC-05 step 4).
+        const miss = Object.fromEntries(slips.filter((y) => y.tactic).map((y) => [y.tactic!, { missed: 1, found: 0 }]));
+        return { ...x, missMap: mergeMiss(x.missMap, miss), slips: { pending, solved: x.slips?.solved ?? [], scanned: [rec.id, ...(x.slips?.scanned ?? [])].slice(0, 400) } };
+      });
+      setScan({ done: i + 1, total: games.length, found, source: source === 'here' ? 'your games' : 'Chess.com' });
+      if (found && !shownOne && !puzzle && tab === 'slips') { shownOne = true; load('slips', 0); }
+    }
+    setScan((x) => (x ? { ...x, done: x.total } : x));
+    setTimeout(() => setScan(null), 4000);
+  }
+
   function onSquare(sq: number) {
     if (!state || phase !== 'play') return;
     const legal = legalActions(state);
@@ -205,6 +278,7 @@ export function PuzzleScreen({ back, startGame }: { back: () => void; startGame?
   const nextPuzzle = () => {
     if (tab === 'gauntlet') { if (!run?.over) load('gauntlet'); return; }
     if (tab === 'warmup') { const i = warmIdx + 1; setWarmIdx(i); load('warmup', i); }
+    else if (tab === 'slips') { const i = phase === 'solved' ? slipIdx : slipIdx + 1; setSlipIdx(i); load('slips', i); }
     else load(tab === 'daily' ? 'random' : tab);
   };
 
@@ -270,6 +344,7 @@ export function PuzzleScreen({ back, startGame }: { back: () => void; startGame?
           <button className={`btn ${tab === 'warmup' ? 'primary' : ''}`} onClick={() => load('warmup')}>🌱 Warm-ups</button>
           <button className={`btn ${tab === 'gauntlet' ? 'primary' : ''}`} onClick={() => { setRun(null); setTimeout(() => load('gauntlet'), 0); }}>❤️ Gauntlet</button>
           {startGame && <button className={`btn ${tab === 'survival' ? 'primary' : ''}`} onClick={() => load('survival')}>🛡️ Survival</button>}
+          <button className={`btn ${tab === 'slips' ? 'primary' : ''}`} onClick={() => { setSlipIdx(0); load('slips', 0); }}>🔁 My slips{(p?.slips?.pending.length ?? 0) > 0 ? ` (${p!.slips!.pending.length})` : ''}</button>
         </div>
         {tab === 'gauntlet' && run && (
           <div className="gauntlet">
@@ -290,10 +365,27 @@ export function PuzzleScreen({ back, startGame }: { back: () => void; startGame?
             ))}
           </div>
         )}
+        {tab === 'slips' && (
+          <div className="slips-box">
+            <p className="muted small">Your own big oops moments come back as puzzles. You played the move shown; can you find a better one? Any move about as good as the best counts.</p>
+            {!puzzle && !scan && <p><b>{(p?.slips?.pending.length ?? 0) ? '' : 'No slip puzzles yet.'}</b> Look through your games to find some.</p>}
+            <div className="row wrap">
+              <button className="btn small" disabled={!!scan} onClick={() => lookForSlips('here')}>🔍 Look through my games here</button>
+            </div>
+            {ccOn && (
+              <div className="row wrap">
+                <input aria-label="Chess.com username" placeholder="Chess.com username" value={ccName} onChange={(e) => setCcName(e.target.value)} maxLength={30} />
+                <button className="btn small" disabled={!!scan || !ccName.trim()} onClick={() => lookForSlips('chesscom')}>🔍 Their last 20 games</button>
+              </div>
+            )}
+            {scan && <p className="small"><span className="thinking-dots">Looking through {scan.source}</span> {scan.done} of {scan.total} games · {scan.found} found</p>}
+            {puzzle?.source === 'slip' && phase === 'play' && <p className="small">🔁 Slip {Math.min(slipIdx, (p?.slips?.pending.length ?? 1) - 1) + 1} of {p?.slips?.pending.length ?? 1}</p>}
+          </div>
+        )}
         {puzzle && <p className="status">{puzzle.title}</p>}
         {(phase === 'loading' || phase === 'error') && <p className="status">{status}</p>}
-        {puzzle && puzzle.source !== 'built-in' && <p className="muted small">Puzzle from Chess.com.{tab === 'daily' ? ' Solve one every day to grow your streak!' : ''}</p>}
-        {phase === 'play' && (
+        {puzzle && puzzle.source !== 'built-in' && puzzle.source !== 'slip' && <p className="muted small">Puzzle from Chess.com.{tab === 'daily' ? ' Solve one every day to grow your streak!' : ''}</p>}
+        {phase === 'play' && puzzle && (
           <div className="review-controls">
             <button className="btn" onClick={() => setHint(true)} disabled={hint}>💡 Hint{hint ? ' (used)' : ''}</button>
             {tries >= 3 && <button className="btn" onClick={showMe}>👀 Show me</button>}

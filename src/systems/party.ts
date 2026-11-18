@@ -1,4 +1,4 @@
-import { MISSION_DEFENCE_TURNS, MISSION_DEFENCE_TURNS_VS_UNDERDOG, MISSION_UNDERDOG_GAP, MISSIONS, MODIFIERS, UNDERDOG_BONUS_MODES, type ModifierDef } from '../content/party';
+import { MISSION_DEFENCE_TURNS, MISSION_DEFENCE_TURNS_VS_UNDERDOG, MISSION_UNDERDOG_GAP, BONUS_CHANCE, BONUS_MISSIONS, MISSIONS, MODIFIERS, UNDERDOG_BONUS_MODES, type ModifierDef } from '../content/party';
 import { advance, legalActions, missionChallenges, play } from '../core/rules';
 import { IMPLEMENTED } from '../core/modifiers';
 import { movesMade } from '../core/modifiers';
@@ -111,13 +111,22 @@ export interface PartyOptions {
   mode: string;
   players: Record<'p1' | 'p2', PartyPlayer>;
   online: boolean;
+  /** The game has a chess clock (Time bank needs one). */
+  clock?: boolean;
+  /** Secret missions are switched off (Peek and bonus objectives need them). */
+  noMissions?: boolean;
 }
 
-function eligible(def: ModifierDef, mode: string, who: PartyPlayer, online: boolean): boolean {
+/** What a game without these removes, on top of the mode (docs/02 s7). */
+function removedFor(o: PartyOptions): string[] {
+  return [...(MODE_REMOVES[o.mode] ?? []), ...(o.clock ? [] : ['needsClock']), ...(o.noMissions ? ['needsMissions'] : [])];
+}
+
+function eligible(def: ModifierDef, o: PartyOptions, who: PartyPlayer): boolean {
   if (!IMPLEMENTED.has(def.id)) return false;
   if (who.bot && (def.humanOnly || def.oneShot)) return false; // bots only get always-on rules
-  if (def.botGameOnly && online) return false;
-  const removed = MODE_REMOVES[mode] ?? [];
+  if (def.botGameOnly && o.online) return false;
+  const removed = removedFor(o);
   return !(def.tags ?? []).some((t) => removed.includes(t));
 }
 
@@ -135,11 +144,11 @@ export function pickModifiers(o: PartyOptions, rand: () => number): Record<'p1' 
   const bonus = gap >= MISSION_UNDERDOG_GAP ? UNDERDOG_BONUS_MODES[o.mode] : undefined;
   const underdogSlots = bonus ? [...slots.underdog, bonus] : slots.underdog;
   for (const tier of underdogSlots) {
-    const m = pick(MODIFIERS.filter((d) => d.kind === 'buff' && d.tier === tier && !out[underdog].includes(d.id) && eligible(d, o.mode, o.players[underdog], o.online)), rand);
+    const m = pick(MODIFIERS.filter((d) => d.kind === 'buff' && d.tier === tier && !out[underdog].includes(d.id) && eligible(d, o, o.players[underdog])), rand);
     if (m) out[underdog].push(m.id);
   }
   for (const tier of slots.favourite) {
-    const m = pick(MODIFIERS.filter((d) => d.kind === 'handicap' && d.tier === tier && eligible(d, o.mode, o.players[favourite], o.online)), rand);
+    const m = pick(MODIFIERS.filter((d) => d.kind === 'handicap' && d.tier === tier && eligible(d, o, o.players[favourite])), rand);
     if (m) out[favourite].push(m.id);
   }
   return out;
@@ -170,7 +179,22 @@ export type PartySetup = NonNullable<GameRecord['setup']['party']>;
 
 export function setupParty(o: PartyOptions, rand: () => number): PartySetup {
   const gate = missionGate(o.players.p1.rating, o.players.p2.rating);
-  return { modifiers: pickModifiers(o, rand), missions: dealMissions(o, rand), gate: { p1: gate, p2: gate }, defence: missionDefence(o.players.p1.rating, o.players.p2.rating) };
+  const setup: PartySetup = { modifiers: pickModifiers(o, rand), missions: dealMissions(o, rand), gate: { p1: gate, p2: gate }, defence: missionDefence(o.players.p1.rating, o.players.p2.rating) };
+  const bonus = dealBonus(o, rand);
+  return Object.keys(bonus).length ? { ...setup, bonus } : setup;
+}
+
+/** Bonus objectives (docs/02 s5): each player has a 1 in 3 chance of one, shown openly. Drawn after everything else, so older setups stay the same. */
+export function dealBonus(o: PartyOptions, rand: () => number): Partial<Record<'p1' | 'p2', string>> {
+  const out: Partial<Record<'p1' | 'p2', string>> = {};
+  const removed = removedFor(o);
+  const pool = BONUS_MISSIONS.filter((m) => !(m.tags ?? []).some((t) => removed.includes(t)));
+  for (const k of ['p1', 'p2'] as const) {
+    const roll = rand();
+    const m = pick(pool, rand);
+    if (!o.noMissions && roll < BONUS_CHANCE && m) out[k] = m.id;
+  }
+  return out;
 }
 
 /** The weaker player's mission: shown from the start, wins at once. */
@@ -186,10 +210,10 @@ export function missionDefence(p1: number, p2: number): Record<'p1' | 'p2', numb
 }
 
 /** Hide the other player's mission (online, and on screen). */
-export function redactParty(p: PartySetup, viewer: PlayerId | null): PartySetup {
+export function redactParty(p: PartySetup, viewer: PlayerId | null, peeked = false): PartySetup {
   const missions: PartySetup['missions'] = {};
-  // The weaker player's mission is open (everyone sees it); others are secret.
-  for (const [k, v] of Object.entries(p.missions)) missions[k as PlayerId] = k === viewer || missionIsOpen(p, k as PlayerId) ? v : '?';
+  // The weaker player's mission is open (everyone sees it); others are secret, unless you used Peek.
+  for (const [k, v] of Object.entries(p.missions)) missions[k as PlayerId] = k === viewer || peeked || missionIsOpen(p, k as PlayerId) ? v : '?';
   return { ...p, missions };
 }
 

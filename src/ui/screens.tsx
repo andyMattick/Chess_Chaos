@@ -9,6 +9,7 @@ import { CloudRestore, CloudSaveCard } from './CloudSave';
 import { useMailCount } from './Challenges';
 import { useSave } from './store';
 import { currentStreak, EMPTY_PROGRESS } from '../systems/puzzle';
+import { dueCount } from '../systems/openings';
 import type { GameConfig } from './GameScreen';
 
 const COLOURS = ['#ff7a59', '#ffc93c', '#5bd17a', '#4aa8ff', '#a77bff', '#ff6fb5'];
@@ -26,7 +27,7 @@ export function ProfileChip({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train' | 'chesscom' | 'battle' | 'leaderboard' | 'party' | 'puzzles' | 'cards' | 'modes' | 'challenges' | 'minis') => void }) {
+export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train' | 'chesscom' | 'battle' | 'leaderboard' | 'party' | 'puzzles' | 'cards' | 'modes' | 'challenges' | 'minis' | 'openings') => void }) {
   const mail = useMailCount();
   const save = useSave();
   const p = activeProfile(save);
@@ -66,6 +67,7 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
         <Tile emoji="📬" title="Challenges" sub={mail ? `${mail} waiting for you!` : 'Play a friend, a move at a time'} c="#5bd17a" onClick={() => go('challenges')} disabled={!p} />
         <Tile emoji="🌀" title="Mini-games" sub="Mazes, sprints, ladders" c="#8fd16a" onClick={() => go('minis')} disabled={!p} />
         <Tile emoji="🎓" title="Train" sub="Alerts and hints" c="#ffc93c" onClick={() => go('train')} disabled={!p} />
+        <Tile emoji="📖" title="Openings" sub={p && dueCount(p.openings) ? `🔔 ${dueCount(p.openings)} lines to practise` : 'Learn the bots\' lines'} c="#4a6fa5" onClick={() => go('openings')} disabled={!p} />
         <Tile emoji="🧩" title="Puzzles" sub={p && currentStreak({ ...EMPTY_PROGRESS, ...p.puzzles }) > 0 ? `🔥 ${currentStreak({ ...EMPTY_PROGRESS, ...p.puzzles })}-day streak` : 'Daily, gauntlet'} c="#ff7a59" onClick={() => go('puzzles')} disabled={!p} />
       </div>
       <h3 className="home-section">My stuff</h3>
@@ -217,7 +219,7 @@ function BackupButtons({ onlyLoad }: { onlyLoad?: boolean }) {
   );
 }
 
-export function BotRoster({ start, back }: { start: (c: GameConfig) => void; back: () => void }) {
+export function BotRoster({ start, back, learn }: { start: (c: GameConfig) => void; back: () => void; learn?: (botId: string) => void }) {
   const save = useSave();
   const p = activeProfile(save);
   const [chosen, setChosen] = useState<Bot | null>(null);
@@ -244,6 +246,7 @@ export function BotRoster({ start, back }: { start: (c: GameConfig) => void; bac
           <button className="btn primary dark" onClick={() => begin('p2')}>♟ Black</button>
           <button className="btn" onClick={() => begin('random')}>🎲 Surprise me</button>
         </div>
+        {learn && <button className="btn" onClick={() => learn(chosen.id)}>📖 Learn this opening</button>}
         <button className="btn" onClick={() => setChosen(null)}>← All bots</button>
       </div>
     );

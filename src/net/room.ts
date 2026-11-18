@@ -116,8 +116,8 @@ export class Room {
     // Both players' mode rankings count (bots are neutral).
     const mode = surprise ? pickModeFor(this.seatIds.map((k) => (this.seats[k]!.botControlled ? undefined : this.seats[k]!.modePrefs)), Math.random) : this.state.mode;
     const p = (k: PlayerId) => ({ rating: this.seats[k]!.rating, bot: this.seats[k]!.botControlled });
-    const party = setupParty({ mode, online: true, players: { p1: p('p1'), p2: p('p2') } }, Math.random);
-    if (!this.missionsOn) party.missions = {};
+    const party = setupParty({ mode, online: true, players: { p1: p('p1'), p2: p('p2') }, clock: !!this.clockSetting, noMissions: !this.missionsOn }, Math.random);
+    if (!this.missionsOn) { party.missions = {}; delete party.bonus; }
     const recommended = party.modifiers;
     const anyExtras = Object.values(recommended).some((l) => (l?.length ?? 0) > 0);
     if (!surprise && !this.missionsOn && !anyExtras) return; // a plain game, as before
@@ -295,13 +295,19 @@ export class Room {
   }
 
   private apply(a: Action) {
-    if (this.clockSetting && (a.t === 'move' || (a.t === 'buff' && this.state.turn !== play(this.state, a).turn))) {
+    if (this.clockSetting) {
+      // Time used so far is always charged; the increment only when the turn passes (a free buff does not end it).
       const running = this.runningSeat();
       if (running && this.turnStart !== null) {
-        this.left[running] = Math.max(0, (this.left[running] ?? 0) - (this.now() - this.turnStart) + this.clockSetting.increment * 1000);
+        const passes = a.t === 'move' || (a.t === 'buff' && this.state.turn !== play(this.state, a).turn);
+        this.left[running] = Math.max(0, (this.left[running] ?? 0) - (this.now() - this.turnStart) + (passes ? this.clockSetting.increment * 1000 : 0));
       }
     }
     this.state = play(this.state, a);
+    // Time bank (BUFF-22): 30 more seconds on your clock.
+    if (a.t === 'buff' && a.id === 'BUFF-22' && this.clockSetting) {
+      this.left[a.by] = (this.left[a.by] ?? 0) + 30_000;
+    }
     this.record = { ...this.record, actions: [...this.record.actions, a] };
     this.states.push(this.state);
     // Party referee: missions shown, undone or won after that move.
@@ -516,7 +522,7 @@ export class Room {
       const s = this.seats[k];
       if (!s?.conn) continue;
       // Each player only sees their own secret mission until the game ends.
-      let record = party && !this.state.result ? { ...this.record, setup: { ...this.record.setup, party: redactParty(party, k) } } : this.record;
+      let record = party && !this.state.result ? { ...this.record, setup: { ...this.record.setup, party: redactParty(party, k, (((this.state.modeData?.usedBuffs as Record<string, string[]> | undefined) ?? {})[k] ?? []).includes('BUFF-23')) } } : this.record;
       // Hidden queen: others only learn that a pawn was marked, not which one.
       if (this.game === 'hidden-queen' || this.record.setup.mode === 'hidden-queen') {
         record = { ...record, actions: record.actions.map((a) => (a.t === 'buff' && a.id === 'MODE-19' && a.by !== k && !this.state.result ? { t: 'buff' as const, by: a.by, id: 'MODE-19' } : a)) };

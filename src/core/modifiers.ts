@@ -267,7 +267,81 @@ const F: Record<string, Factory> = {
     },
   }),
 
+  /** Safe king: the first check against you is sent back where it came from. */
+  'BUFF-09': (P) => ({
+    id: `BUFF-09@${P}`,
+    afterMove: (s, prev) => {
+      const l = s.last;
+      if (!l || l.by === P || s.ply === prev.ply || (s.modeData?.safeKingUsed as PlayerId[] | undefined)?.includes(P)) return s;
+      if (!inCheck(s, P)) return s;
+      const p = s.pieces[l.piece];
+      // Castling and exploded pieces: nothing simple to send back.
+      if (!p || p.at !== l.to || p.type === 'king' || s.sq[l.from] >= 0) return s;
+      const pieces = s.pieces.slice();
+      const sq = s.sq.slice();
+      sq[l.to] = -1;
+      sq[l.from] = p.id;
+      // A pawn that promoted with check goes back as a pawn.
+      pieces[p.id] = { ...p, at: l.from, type: prev.pieces[p.id]?.type ?? p.type, moved: prev.pieces[p.id]?.moved ?? p.moved };
+      const used = (s.modeData?.safeKingUsed as PlayerId[] | undefined) ?? [];
+      return mark({ ...s, pieces, sq, enPassant: null }, 'safeKingUsed', [...used, P]);
+    },
+  }),
+
+  /** Rally: switch it on; after your next capture (that is not check) you move a second, different piece. */
+  'BUFF-13': (P) => ({
+    id: `BUFF-13@${P}`,
+    applyBuff: (s) => mark(s, 'rallyArmed', [...((s.modeData?.rallyArmed as PlayerId[] | undefined) ?? []), P]),
+    afterMove: (s, prev) => {
+      const l = s.last;
+      if (!l || l.by !== P || s.ply === prev.ply) return s;
+      // The second move of a rally ends it.
+      if (prev.modeData?.rallyLock !== undefined && prev.turn === P) return mark(s, 'rallyLock', undefined);
+      const armed = (s.modeData?.rallyArmed as PlayerId[] | undefined) ?? [];
+      if (!armed.includes(P) || !l.captured) return s;
+      const opp = s.turn;
+      if (opp === P || inCheck(s, opp)) return s;
+      // Only if another piece can move.
+      const again = { ...s, turn: P, enPassant: null };
+      if (!mine(again, P).some((x) => x.id !== l.piece && pseudoMovesFor(again, x).length)) return s;
+      return mark(mark(again, 'rallyArmed', armed.filter((x) => x !== P)), 'rallyLock', l.piece);
+    },
+    filterMoves: (s, moves) => {
+      const lock = s.modeData?.rallyLock as number | undefined;
+      if (s.turn !== P || lock === undefined) return moves;
+      const kept = moves.filter((m) => m.piece !== lock && !(s.sq[m.to] >= 0 && s.pieces[s.sq[m.to]].type === 'king'));
+      return kept.length ? kept : moves;
+    },
+  }),
+
+  /** Time bank: the room adds 30 seconds to your clock (see net/room.ts). A free action. */
+  'BUFF-22': (P) => ({ id: `BUFF-22@${P}`, applyBuff: (s) => s }),
+  /** Peek: the other player's secret mission is shown to you (net/room.ts and the party panel read usedBuffs). A free action. */
+  'BUFF-23': (P) => ({ id: `BUFF-23@${P}`, applyBuff: (s) => s }),
+
   // ---- Handicaps ----
+  /** Sleepy start: your opponent makes two moves before your first; the second may not capture or give check. */
+  'HCAP-15': (P) => ({
+    id: `HCAP-15@${P}`,
+    afterMove: (s, prev) => {
+      const z = s.modeData?.sleepy as { by: PlayerId; left: number } | undefined;
+      const l = s.last;
+      if (!z || !l || z.left <= 0 || l.by !== z.by || s.ply === prev.ply || prev.turn !== z.by) return s;
+      const left = z.left - 1;
+      const n = mark(s, 'sleepy', { by: z.by, left });
+      return left === 1 ? { ...n, turn: z.by, enPassant: null } : n;
+    },
+    filterMoves: (s, moves) => {
+      const z = s.modeData?.sleepy as { by: PlayerId; left: number } | undefined;
+      if (!z || z.left !== 1 || s.turn !== z.by) return moves;
+      const kept = moves.filter((m) => {
+        if (s.sq[m.to] >= 0 || (s.enPassant?.square === m.to && isPawn(s.pieces[m.piece]))) return false;
+        return !inCheck(makeMove(s, m), P);
+      });
+      return kept.length ? kept : moves;
+    },
+  }),
+
   'HCAP-02': (P) => ({
     id: `HCAP-02@${P}`,
     filterMoves: (s, moves) => {
@@ -344,10 +418,10 @@ const SETUP_TYPES: Record<string, [string, string]> = {
 };
 
 /** Modifiers handled entirely by the UI (they change what one person sees or can tap). */
-export const UI_ONLY = new Set(['BUFF-03', 'BUFF-12', 'BUFF-19', 'BUFF-24', 'HCAP-04', 'HCAP-07', 'HCAP-16']);
+export const UI_ONLY = new Set(['BUFF-03', 'BUFF-04', 'BUFF-12', 'BUFF-19', 'BUFF-24', 'HCAP-01', 'HCAP-04', 'HCAP-07', 'HCAP-10', 'HCAP-16', 'HCAP-21', 'HCAP-23', 'HCAP-24']);
 
 /** Every modifier this build can play. */
-export const IMPLEMENTED = new Set([...Object.keys(F).filter((k) => k !== 'COUNT'), ...Object.keys(SETUP_TYPES), 'BUFF-08', 'HCAP-14', ...UI_ONLY]);
+export const IMPLEMENTED = new Set([...Object.keys(F).filter((k) => k !== 'COUNT'), ...Object.keys(SETUP_TYPES), 'BUFF-08', 'HCAP-08', 'HCAP-14', ...UI_ONLY]);
 
 /** One-shot buffs (a button the player presses once). */
 export const ONE_SHOT = new Set(Object.entries(F).filter(([, f]) => !!f('p1').applyBuff).map(([k]) => k));
@@ -377,6 +451,15 @@ export function applySetup(s: GameState, mods: Partial<Record<PlayerId, string[]
           n.sq[victim.at] = -1;
           victim.at = -1;
         }
+      }
+      if (id === 'HCAP-08') {
+        // Blind spot: one file, picked at the start, hidden from this player (the party panel draws it).
+        n = mark(n, 'blindFile', { ...((n.modeData?.blindFile as Record<string, number>) ?? {}), [P]: pick(n.board.width) });
+      }
+      if (id === 'HCAP-15' && n.seats.length === 2) {
+        const opp = n.seats.find((x) => x.id !== P)!.id;
+        // The opponent moves first, twice.
+        n = { ...mark(n, 'sleepy', { by: opp, left: 2 }), turn: opp };
       }
       if (id === 'HCAP-02') {
         const cands = n.pieces.filter((p) => p.owner === P && p.at >= 0 && p.type !== 'king' && !isPawn(p));

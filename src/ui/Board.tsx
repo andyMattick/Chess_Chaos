@@ -31,6 +31,10 @@ export interface BoardOverlays {
   walls?: boolean;
   /** Colour per destination square for the selected piece (hot and cold). */
   targetColors?: Map<number, string>;
+  /** Squares this player cannot see (Fog, Blind spot): no piece drawn, a cloud instead. */
+  fog?: Set<number>;
+  /** Pieces drawn as a plain mystery shape (Costume party). */
+  disguise?: Set<number>;
 }
 
 export interface BoardProps {
@@ -171,8 +175,19 @@ export function Board({ state, bottom, selected, targets, lastMove, showCoordina
       <g>{marks}</g>
       <g pointerEvents="none">
         {live.map((p) => {
+          if (overlays?.fog?.has(p.at)) return null;
           const { x, y } = pos(p.at);
           const sel = selected === p.at;
+          if (overlays?.disguise?.has(p.at)) {
+            return (
+              <g key={p.id} className="piece" style={{ transform: `translate(${x}px, ${y}px)` }} data-piece="mystery" data-owner={p.owner}>
+                <g className="bob">
+                  <ellipse cx={50} cy={60} rx={30} ry={32} className={`mystery-piece ${p.owner}`} />
+                  <text x={50} y={74} textAnchor="middle" fontSize={40} className="mystery-mark">?</text>
+                </g>
+              </g>
+            );
+          }
           const wob = overlays?.wobble?.has(p.at) || (checked.has(p.at) && !!fx);
           return (
             <g key={p.id} className={`piece ${sel ? 'lifted' : ''} ${wob ? 'wobbly' : ''}`} style={{ transform: `translate(${x}px, ${y}px)` }} data-piece={p.type} data-owner={p.owner}>
@@ -201,6 +216,14 @@ export function Board({ state, bottom, selected, targets, lastMove, showCoordina
           );
         })}
       </g>
+      {overlays?.fog && overlays.fog.size > 0 && (
+        <g pointerEvents="none">
+          {[...overlays.fog].map((sq) => {
+            const { x, y } = pos(sq);
+            return <rect key={`f${sq}`} x={x + 1} y={y + 1} width={98} height={98} rx={10} className="fog-sq" />;
+          })}
+        </g>
+      )}
       {overlays && <OverlayLayer overlays={overlays} pos={pos} />}
       {fx && <FxLayer key={fx.ply} ev={fx} pos={pos} width={W} height={H} />}
     </svg>

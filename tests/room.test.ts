@@ -473,3 +473,26 @@ describe('friends', () => {
     expect(a.last('room')!.friendOffers).toEqual([]);
   });
 });
+
+describe('the last party buffs online', () => {
+  /** Put these modifiers and missions on a fresh room's game (as if the vote said yes). */
+  function rig(server: RoomServer, code: string, modifiers: Record<string, string[]>) {
+    const room = (server as unknown as { rooms: Map<string, Record<string, unknown>> }).rooms.get(code)!;
+    const rec = room.record as { setup: Record<string, unknown> };
+    room.record = { ...rec, setup: { ...rec.setup, party: { modifiers, missions: { p1: 'MISSION-05', p2: 'MISSION-06' }, gate: { p1: 10, p2: 10 }, defence: { p1: 1, p2: 1 } } } };
+    room.state = replay(room.record as never)[0];
+    room.states = [room.state];
+  }
+  it('Time bank adds 30 seconds; Peek shows you their secret mission', () => {
+    const { server, a, b, code, advance } = setup({ minutes: 1, increment: 0 });
+    rig(server, code, { p2: ['BUFF-22', 'BUFF-23'] });
+    move(server, a, 'e4');
+    advance(5_000);
+    server.handle(b.conn, { t: 'action', action: { t: 'buff', by: 'p2', id: 'BUFF-22' } });
+    expect(b.last('room')!.clock!.left.p2).toBe(85_000); // 60 - 5 + 30
+    expect(b.last('room')!.record.setup.party!.missions.p1).toBe('?');
+    server.handle(b.conn, { t: 'action', action: { t: 'buff', by: 'p2', id: 'BUFF-23' } });
+    expect(b.last('room')!.record.setup.party!.missions.p1).toBe('MISSION-05');
+    expect(a.last('room')!.record.setup.party!.missions.p2).toBe('?'); // Ava did not peek
+  });
+});

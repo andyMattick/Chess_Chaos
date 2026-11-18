@@ -19,7 +19,7 @@ export interface GameRecord {
     /** Party match extras: public modifiers and each player's secret mission ('?' when hidden from you). */
     /** Mode setup choices: who has the boss, drafted armies, survival position. */
     extra?: ModeExtra;
-    party?: { modifiers: Partial<Record<PlayerId, string[]>>; missions: Partial<Record<PlayerId, string>>; gate: Partial<Record<PlayerId, number>>; cards?: Partial<Record<PlayerId, string[]>>; /** Turns the other player gets to undo this player's shown mission. */ defence?: Partial<Record<PlayerId, number>> };
+    party?: { modifiers: Partial<Record<PlayerId, string[]>>; missions: Partial<Record<PlayerId, string>>; gate: Partial<Record<PlayerId, number>>; cards?: Partial<Record<PlayerId, string[]>>; /** Turns the other player gets to undo this player's shown mission. */ defence?: Partial<Record<PlayerId, number>>; /** Open bonus objectives, checked at the end (docs/02 s5). */ bonus?: Partial<Record<PlayerId, string>> };
   };
   seed: number;
   actions: Action[];

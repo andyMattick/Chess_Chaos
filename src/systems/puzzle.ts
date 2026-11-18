@@ -13,12 +13,14 @@ import type { GameState, MoveAction, PlayerId } from '../core/types';
 export interface Puzzle {
   id: string;
   title: string;
-  source: 'daily' | 'random' | 'built-in';
+  source: 'daily' | 'random' | 'built-in' | 'slip';
   start: GameState;
   /** Full line: solver move, reply, solver move, ... */
   line: MoveAction[];
   solver: PlayerId;
   url?: string;
+  /** Other first moves that also count as right (blunder replay: anything about as good as the best). */
+  ok?: MoveAction[];
 }
 
 /** Build a puzzle from a FEN and the moves in a PGN. Null if the line cannot be read. */
@@ -50,6 +52,7 @@ export function isMate(s: GameState): boolean {
 export function checkMove(p: Puzzle, state: GameState, ply: number, m: MoveAction): 'right' | 'wrong' {
   const want = p.line[ply];
   if (want && sameMove(want, m)) return 'right';
+  if (ply === 0 && p.ok?.some((x) => sameMove(x, m))) return 'right';
   return isMate(play(state, m)) ? 'right' : 'wrong';
 }
 

@@ -33,7 +33,8 @@ import { EASY_GOALS, type EasyGoalId } from '../tactics/missions';
 import { usePartyLayer } from './partyLayer';
 import { defenceMoves, refereeMission, type PartySetup } from '../systems/party';
 import { strengthFor } from '../ai/strength';
-import { missionById, modifierById } from '../content/party';
+import { bonusById, missionById, modifierById } from '../content/party';
+import { bonusDone } from '../systems/missions';
 import type { MailGame } from '../net/world';
 import { addFriend, getGame, resignMail, sendMailMove } from '../storage/world';
 import { moveEvents, shakeFor, type MoveEvents } from './effects';
@@ -44,7 +45,7 @@ import { AnalysisPanel, noteOverlay } from './Analysis';
 import { ArmyShop } from './ModesScreen';
 import type { Analysis, MoveNote } from '../systems/analysis';
 import { CardTile, useHand } from './Cards';
-import { cardById } from '../content/cards';
+import { CARDS, cardById } from '../content/cards';
 import { cardsEarned, settleStakes, takePrize, updateCollection } from '../systems/cards';
 
 export interface GameConfig {
@@ -148,6 +149,8 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   const [coinAward, setCoinAward] = useState<CoinAward | null>(null);
   const [newCards, setNewCards] = useState<string[]>([]);
   const [prize, setPrize] = useState<{ options: string[]; taken: string | null } | null>(null);
+  // Bonus objective (docs/02 s5): done at the end, pick one of three Common cards.
+  const [bonusPick, setBonusPick] = useState<{ id: string; done: boolean; options: string[]; taken: string | null } | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | 'loading' | null>(null);
   const [note, setNote] = useState<MoveNote | null>(null);
   const hand = useHand();
@@ -404,6 +407,12 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     const won = live.result.winners.includes(me);
     const drawn = live.result.winners.length === 0;
     if (bot && botSeat) setSpeech({ seat: botSeat, text: pick(won ? bot.lines.lose : !drawn ? bot.lines.win : bot.lines.greet) });
+    const bonusId = rec.setup.party?.bonus?.[me];
+    if (bonusId && !reviewRecord) {
+      const done = bonusDone(bonusId, states, rec.actions, me);
+      const commons = CARDS.filter((c) => c.rarity === 'Common' && !c.notYet).map((c) => c.id).sort(() => Math.random() - 0.5).slice(0, 3);
+      setBonusPick({ id: bonusId, done, options: done ? commons : [], taken: null });
+    }
     if (!activeProfile(save)) return;
     const oppRating = bot?.rating ?? (isOnline ? net.seats[other(me)]?.rating : isMail ? config.mail!.game.ratings[other(me) as 'p1' | 'p2'] : undefined);
     update((d) => {
@@ -686,7 +695,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
                     <div className="moment fix">
                       <b>🔧 One thing to fix: {review.fix.san}</b>
                       <div>{review.fix.text}</div>
-                      <button className="btn small" onClick={() => { setRetry({ tries: 0, solved: false, reveal: false }); setView(review.fix!.ply); }}>Try it again</button>
+                      {!party.noTakeBacks && <button className="btn small" onClick={() => { setRetry({ tries: 0, solved: false, reveal: false }); setView(review.fix!.ply); }}>Try it again</button>}
                     </div>
                   )}
                 </div>
@@ -709,6 +718,16 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
                   {prize.taken ? <b>🏆 You took {cardById(prize.taken)?.emoji} {cardById(prize.taken)?.name}! (a full set of 3)</b> : <b>🏆 You won! Take one of {names[other(me)]}'s cards:</b>}
                   {!prize.taken && prize.options.map((id) => (
                     <CardTile key={id} c={cardById(id)!} small onClick={() => { updateProfile((x) => ({ ...x, collection: takePrize(x.collection ?? {}, id) })); setPrize({ ...prize, taken: id }); }} />
+                  ))}
+                </div>
+              )}
+              {bonusPick && (
+                <div className="new-cards prize" aria-label="Bonus objective">
+                  {!bonusPick.done ? <b>{bonusById(bonusPick.id)?.emoji} Bonus "{bonusById(bonusPick.id)?.name}": not this time. Next game!</b>
+                    : bonusPick.taken ? <b>🎁 Bonus done! You took {cardById(bonusPick.taken)?.emoji} {cardById(bonusPick.taken)?.name} (a full set of 3).</b>
+                    : <b>🎁 Bonus "{bonusById(bonusPick.id)?.name}" done! Pick a card:</b>}
+                  {bonusPick.done && !bonusPick.taken && bonusPick.options.map((id) => (
+                    <CardTile key={id} c={cardById(id)!} small onClick={() => { updateProfile((x) => ({ ...x, collection: takePrize(x.collection ?? {}, id) })); setBonusPick({ ...bonusPick, taken: id }); }} />
                   ))}
                 </div>
               )}
@@ -863,7 +882,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           </div>
         ) : (
           <div className="row wrap">
-            {!isOnline && !isMail && <button className="btn small" onClick={undo} disabled={!rec.actions.length || !!live.result || thinking}>↩ Take back</button>}
+            {!isOnline && !isMail && !party.noTakeBacks && <button className="btn small" onClick={undo} disabled={!rec.actions.length || !!live.result || thinking}>↩ Take back</button>}
             <button className="btn small" onClick={() => setFlipped((f) => !f)}>⇅ Flip</button>
             <button className="btn small danger" onClick={resign} disabled={!!live.result}>🏳 Give up</button>
           </div>

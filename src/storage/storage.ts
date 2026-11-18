@@ -2,6 +2,8 @@ import type { GameRecord } from '../core/record';
 import { START_RATING } from '../systems/rating';
 import type { PuzzleProgress } from '../systems/puzzle';
 import type { MyLine, Nemesis } from '../systems/nemesis';
+import type { Slip } from '../systems/slips';
+import type { OpeningCard } from '../systems/openings';
 import { DEFAULT_SKINS, FREE_LANDSCAPES, FREE_SKINS, type LandscapeId, type SkinChoice, type SkinId } from '../content/cosmetics';
 
 /**
@@ -42,6 +44,10 @@ export interface Profile {
   myLines?: MyLine[];
   /** The Mirror bot: plays your openings and learns from games against you. */
   mirror?: Nemesis;
+  /** Blunder replay (systems/slips.ts): puzzles waiting, solved ids, games already looked at. */
+  slips?: { pending: Slip[]; solved: string[]; scanned: string[] };
+  /** Opening trainer (systems/openings.ts): one card per bot line. */
+  openings?: Record<string, OpeningCard>;
   /** Cloud save: player number and the save key that locks it (src/storage/cloud.ts). */
   cloud?: { number: string; key: string };
   /** On the world leaderboard (on unless switched off). */

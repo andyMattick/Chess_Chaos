@@ -710,3 +710,16 @@ body[data-calm] .die { animation: none; }
 .bracket-pair { padding: 4px 6px; background: var(--card); border: 2px solid var(--ink); border-radius: 8px; font-size: 0.85rem; }
 .bracket-pair .won { font-weight: 800; color: #2f8f4e; }
 .tour-champ { font-size: 1.1rem; margin: 0; }
+.fog-sq { fill: #c9ccd6; opacity: 0.93; }
+.mystery-piece { stroke: var(--ink); stroke-width: 4; }
+.mystery-piece.p1 { fill: #fdf6e3; }
+.mystery-piece.p2 { fill: #4a4a5a; }
+.mystery-piece.p3 { fill: #e66b6b; }
+.mystery-piece.p4 { fill: #6b9be6; }
+.mystery-mark { font-weight: 900; fill: #ff4f9a; }
+.party-hints { align-items: center; gap: 8px; margin-top: 6px; }
+.bonus-goals { display: grid; gap: 4px; margin-top: 6px; }
+.trainer-results { text-align: left; margin: 6px 0; padding-left: 18px; }
+.slips-box { display: grid; gap: 6px; }
+.slips-box input { max-width: 180px; }
+.trainer-tile { padding: 10px 12px !important; }

@@ -56,7 +56,7 @@ Built so far: Classic, King of the hill, Hill wars (2 and 4 players), 3-way, 4-w
 | MODE-27 | Four-way | Built | Battle modes, Play online |
 | MODE-28 | Four-way teams | Built | Battle modes, Play online |
 | MODE-29 | Hill wars | Built | Battle modes (1v1 and 4-way), Play online |
-| MODE-30 | Paint the board | Planned | Party match (not built yet) |
+| MODE-30 | Paint the board | Built | Party match |
 | MODE-31 | Contract | Planned | Party match (not built yet) |
 
 ## Buffs (positive modifiers) (24)
@@ -66,16 +66,16 @@ Built so far: Classic, King of the hill, Hill wars (2 and 4 players), 3-way, 4-w
 | BUFF-01 | Double step | Built | Party match (vs bot and online) |
 | BUFF-02 | Shield | Built | Party match (vs bot and online) |
 | BUFF-03 | Take-back | Built | Party match (vs bot and online) |
-| BUFF-04 | Scout | Planned | Party match |
+| BUFF-04 | Scout | Built | Party match |
 | BUFF-05 | Pawn sprint | Built | Party match (vs bot and online) |
 | BUFF-06 | Second wind | Built | Party match (vs bot and online) |
 | BUFF-07 | Long jump | Built | Party match (vs bot and online) |
 | BUFF-08 | Early crown | Built | Party match (vs bot and online) |
-| BUFF-09 | Safe king | Planned | Party match |
+| BUFF-09 | Safe king | Built | Party match |
 | BUFF-10 | Backpedal | Built | Party match (vs bot and online) |
 | BUFF-11 | Swap | Built | Party match (vs bot and online) |
 | BUFF-12 | Bonus hint | Built | Party match (vs bot and online) |
-| BUFF-13 | Rally | Planned | Party match |
+| BUFF-13 | Rally | Built | Party match |
 | BUFF-14 | Reinforcements | Built | Party match (vs bot and online) |
 | BUFF-15 | Freeze ray | Built | Party match (vs bot and online) |
 | BUFF-16 | Royal dash | Built | Party match (vs bot and online) |
@@ -84,38 +84,38 @@ Built so far: Classic, King of the hill, Hill wars (2 and 4 players), 3-way, 4-w
 | BUFF-19 | X-ray | Built | Party match (vs bot and online) |
 | BUFF-20 | Recall | Built | Party match (vs bot and online) |
 | BUFF-21 | Home guard | Built | Party match (vs bot and online) |
-| BUFF-22 | Time bank | Planned | Party match |
-| BUFF-23 | Peek | Planned | Party match |
+| BUFF-22 | Time bank | Built | Party match |
+| BUFF-23 | Peek | Built | Party match |
 | BUFF-24 | Safety net | Built | Party match (vs bot and online) |
 
 ## Handicaps (negative modifiers) (24)
 
 | ID | Name | Status | Where |
 |---|---|---|---|
-| HCAP-01 | Fog | Planned | Party match |
+| HCAP-01 | Fog | Built | Party match |
 | HCAP-02 | Frozen piece | Built | Party match (vs bot and online) |
 | HCAP-03 | Tired queen | Built | Party match (vs bot and online) |
 | HCAP-04 | Butterfingers | Built | Party match (vs bot and online) |
 | HCAP-05 | Slow pawns | Built | Party match (vs bot and online) |
 | HCAP-06 | No castling | Built | Party match (vs bot and online) |
 | HCAP-07 | Short clock | Built | Party match (vs bot and online) |
-| HCAP-08 | Blind spot | Planned | Party match |
+| HCAP-08 | Blind spot | Built | Party match |
 | HCAP-09 | Heavy rooks | Built | Party match (vs bot and online) |
-| HCAP-10 | Tax | Planned | Party match |
+| HCAP-10 | Tax | Built | Party match |
 | HCAP-11 | Mirror | Built | Party match (vs bot and online) |
 | HCAP-12 | Homesick king | Built | Party match (vs bot and online) |
 | HCAP-13 | Forced capture | Built | Party match (vs bot and online) |
 | HCAP-14 | Missing pawn | Built | Party match (vs bot and online) |
-| HCAP-15 | Sleepy start | Planned | Party match |
+| HCAP-15 | Sleepy start | Built | Party match |
 | HCAP-16 | Silent board | Built | Party match (vs bot and online) |
 | HCAP-17 | Rusty crown | Built | Party match (vs bot and online) |
 | HCAP-18 | Slippery board | Built | Party match (vs bot and online) |
 | HCAP-19 | One-way rooks | Built | Party match (vs bot and online) |
 | HCAP-20 | Peaceful bishops | Built | Party match (vs bot and online) |
-| HCAP-21 | Costume party | Planned | Party match |
+| HCAP-21 | Costume party | Built | Party match |
 | HCAP-22 | Restless king | Built | Party match (vs bot and online) |
-| HCAP-23 | Toll road | Planned | Party match |
-| HCAP-24 | No take-backs | Planned | Party match |
+| HCAP-23 | Toll road | Built | Party match |
+| HCAP-24 | No take-backs | Built | Party match |
 
 ## Secret missions (24)
 
@@ -123,13 +123,13 @@ Built so far: Classic, King of the hill, Hill wars (2 and 4 players), 3-way, 4-w
 |---|---|---|---|
 | MISSION-01 | Castle before move 8 | Partly | Built as a Train mode goal; not yet a secret mission |
 | MISSION-02 | Capture with a knight | Partly | Built as a Train mode goal; not yet a secret mission |
-| MISSION-03 | Win without losing your queen | Planned | Party match |
+| MISSION-03 | Win without losing your queen | Built | Party match |
 | MISSION-04 | Promote a pawn | Built | Party match secret mission |
 | MISSION-05 | Deliver a fork | Built | Party match secret mission |
 | MISSION-06 | Pin a piece to the king | Built | Party match secret mission |
 | MISSION-07 | Rook on the seventh | Built | Party match secret mission |
 | MISSION-08 | Nothing left hanging | Partly | Built as a Train mode goal; not yet a secret mission |
-| MISSION-09 | Mate with a minor piece | Planned | Party match |
+| MISSION-09 | Mate with a minor piece | Built | Party match |
 | MISSION-10 | Own the centre | Built | Party match secret mission |
 | MISSION-11 | Trade queens while ahead | Built | Party match secret mission |
 | MISSION-12 | Check three times | Built | Party match secret mission |
@@ -140,11 +140,11 @@ Built so far: Classic, King of the hill, Hill wars (2 and 4 players), 3-way, 4-w
 | MISSION-17 | Passed pawn | Built | Party match secret mission |
 | MISSION-18 | Double their pawns | Built | Party match secret mission |
 | MISSION-19 | Keep the bishop pair | Built | Party match secret mission |
-| MISSION-20 | Back-rank mate | Planned | Party match |
+| MISSION-20 | Back-rank mate | Built | Party match |
 | MISSION-21 | Knight outpost | Built | Party match secret mission |
 | MISSION-22 | Connect the rooks | Partly | Built as a Train mode goal; not yet a secret mission |
 | MISSION-23 | Stack the rooks | Built | Party match secret mission |
-| MISSION-24 | Sacrifice and win | Planned | Party match |
+| MISSION-24 | Sacrifice and win | Built | Party match |
 
 ## Power-up cards (24)
 
@@ -231,8 +231,8 @@ Built so far: Classic, King of the hill, Hill wars (2 and 4 players), 3-way, 4-w
 | All 2-player modes as online room games | Built | Play online |
 | Built-in warm-up puzzles (work offline) | Built | Puzzles |
 | Nemesis bot (plays like any Chess.com player) | Built (openings and strength) | Chess.com corner, Bot path |
-| Blunder replay puzzles from your games | Planned | Chess.com corner |
-| Opening trainer | Planned | Later phase |
+| Blunder replay puzzles from your games | Built | Puzzles → 🔁 My slips (your games here, or a Chess.com username) |
+| Opening trainer | Built | Home → 📖 Openings, and "Learn this opening" on every bot |
 | Arcade duel mode | Planned | Later phase |
 | Teacher dashboard, accounts | Not planned yet | Needs a privacy review |
 | Pass-and-play | Removed (owner) | — |

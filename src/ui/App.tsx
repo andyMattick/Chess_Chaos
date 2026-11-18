@@ -19,6 +19,7 @@ import { BattleScreen, type LocalBattle } from './BattleScreen';
 import { useSave } from './store';
 import { Challenges } from './Challenges';
 import { MinisScreen } from './Minis';
+import { OpeningTrainer } from './OpeningTrainer';
 import { setShakeEnabled, setSoundEnabled } from './sound';
 
 type Screen =
@@ -37,6 +38,7 @@ type Screen =
   | { name: 'modes' }
   | { name: 'challenges' }
   | { name: 'minis' }
+  | { name: 'openings'; botId?: string }
   | { name: 'battle' }
   | { name: 'battle-game'; local: LocalBattle; key: number }
   | { name: 'game'; config: GameConfig; key: number; review?: GameRecord };
@@ -95,7 +97,8 @@ export function App() {
       {screen.name === 'battle-game' && (
         <BattleScreen key={screen.key} local={screen.local} onExit={home} onAgain={() => setScreen({ name: 'battle-game', local: screen.local, key: Date.now() })} />
       )}
-      {screen.name === 'bots' && <BotRoster start={startGame} back={home} />}
+      {screen.name === 'bots' && <BotRoster start={startGame} back={home} learn={(botId) => setScreen({ name: 'openings', botId })} />}
+      {screen.name === 'openings' && <OpeningTrainer key={screen.botId ?? 'all'} back={home} botId={screen.botId} />}
       {screen.name === 'history' && (
         <History
           back={home}

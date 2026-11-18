@@ -38,9 +38,9 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
     const players = humanSeat === 'p1'
       ? { p1: { rating: p.rating, bot: false }, p2: { rating: bot.rating, bot: true } }
       : { p1: { rating: bot.rating, bot: true }, p2: { rating: p.rating, bot: false } };
-    return setupParty({ mode: modeId, players, online: false }, Math.random);
-  }, [botId, modeId, humanSeat]); // eslint-disable-line react-hooks/exhaustive-deps
-  const setup = { ...full, modifiers: extrasOn ? full.modifiers : {}, missions: missionsOn ? full.missions : {} };
+    return setupParty({ mode: modeId, players, online: false, noMissions: !missionsOn }, Math.random);
+  }, [botId, modeId, humanSeat, missionsOn]); // eslint-disable-line react-hooks/exhaustive-deps
+  const setup = { ...full, modifiers: extrasOn ? full.modifiers : {}, missions: missionsOn ? full.missions : {}, bonus: missionsOn ? full.bonus : undefined };
   const mode = MODE_INFO.find((m) => m.id === modeId)!;
   const botSeat = humanSeat === 'p1' ? 'p2' : 'p1';
   const mine = setup.modifiers[humanSeat] ?? [];

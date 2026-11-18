@@ -3,6 +3,7 @@ import { rankMoves } from './search';
 import { botById, type BookLine } from '../content/bots';
 import { reviewGame, type ReviewResult } from '../systems/review';
 import { analyzeGame, type Analysis } from '../systems/analysis';
+import { findSlips, type Slip } from '../systems/slips';
 import type { GameRecord } from '../core/record';
 import type { GameState, MoveAction, PlayerId } from '../core/types';
 
@@ -14,7 +15,8 @@ export type AIRequest =
   | { id: number; kind: 'move'; state: GameState; rating: number; botId?: string; book?: CustomBook; only?: MoveAction[] }
   | { id: number; kind: 'rank'; state: GameState; depth: number }
   | { id: number; kind: 'review'; record: GameRecord; player: PlayerId }
-  | { id: number; kind: 'analyze'; record: GameRecord };
+  | { id: number; kind: 'analyze'; record: GameRecord }
+  | { id: number; kind: 'slips'; record: GameRecord; player: PlayerId; from: Slip['from']; max: number };
 
 export interface RankedMoveOut { move: MoveAction; score: number }
 
@@ -22,7 +24,8 @@ export type AIResponse =
   | { id: number; kind: 'move'; move: MoveAction | null; source?: string; error?: string }
   | { id: number; kind: 'rank'; ranked: RankedMoveOut[]; error?: string }
   | { id: number; kind: 'review'; review: ReviewResult | null; error?: string }
-  | { id: number; kind: 'analyze'; analysis: Analysis | null; error?: string };
+  | { id: number; kind: 'analyze'; analysis: Analysis | null; error?: string }
+  | { id: number; kind: 'slips'; slips: Slip[]; error?: string };
 
 /** An opening book sent with the request (nemesis bots live in the player's save, not in content). */
 export interface CustomBook { id: string; asWhite: BookLine[]; asBlack: BookLine[] }
@@ -51,12 +54,15 @@ export function handle(req: AIRequest): AIResponse {
         return { id: req.id, kind: 'review', review: reviewGame(req.record, req.player) };
       case 'analyze':
         return { id: req.id, kind: 'analyze', analysis: analyzeGame(req.record) };
+      case 'slips':
+        return { id: req.id, kind: 'slips', slips: findSlips(req.record, req.player, req.from, req.max) };
     }
   } catch (e) {
     const error = String(e);
     if (req.kind === 'move') return { id: req.id, kind: 'move', move: null, error };
     if (req.kind === 'rank') return { id: req.id, kind: 'rank', ranked: [], error };
     if (req.kind === 'analyze') return { id: req.id, kind: 'analyze', analysis: null, error };
+    if (req.kind === 'slips') return { id: req.id, kind: 'slips', slips: [], error };
     return { id: req.id, kind: 'review', review: null, error };
   }
 }

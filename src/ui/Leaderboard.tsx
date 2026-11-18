@@ -16,14 +16,23 @@ export function Leaderboard({ back }: { back: () => void }) {
   const save = useSave();
   const p = activeProfile(save);
   const [tab, setTab] = useState<'mine' | 'world'>('mine');
+  const { board } = useWorldBoard();
   if (!p) return null;
   if (tab === 'world') return <WorldBoard back={back} mine={() => setTab('mine')} />;
+  // An online opponent you also added as a friend (same name): their live world stats.
+  const friendFor = (name: string) => (p.friends ?? []).find((n) => labelFor(p, n).trim().toLowerCase() === name.trim().toLowerCase());
+  const liveRow = (name: string) => { const n = friendFor(name); return n ? { n, row: board?.friends.find((x) => x.n === n) } : null; };
   const rows = [
     { key: 'me', name: p.nickname, kind: 'you' as const, rating: p.rating, w: 0, l: 0, d: 0, last: Date.now() },
     ...Object.entries(withHistory(p.opponents ?? {}, p.botRecords ?? {}, save.games[p.id] ?? [], p.nickname)).map(([key, o]) => ({ key, ...o })),
     // Other players on this device count too.
     ...save.profiles.filter((x) => x.id !== p.id).map((x) => ({ key: `local:${x.id}`, name: x.nickname, kind: 'device' as const, rating: x.rating, w: 0, l: 0, d: 0, last: 0 })),
-  ].sort((a, b) => b.rating - a.rating);
+  ].map((r) => {
+    // A friend's rating from the world board is newer than the one saved after your last game.
+    const live = r.kind === 'online' ? liveRow(r.name) : null;
+    return live?.row ? { ...r, rating: live.row.r } : r;
+  }).sort((a, b) => b.rating - a.rating);
+  const unknown = rows.some((r) => r.kind === 'online' && !liveRow(r.name));
   const medal = ['🥇', '🥈', '🥉'];
   return (
     <div className="panel taped">
@@ -42,12 +51,14 @@ export function Leaderboard({ back }: { back: () => void }) {
             <span className="place">{medal[i] ?? i + 1}</span>
             <span className="lb-name">
               <b>{r.name}{r.kind === 'you' ? ' (you)' : ''}</b>
-              <small>{r.kind === 'bot' ? '🤖 bot' : r.kind === 'online' ? '🌐 online' : r.kind === 'device' ? '📱 this device' : ''}{r.kind === 'bot' || r.kind === 'online' ? ` · you: W ${r.w} · L ${r.l} · D ${r.d}` : ''}</small>
+              <small>{r.kind === 'bot' ? '🤖 bot' : r.kind === 'online' ? (friendFor(r.name) ? '👫 friend' : '🌐 online') : r.kind === 'device' ? '📱 this device' : ''}{r.kind === 'bot' || r.kind === 'online' ? ` · you: W ${r.w} · L ${r.l} · D ${r.d}` : ''}</small>
+              {r.kind === 'online' && liveRow(r.name) && <small><StatsLine row={liveRow(r.name)!.row} /></small>}
             </span>
-            <span className="bot-rating">{r.rating ? `★ ${r.rating}` : '★ ?'}</span>
+            <span className="bot-rating" title={r.rating ? undefined : 'Not saved yet: it is saved at the end of your next game with them'}>{r.rating ? `★ ${r.rating}` : '★ ?'}</span>
           </li>
         ))}
       </ol>
+      {unknown && <p className="muted small">🌐 Players met with a room code only share their nickname, so their world rank and live record can't be looked up. ★ ? means no rating saved yet. Add them as a friend after your next game to see everything.</p>}
       <button className="btn" onClick={back}>← Home</button>
     </div>
   );

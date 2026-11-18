@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { requestRanking } from '../ai/client';
-import { missionById, modifierById, type BuffTarget } from '../content/party';
+import { bonusById, missionById, modifierById, PARTY_HINTS, type BuffTarget } from '../content/party';
+import { fileOf, rankOf } from '../core/board';
+import { legalActions } from '../core/rules';
+import { toSAN } from '../core/san';
 import { MODE_INFO } from '../core/modes';
 import { makeMove } from '../core/movegen';
 import { play } from '../core/rules';
@@ -39,6 +42,8 @@ export interface PartyApi {
   beforeCommit(m: MoveAction): boolean;
   overlays?: BoardOverlays;
   hideHints: boolean;
+  /** No take-backs (HCAP-24): no Take back button and no retry. */
+  noTakeBacks: boolean;
   lockSelection: boolean;
   panel: ReactNode;
   banner: string | null;
@@ -74,6 +79,12 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
   const [xrayUntil, setXrayUntil] = useState(-1);
   const [warn, setWarn] = useState<MoveAction | null>(null);
   const [clockLeft, setClockLeft] = useState<number | null>(null);
+  // Party hints (the 💡 button). Tax and Toll road spend them.
+  const [hintsLeft, setHintsLeft] = useState(PARTY_HINTS);
+  const charged = useRef(live.ply);
+  // Scout: armed, then the next move you pick shows their best answer first.
+  const [scoutArmed, setScoutArmed] = useState(false);
+  const [scouted, setScouted] = useState<{ m: MoveAction; reply: string | null; arrow: { from: number; to: number } | null } | null>(null);
   const announced = useRef(false);
   const say = (t: string) => { setToast(t); setTimeout(() => setToast((x) => (x === t ? null : x)), 2600); };
 
@@ -90,6 +101,17 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
   useEffect(() => {
     if (party && party.missions[me] && live_ && !announced.current) { announced.current = true; say(missionIsOpen(party, me) ? '🎯 Missions are LIVE! Do yours and you win at once.' : '🎯 Secret missions are LIVE! Do yours, then keep it safe through their next turn to win.'); }
   }, [live_, party]);
+
+  // Tax (HCAP-10) and Toll road (HCAP-23): your own move can cost a hint.
+  useEffect(() => {
+    if (!party || live.ply <= charged.current) { charged.current = live.ply; return; }
+    charged.current = live.ply;
+    const l = live.last;
+    if (!l || l.by !== me) return;
+    const centre = live.board.width === 8 && live.board.height === 8 && [3, 4].includes(fileOf(live.board, l.to)) && [3, 4].includes(rankOf(live.board, l.to));
+    const why = mine.includes('HCAP-10') && l.captured ? '💸 Tax: that capture cost a hint.' : mine.includes('HCAP-23') && centre ? '🚧 Toll road: the middle cost a hint.' : null;
+    if (why && hintsLeft > 0) { setHintsLeft((h) => Math.max(0, h - 1)); say(why); }
+  }, [live.ply]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Secret missions shown and stopped (owner rule: the other player gets a few turns to undo it).
   const challenges = missionChallenges(live);
@@ -132,7 +154,7 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
   }, [myTurn, live.ply]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!party) {
-    return { active: false, targeting: false, interceptSquare: () => false, beforeCommit: () => true, hideHints: false, lockSelection: false, panel: null, banner: null, modal: null, toast: null };
+    return { active: false, targeting: false, interceptSquare: () => false, beforeCommit: () => true, hideHints: false, noTakeBacks: false, lockSelection: false, panel: null, banner: null, modal: null, toast: null };
   }
 
   function fire(id: string, taps: number[]) {
@@ -165,6 +187,7 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
       return;
     }
     if (id === 'BUFF-19') { setUsedLocal((u) => [...u, id]); setXrayUntil(live.ply + 6); return; }
+    if (id === 'BUFF-04') { setScoutArmed((x) => !x); return; }
     const target = def.oneShot ?? 'none';
     if (target === 'none') { fire(id, []); return; }
     setAiming({ id, target, taps: [] });
@@ -221,6 +244,20 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
   // BUFF-24 safety net: one warning before dropping a piece.
   function beforeCommit(m: MoveAction): boolean {
     setHint(null);
+    // BUFF-04 scout: show their best answer before the move counts.
+    if (scoutArmed && !used('BUFF-04')) {
+      setScoutArmed(false);
+      setUsedLocal((u) => [...u, 'BUFF-04']);
+      let after: GameState;
+      try { after = play(live, m); } catch { return true; }
+      if (after.result || after.turn === me) { setScouted({ m, reply: null, arrow: null }); return false; }
+      setScouted({ m, reply: '…', arrow: null });
+      requestRanking(after, 1).then((r) => {
+        const best = r[0]?.move;
+        setScouted((x) => (x && x.m === m ? { m, reply: best ? toSAN(after, best) : null, arrow: best ? { from: after.pieces[best.piece].at, to: best.to } : null } : x));
+      });
+      return false;
+    }
     if (!has('BUFF-24') || used('BUFF-24')) return true;
     const after = makeMove(live, m);
     const lost = hanging(after, me, 2).find((h) => !hanging(live, me, 2).some((x) => x.piece.id === h.piece.id));
@@ -244,6 +281,24 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
         if (p && p.at >= 0) (o.badges ??= new Map()).set(p.at, '🎯');
       }
     }
+    if (scouted?.arrow) o.arrows = [{ ...scouted.arrow, color: '#ff8a3d', label: '?' }];
+    // Fog (HCAP-01) and Blind spot (HCAP-08): squares you cannot see. Lifted when the game ends.
+    if (!live.result && (has('HCAP-01') || has('HCAP-08'))) {
+      const fog = new Set<number>();
+      if (has('HCAP-01')) {
+        const seen = new Set<number>();
+        for (const p of live.pieces) if (p.at >= 0 && p.owner === me) seen.add(p.at);
+        for (const m of legalActions({ ...live, turn: me })) seen.add(m.to);
+        live.sq.forEach((_, i) => { if (!seen.has(i) && !live.board.blocked[i]) fog.add(i); });
+      }
+      const blind = (live.modeData?.blindFile as Partial<Record<PlayerId, number>> | undefined)?.[me];
+      if (has('HCAP-08') && blind !== undefined) live.sq.forEach((_, i) => { if (fileOf(live.board, i) === blind && !live.board.blocked[i]) fog.add(i); });
+      // Your own pieces always show.
+      for (const p of live.pieces) if (p.at >= 0 && p.owner === me) fog.delete(p.at);
+      o.fog = fog;
+    }
+    // Costume party (HCAP-21): their pieces look the same until each one has moved.
+    if (!live.result && has('HCAP-21')) o.disguise = new Set(live.pieces.filter((p) => p.at >= 0 && p.owner !== me && !p.moved).map((p) => p.at));
     if (xrayUntil > live.ply && myTurn) {
       o.counts = new Map();
       for (const p of live.pieces) {
@@ -266,13 +321,13 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
     return ids.map((id) => {
       const d = modifierById(id);
       if (!d) return null;
-      const oneShot = who === me && d.kind === 'buff' && (d.oneShot || ['BUFF-03', 'BUFF-12', 'BUFF-19'].includes(id));
+      const oneShot = who === me && d.kind === 'buff' && (d.oneShot || ['BUFF-03', 'BUFF-04', 'BUFF-12', 'BUFF-19'].includes(id));
       return (
         <div key={id} className={`mod ${d.kind}`} title={d.blurb}>
           <span className="mod-emoji">{d.emoji}</span>
           <span><b>{d.name}</b><small>{d.blurb}</small></span>
           {oneShot && (
-            <button className="btn small" disabled={!myTurn || used(id) || (!!aiming && aiming.id !== id)} onClick={() => (aiming?.id === id ? setAiming(null) : useBuff(id))}>{used(id) ? 'used' : aiming?.id === id ? 'Cancel' : 'Use!'}</button>
+            <button className="btn small" disabled={!myTurn || used(id) || (!!aiming && aiming.id !== id)} onClick={() => (aiming?.id === id ? setAiming(null) : useBuff(id))}>{used(id) ? 'used' : aiming?.id === id || (id === 'BUFF-04' && scoutArmed) ? 'Cancel' : 'Use!'}</button>
           )}
         </div>
       );
@@ -312,6 +367,23 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
           : missionIsOpen(party, me) && missionText ? <>🎯 <b>{missionText.name}</b><small>Open mission: do it and you win at once!</small></>
           : peek && missionText ? <>🎯 <b>{missionText.name}</b><small>{missionText.blurb}</small></> : <>🤫 Secret mission<small>{live_ ? 'LIVE! Hold to peek' : `Hold to peek · live after move ${party.gate[me] ?? 10}`}</small></>}
       </button>
+      )}
+      {other && !missionIsOpen(party, other) && used('BUFF-23') && party.missions[other] && party.missions[other] !== '?' && !offMap[other] && (
+        <div className="mission-card live warn-card">👀 <b>Peek: {names[other]}'s secret mission is {missionById(party.missions[other]!)?.name}</b><small>{missionById(party.missions[other]!)?.blurb} {missionById(party.missions[other]!)?.stop}</small></div>
+      )}
+      {party.bonus && Object.keys(party.bonus).length > 0 && (
+        <div className="bonus-goals">
+          {(Object.entries(party.bonus) as [PlayerId, string][]).map(([who, id]) => {
+            const b = bonusById(id);
+            return b ? <div key={who} className="mod buff"><span className="mod-emoji">{b.emoji}</span><span><b>{who === me ? 'Your bonus' : `${names[who]}'s bonus`}: {b.name}</b><small>{b.blurb} Done when the game ends: pick a card!</small></span></div> : null;
+          })}
+        </div>
+      )}
+      {(
+        <div className="row wrap party-hints">
+          <button className="btn small" disabled={!myTurn || hintsLeft <= 0 || has('HCAP-16') || hint !== null} onClick={() => { setHintsLeft((h) => h - 1); requestRanking(live, 2).then((r) => { if (r[0]) setHint(live.pieces[r[0].move.piece].at); }); }}>💡 Hint ({hintsLeft} left)</button>
+          {(has('HCAP-10') || has('HCAP-23')) && <small className="muted">{has('HCAP-10') ? '💸 Captures cost a hint. ' : ''}{has('HCAP-23') ? '🚧 Middle squares cost a hint.' : ''}</small>}
+        </div>
       )}
       {other && missionIsOpen(party, other) && party.missions[other] && party.missions[other] !== '?' && !offMap[other] && (
         <div className="mission-card live warn-card">⚠️ <b>{names[other]}'s mission: {missionById(party.missions[other]!)?.name}</b><small>{missionById(party.missions[other]!)?.blurb} If they do it, they win at once!</small></div>
@@ -358,7 +430,15 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
     </div>
   );
 
-  const modal = warn ? (
+  const modal = scouted ? (
+    <div className="promo" role="dialog" aria-label="Scout">
+      <p>🔭 Scout: {scouted.reply === '…' ? <span className="thinking-dots">looking ahead</span> : scouted.reply ? <>if you play that, their best answer is <b>{scouted.reply}</b> (the orange arrow).</> : <>that move ends it, or they have no answer.</>}</p>
+      <div className="row center">
+        <button className="btn primary" onClick={() => setScouted(null)}>Pick another move</button>
+        <button className="btn" disabled={scouted.reply === '…'} onClick={() => { const m = scouted.m; setScouted(null); push(m); }}>Play it</button>
+      </div>
+    </div>
+  ) : warn ? (
     <div className="promo" role="dialog" aria-label="Safety net">
       <p>🥅 Safety net! That move drops a piece. Sure?</p>
       <div className="row center">
@@ -375,9 +455,10 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
     beforeCommit,
     overlays,
     hideHints: has('HCAP-16'),
+    noTakeBacks: has('HCAP-24'),
     lockSelection: has('HCAP-04') && selected !== null,
     panel,
-    banner: cardAim ? `${cardById(cardAim.id)?.emoji} ${cardById(cardAim.id)?.taps[cardAim.taps.length]?.prompt} (tap Cancel to stop)` : aiming ? `${modifierById(aiming.id)?.emoji} ${PROMPTS[aiming.target][aiming.taps.length]} (tap the button again to cancel)` : missionBanner(),
+    banner: scoutArmed ? '🔭 Scout is on: pick a move and see their best answer before it counts.' : cardAim ? `${cardById(cardAim.id)?.emoji} ${cardById(cardAim.id)?.taps[cardAim.taps.length]?.prompt} (tap Cancel to stop)` : aiming ? `${modifierById(aiming.id)?.emoji} ${PROMPTS[aiming.target][aiming.taps.length]} (tap the button again to cancel)` : missionBanner(),
     modal,
     toast,
   };
