@@ -266,3 +266,5 @@ body[data-land='space'] .player-bar:not(.active) .prating, body[data-land='volca
 @keyframes spin-in { from { transform: rotate(-200deg) scale(0); } to { transform: rotate(0) scale(1); } }
 .result-card h2 { font-size: 2.3rem; }
 .rating-change { font-size: 1.15rem; font-weight: 800; }
+.share-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; margin: 4px 0 10px; }
+.share-row a.btn { text-decoration: none; display: inline-block; color: var(--ink); }
