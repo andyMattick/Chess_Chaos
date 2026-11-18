@@ -7,9 +7,12 @@
  */
 import { RoomServer, parseClientMsg, type Conn } from '../src/net/room';
 import { relay, relayPath } from '../src/net/chesscomRelay';
+import { handleBox, handleVault, vaultRoute, type VaultBox } from '../src/net/vault';
 
 interface Env {
   LOBBY: DurableObjectNamespace;
+  /** Cloud saves: one Durable Object per player number, holding only locked bytes. */
+  VAULT: DurableObjectNamespace;
 }
 
 export default {
@@ -20,6 +23,8 @@ export default {
       const stub = env.LOBBY.get(env.LOBBY.idFromName('lobby'));
       return stub.fetch(req);
     }
+    const vault = vaultRoute(url.pathname);
+    if (vault) return handleVault(req, vault, (number, r) => env.VAULT.get(env.VAULT.idFromName(number)).fetch(r));
     const rest = relayPath(url.pathname);
     if (rest) {
       // Cache Chess.com answers at the edge so we stay polite to their API.
@@ -58,7 +63,25 @@ export class Lobby {
   }
 }
 
+/** One player's cloud save. Stores a token hash and the locked save, nothing else. */
+export class Vault {
+  box: VaultBox;
+  constructor(state: DurableObjectState) {
+    const st = state.storage;
+    this.box = {
+      get: (k) => st.get<string>(k),
+      put: (k, v) => st.put(k, v),
+      deleteAll: () => st.deleteAll(),
+    };
+  }
+
+  fetch(req: Request): Promise<Response> {
+    return handleBox(req, this.box);
+  }
+}
+
 // Minimal Cloudflare types so this file type-checks without extra packages.
 declare class WebSocketPair { 0: WebSocket; 1: WebSocket; }
+interface DurableObjectState { storage: { get<T>(k: string): Promise<T | undefined>; put(k: string, v: unknown): Promise<void>; deleteAll(): Promise<void> } }
 interface DurableObjectNamespace { idFromName(name: string): unknown; get(id: unknown): { fetch(req: Request): Promise<Response> } }
 declare global { interface WebSocket { accept(): void } interface ResponseInit { webSocket?: WebSocket } }

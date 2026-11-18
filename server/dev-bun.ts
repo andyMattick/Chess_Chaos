@@ -4,6 +4,9 @@
  */
 import { RoomServer, parseClientMsg, type Conn } from '../src/net/room';
 import { relay, relayPath } from '../src/net/chesscomRelay';
+import { handleBox, handleVault, memoryBoxes, vaultRoute } from '../src/net/vault';
+
+const boxes = memoryBoxes();
 
 const rooms = new RoomServer();
 setInterval(() => rooms.tick(), 500);
@@ -20,6 +23,8 @@ const server = Bun.serve<Data, never>({
       const ok = srv.upgrade(req, { data: { conn: { id, send: () => {} } } });
       return ok ? undefined : new Response('Upgrade failed', { status: 400 });
     }
+    const vault = vaultRoute(url.pathname);
+    if (vault) return handleVault(req, vault, async (number, r) => handleBox(r, boxes(number)));
     const rest = relayPath(url.pathname);
     if (rest) return relay(rest);
     return new Response('Chess Chaos room server', { headers: { 'access-control-allow-origin': '*' } });

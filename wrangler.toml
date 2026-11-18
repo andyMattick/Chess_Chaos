@@ -9,3 +9,12 @@ class_name = "Lobby"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Lobby"]   # free plan needs SQLite-backed Durable Objects
+
+# Cloud saves (step 1): one SQLite-backed Durable Object per player number.
+[[durable_objects.bindings]]
+name = "VAULT"
+class_name = "Vault"
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Vault"]

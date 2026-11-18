@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { GameRecord } from '../core/record';
 import { askToKeepStorage, lookOf, activeProfile } from '../storage/storage';
+import { startCloudSync } from '../storage/cloud';
 import { GameScreen, type GameConfig } from './GameScreen';
 import { landscapeById } from './landscapes';
 import { OnlineLobby, roomFromUrl } from './OnlineLobby';
@@ -59,6 +60,7 @@ export function App() {
 
   // Ask the browser to keep our saved progress (best effort; it helps on Android and installed apps).
   useEffect(() => askToKeepStorage(), []);
+  useEffect(() => startCloudSync(), []);
 
   // Sound and shake settings apply everywhere.
   useEffect(() => {

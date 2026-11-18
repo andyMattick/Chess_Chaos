@@ -5,6 +5,7 @@ import type { GameRecord } from '../core/record';
 import { activeProfile, exportSave, findLostSave, importSave, newProfile, update, updateProfile, upsertProfile, type Profile } from '../storage/storage';
 import { buildMirror, linesFromRecords, nemesisBot, nemesisStrength } from '../systems/nemesis';
 import { NemesisCard } from './Nemesis';
+import { CloudRestore, CloudSaveCard } from './CloudSave';
 import { useSave } from './store';
 import { currentStreak, EMPTY_PROGRESS } from '../systems/puzzle';
 import type { GameConfig } from './GameScreen';
@@ -97,6 +98,7 @@ function Settings() {
       <label><input type="checkbox" checked={s.shake !== false} onChange={(e) => set({ shake: e.target.checked })} /> Board shake and phone buzz</label>
       <label><input type="checkbox" checked={s.chesscomEnabled} onChange={(e) => set({ chesscomEnabled: e.target.checked })} /> Show the Chess.com corner (parents can switch this off)</label>
       <label><input type="checkbox" checked={s.showCoordinates} onChange={(e) => set({ showCoordinates: e.target.checked })} /> Show board letters and numbers</label>
+      <CloudSaveCard />
       <BackupButtons />
     </details>
   );
@@ -152,6 +154,7 @@ export function Profiles({ done }: { done: () => void }) {
         </div>
         <button className="btn primary" onClick={create} disabled={!name.trim()}>Let's go!</button>
       </div>
+      <CloudRestore done={done} />
       {save.profiles.length > 0 ? <button className="btn" onClick={done}>← Back</button> : <BackupButtons onlyLoad />}
     </div>
   );

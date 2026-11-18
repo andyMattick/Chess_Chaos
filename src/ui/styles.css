@@ -663,3 +663,9 @@ body[data-calm] .board-wrap.nudge::before { animation: none !important; }
 .die.hit { background: #d9ffd0; }
 @keyframes dice-tumble { 0% { transform: rotate(-200deg) scale(0.3); opacity: 0; } 70% { transform: rotate(15deg) scale(1.1); opacity: 1; } 100% { transform: rotate(-4deg) scale(1); } }
 body[data-calm] .die { animation: none; }
+.cloud-card { display: grid; gap: 6px; justify-items: start; margin-top: 10px; padding: 10px 12px; background: #e6f3ff; border: 3px solid var(--ink); border-radius: var(--wonky2); box-shadow: 3px 4px 0 var(--ink); }
+.cloud-card p { margin: 0; }
+.cloud-card input { width: 100%; max-width: 320px; }
+.cloud-codes { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; }
+.cloud-codes code { font-size: 1.15em; font-weight: 800; letter-spacing: 1px; background: #fff; border: 2px solid var(--ink); border-radius: 6px; padding: 2px 6px; user-select: all; }
+.warn { color: #b3261e; font-weight: 700; }

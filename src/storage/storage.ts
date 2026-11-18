@@ -42,6 +42,8 @@ export interface Profile {
   myLines?: MyLine[];
   /** The Mirror bot: plays your openings and learns from games against you. */
   mirror?: Nemesis;
+  /** Cloud save: player number and the save key that locks it (src/storage/cloud.ts). */
+  cloud?: { number: string; key: string };
   /** Power cards picked for the next party match (only cards still in the collection count). */
   partyHand?: string[];
   /** How often each mode should come up in Party matches, 0 (never) to 3 (favourite). */
