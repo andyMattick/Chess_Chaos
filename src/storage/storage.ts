@@ -40,6 +40,8 @@ export interface Profile {
   nemeses: Nemesis[];
   /** Power cards picked for the next party match (only cards still in the collection count). */
   partyHand?: string[];
+  /** How often each mode should come up in Party matches, 0 (never) to 3 (favourite). */
+  modePrefs?: Record<string, number>;
 }
 
 export interface Opponent {

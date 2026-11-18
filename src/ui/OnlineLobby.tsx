@@ -88,7 +88,7 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
     if (joinedRef.current) return;
     joinedRef.current = true;
     if (initialCode && !net.code) {
-      online.join(initialCode, name, rating, lookFor('p1'), false, hand);
+      online.join(initialCode, name, rating, lookFor('p1'), false, hand, p?.modePrefs);
       try { history.replaceState(null, '', location.pathname); } catch { /* ignore */ }
     } else if (!net.code && online.saved()) online.resume();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -185,9 +185,9 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
           <div className="row wrap colour-row">
             {seatsFor === 2 ? (
               <>
-                <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock, game, lookFor('p1'), false, hand)}>I'll be White</button>
-                <button className="btn primary dark" onClick={() => online.create(name, rating, 'p2', clock, game, lookFor('p2'), false, hand)}>I'll be Black</button>
-                <button className="btn" onClick={() => online.create(name, rating, 'random', clock, game, lookFor('p1'), false, hand)}>🎲 Whatever</button>
+                <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock, game, lookFor('p1'), false, hand, p?.modePrefs)}>I'll be White</button>
+                <button className="btn primary dark" onClick={() => online.create(name, rating, 'p2', clock, game, lookFor('p2'), false, hand, p?.modePrefs)}>I'll be Black</button>
+                <button className="btn" onClick={() => online.create(name, rating, 'random', clock, game, lookFor('p1'), false, hand, p?.modePrefs)}>🎲 Whatever</button>
               </>
             ) : (
               <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock, game, lookFor('p1'))}>Make the room ({seatsFor} players)</button>
@@ -201,9 +201,9 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
           <input
             className="code-input" aria-label="Room code" placeholder="ABCD" maxLength={4} value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))}
-            onKeyDown={(e) => e.key === 'Enter' && code.length === 4 && online.join(code, name, rating, lookFor('p1'), false, hand)}
+            onKeyDown={(e) => e.key === 'Enter' && code.length === 4 && online.join(code, name, rating, lookFor('p1'), false, hand, p?.modePrefs)}
           />
-          <button className="btn primary" disabled={code.length !== 4} onClick={() => online.join(code, name, rating, lookFor('p1'), false, hand)}>Join!</button>
+          <button className="btn primary" disabled={code.length !== 4} onClick={() => online.join(code, name, rating, lookFor('p1'), false, hand, p?.modePrefs)}>Join!</button>
           <details className="settings">
             <summary>🃏 Power cards, in case it's a Party match{hand.length ? ` (${hand.length} picked)` : ''}</summary>
             <HandPicker />

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { BOTS } from '../content/bots';
 import { MODE_INFO } from '../core/modes';
 import { armyCost, DRAFT_BUDGET, randomArmy } from '../core/modes2';
-import { activeProfile } from '../storage/storage';
+import { activeProfile, updateProfile } from '../storage/storage';
+import { PARTY_MODES, PREF_LABELS, prefOf } from '../systems/party';
 import { PATH, unlockedCount } from '../systems/coins';
 import type { GameConfig } from './GameScreen';
 import { Character } from './skins';
@@ -38,6 +39,12 @@ export function ModesScreen({ start, back }: { start: (c: GameConfig) => void; b
     });
   };
 
+  const rank = (mode: string, level: number) => {
+    const v = Math.max(0, Math.min(3, level));
+    // A new ranking starts a fresh deck so it counts straight away.
+    updateProfile((x) => ({ ...x, modePrefs: { ...(x.modePrefs ?? {}), [mode]: v }, modeDeck: [] }));
+  };
+
   if (drafting) return <ArmyShop onDone={(army) => begin('draft', army)} onCancel={() => setDrafting(false)} />;
 
   return (
@@ -48,14 +55,28 @@ export function ModesScreen({ start, back }: { start: (c: GameConfig) => void; b
       <div className="clock-chips">
         {open.map((b) => <button key={b.id} className={`chip ${b.id === botId ? 'on' : ''}`} onClick={() => setBotId(b.id)}>{b.emoji} {b.name} ★{b.rating}</button>)}
       </div>
+      <p className="muted small">Rank modes up or down with ▲ ▼ to change how often they come up in your Party matches. Online, both players' ranks count.</p>
       <div className="mode-grid">
-        {modes.map((m, i) => (
-          <button key={m.id} className="mode-tile" style={{ ['--r' as string]: `${[-1.2, 0.8, -0.4, 1.3][i % 4]}deg` }} onClick={() => (m.id === 'draft' ? setDrafting(true) : begin(m.id))}>
-            <span className="mode-emoji">{m.emoji}</span>
-            <b>{m.name}</b>
-            <small>{m.blurb}</small>
-          </button>
-        ))}
+        {[...(PARTY_MODES.includes('standard') ? [{ id: 'standard', emoji: '♟️', name: 'Classic', blurb: 'Normal chess.' }] : []), ...modes].map((m, i) => {
+          const inDeck = PARTY_MODES.includes(m.id);
+          const level = prefOf(p.modePrefs, m.id);
+          return (
+            <div key={m.id} className={`mode-tile rank-${inDeck ? level : 'x'}`} style={{ ['--r' as string]: `${[-1.2, 0.8, -0.4, 1.3][i % 4]}deg` }}>
+              <button className="mode-play" onClick={() => (m.id === 'draft' ? setDrafting(true) : begin(m.id))} aria-label={`Play ${m.name}`}>
+                <span className="mode-emoji">{m.emoji}</span>
+                <b>{m.name}</b>
+                <small>{m.blurb}</small>
+              </button>
+              {inDeck && (
+                <div className="rank-row" aria-label={`How often ${m.name} comes up in Party matches`}>
+                  <button className="rank-btn" onClick={() => rank(m.id, level - 1)} disabled={level <= 0} aria-label="Less often">▼</button>
+                  <span className="rank-label">{PREF_LABELS[level]}</span>
+                  <button className="rank-btn" onClick={() => rank(m.id, level + 1)} disabled={level >= 3} aria-label="More often">▲</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
       <button className="btn" onClick={back}>← Home</button>
     </div>

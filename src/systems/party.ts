@@ -32,8 +32,49 @@ const MODE_REMOVES: Record<string, string[]> = {
   shrinking: ['needsStandardBoard'],
 };
 
-export function shuffleDeck(rand: () => number): string[] {
-  const d = [...PARTY_DECK];
+/**
+ * Mode preferences: each player ranks modes 0 (never) to 3 (favourite). The
+ * number is how many copies of that mode go in the deck. Classic starts at 3,
+ * everything else at 1.
+ */
+export type ModePrefs = Record<string, number>;
+export const PARTY_MODES = [...new Set(PARTY_DECK)];
+export const PREF_LABELS = ['🚫 Never', '😐 Sometimes', '👍 Often', '❤️ Favourite'];
+
+export function prefOf(prefs: ModePrefs | undefined, mode: string): number {
+  const v = prefs?.[mode];
+  return typeof v === 'number' && v >= 0 && v <= 3 ? Math.round(v) : mode === 'standard' ? 3 : 1;
+}
+
+/** The full deck for these preferences. If everything is "never", every mode comes back once. */
+export function deckFor(prefs?: ModePrefs): string[] {
+  const d = PARTY_MODES.flatMap((m) => Array(prefOf(prefs, m)).fill(m) as string[]);
+  return d.length ? d : [...PARTY_MODES];
+}
+
+/** Keep only known modes and levels 0 to 3 (online messages). */
+export function cleanPrefs(raw: unknown): ModePrefs {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: ModePrefs = {};
+  for (const m of PARTY_MODES) {
+    const v = (raw as Record<string, unknown>)[m];
+    if (typeof v === 'number' && v >= 0 && v <= 3) out[m] = Math.round(v);
+  }
+  return out;
+}
+
+/** Online party: both players' rankings count equally (average weight per mode). */
+export function pickModeFor(players: (ModePrefs | undefined)[], rand: () => number): string {
+  const weights = PARTY_MODES.map((m) => players.reduce((a, p) => a + prefOf(p, m), 0) / Math.max(1, players.length));
+  const total = weights.reduce((a, w) => a + w, 0);
+  if (total <= 0) return PARTY_MODES[Math.floor(rand() * PARTY_MODES.length)];
+  let x = rand() * total;
+  for (let i = 0; i < PARTY_MODES.length; i++) if ((x -= weights[i]) < 0) return PARTY_MODES[i];
+  return PARTY_MODES[PARTY_MODES.length - 1];
+}
+
+export function shuffleDeck(rand: () => number, prefs?: ModePrefs): string[] {
+  const d = deckFor(prefs);
   for (let i = d.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
     [d[i], d[j]] = [d[j], d[i]];
@@ -42,10 +83,11 @@ export function shuffleDeck(rand: () => number): string[] {
 }
 
 /** Take the top mode; reshuffle when empty, never repeating the last mode first. */
-export function drawMode(deck: string[], last: string | undefined, rand: () => number): { mode: string; deck: string[] } {
-  let d = deck.filter((m) => PARTY_DECK.includes(m));
+export function drawMode(deck: string[], last: string | undefined, rand: () => number, prefs?: ModePrefs): { mode: string; deck: string[] } {
+  // Modes you have since switched to "never" drop out of the current deck.
+  let d = deck.filter((m) => PARTY_DECK.includes(m) && (prefOf(prefs, m) > 0 || deckFor(prefs).includes(m)));
   if (!d.length) {
-    d = shuffleDeck(rand);
+    d = shuffleDeck(rand, prefs);
     if (d[0] === last) d.push(d.shift()!);
   }
   return { mode: d[0], deck: d.slice(1) };

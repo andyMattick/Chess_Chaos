@@ -149,3 +149,8 @@ Implementing agent: add dated entries below when you resolve an ambiguity or rec
 - **Endgame survival:** 5 positions against the strongest bot, unrated; a draw counts as holding out. **Puzzle gauntlet:** 3 lives through the warm-ups, then today's and random Chess.com puzzles; best score saved.
 - **Invites** now name the mode, say what it is, and give the clock.
 - The AI does not plan for Monster's and Progressive's extra moves or for drops; it still plays legal moves.
+
+### 2026-11-17: Ranking modes (owner request)
+
+- On the Game modes screen each Party mode has ▲ ▼: **Never** (0), **Sometimes** (1, the default), **Often** (2), **Favourite** (3). The number is how many copies of that mode go in the player's mode deck; Classic starts at 3. Changing a rank starts a fresh deck so it counts straight away. If everything is "Never", every mode comes back once.
+- **Online Party matches** use both players' ranks equally: each mode's chance is the average of the two ranks, so a mode both players mark "Never" never comes up. A bot that takes a seat counts as neutral.

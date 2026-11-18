@@ -24,7 +24,7 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
   const hand = useHand();
 
   // Draw the mode once per visit (and remember the deck).
-  const [draw] = useState(() => drawMode(p.modeDeck, undefined, Math.random));
+  const [draw] = useState(() => drawMode(p.modeDeck, undefined, Math.random, p.modePrefs));
   const setup = useMemo(() => {
     const players = humanSeat === 'p1'
       ? { p1: { rating: p.rating, bot: false }, p2: { rating: bot.rating, bot: true } }
@@ -74,7 +74,7 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
       <div className="clock-chips">
         {open.map((b) => <button key={b.id} className={`chip ${b.id === botId ? 'on' : ''}`} onClick={() => setBotId(b.id)}>{b.emoji} {b.name} ★{b.rating}</button>)}
       </div>
-      <p className="muted small">You play {humanSeat === 'p1' ? 'White' : 'Black'}. Extras come from the rating gap: the lower-rated side gets buffs, the higher-rated side gets handicaps.</p>
+      <p className="muted small">You play {humanSeat === 'p1' ? 'White' : 'Black'}. Extras come from the rating gap: the lower-rated side gets buffs, the higher-rated side gets handicaps. Want some modes more (or never)? Rank them with ▲ ▼ in Game modes.</p>
       <div className="row">
         <button className="btn primary" onClick={go}>Let's party!</button>
         <button className="btn" onClick={back}>← Home</button>

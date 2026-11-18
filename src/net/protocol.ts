@@ -102,9 +102,9 @@ export const ROOM_GAMES: { id: RoomGame; label: string; seats: number; blurb: st
 ];
 
 export type ClientMsg =
-  | { t: 'create'; name: string; rating: number; colour: 'p1' | 'p2' | 'random'; clock?: ClockSetting | null; game?: RoomGame; look?: ArmyLook; wheels?: boolean; hand?: string[] }
+  | { t: 'create'; name: string; rating: number; colour: 'p1' | 'p2' | 'random'; clock?: ClockSetting | null; game?: RoomGame; look?: ArmyLook; wheels?: boolean; hand?: string[]; modePrefs?: Record<string, number> }
   | { t: 'fill-bots' }
-  | { t: 'join'; code: string; name: string; rating: number; look?: ArmyLook; wheels?: boolean; hand?: string[] }
+  | { t: 'join'; code: string; name: string; rating: number; look?: ArmyLook; wheels?: boolean; hand?: string[]; modePrefs?: Record<string, number> }
   | { t: 'rejoin'; code: string; token: string }
   | { t: 'action'; action: Action }
   | { t: 'emote'; id: EmoteId }

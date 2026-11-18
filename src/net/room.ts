@@ -1,7 +1,7 @@
 import { chooseMove } from '../ai/strength';
 import { newBattleRecord, newRecord, replay, type GameRecord } from '../core/record';
 import { BOTS } from '../content/bots';
-import { PARTY_DECK, redactParty, refereeMission, setupParty } from '../systems/party';
+import { cleanPrefs, pickModeFor, redactParty, refereeMission, setupParty } from '../systems/party';
 import { play } from '../core/rules';
 import type { Action, GameState, PlayerId } from '../core/types';
 import { cleanArmy, cleanHand, cleanLook, cleanName, EMOTES, ROOM_GAMES, type ArmyLook, type ClientMsg, type ClockSetting, type ClockState, type RoomGame, type SeatInfo, type ServerMsg, type WheelsAsk } from './protocol';
@@ -21,6 +21,8 @@ interface Seat extends SeatInfo {
   token: string;
   /** Power cards for party games. Public once the game starts (setup.party.cards). */
   hand?: string[];
+  /** Party matches: how often this player wants each mode. */
+  modePrefs?: Record<string, number>;
   /** Draft: the army this player bought. */
   army?: string[];
   conn: Conn | null;
@@ -99,7 +101,8 @@ export class Room {
   /** Party rooms: once everyone is seated, draw the mode and deal modifiers and missions. */
   private maybeStartParty() {
     if (this.game !== 'party' || !this.allSeated() || this.record.setup.party || this.record.actions.length) return;
-    const mode = PARTY_DECK[Math.floor(Math.random() * PARTY_DECK.length)];
+    // Both players' mode rankings count (bots are neutral).
+    const mode = pickModeFor(this.seatIds.map((k) => (this.seats[k]!.botControlled ? undefined : this.seats[k]!.modePrefs)), Math.random);
     const p = (k: PlayerId) => ({ rating: this.seats[k]!.rating, bot: this.seats[k]!.botControlled });
     const party = setupParty({ mode, online: true, players: { p1: p('p1'), p2: p('p2') } }, Math.random);
     const hand = (k: PlayerId) => (this.seats[k]!.botControlled ? [] : this.seats[k]!.hand ?? []);
@@ -176,9 +179,9 @@ export class Room {
     return (Object.keys(this.seats) as PlayerId[]).find((k) => this.seats[k]?.conn?.id === conn.id);
   }
 
-  addPlayer(conn: Conn, seat: PlayerId, name: string, rating: number, look?: ArmyLook, wheels = false, hand: string[] = []): Seat {
+  addPlayer(conn: Conn, seat: PlayerId, name: string, rating: number, look?: ArmyLook, wheels = false, hand: string[] = [], modePrefs?: unknown): Seat {
     void wheels; // training wheels are asked for in the game now, not set when joining
-    const s: Seat = { hand: cleanHand(hand), wheels: false, look: cleanLook(look), name: cleanName(name), rating: Math.max(100, Math.min(3000, Math.round(rating) || 600)), connected: true, botControlled: false, token: token(), conn, leftAt: null };
+    const s: Seat = { modePrefs: cleanPrefs(modePrefs), hand: cleanHand(hand), wheels: false, look: cleanLook(look), name: cleanName(name), rating: Math.max(100, Math.min(3000, Math.round(rating) || 600)), connected: true, botControlled: false, token: token(), conn, leftAt: null };
     this.seats[seat] = s;
     this.host ??= seat;
     this.maybeStartParty();
@@ -479,7 +482,7 @@ export class RoomServer {
       this.rooms.set(room.code, room);
       this.connRoom.set(conn.id, room);
       const seat: PlayerId = room.seatIds.length > 2 ? 'p1' : msg.colour === 'random' ? (Math.random() < 0.5 ? 'p1' : 'p2') : msg.colour === 'p2' ? 'p2' : 'p1';
-      room.addPlayer(conn, seat, msg.name, msg.rating, msg.look, !!msg.wheels, msg.hand);
+      room.addPlayer(conn, seat, msg.name, msg.rating, msg.look, !!msg.wheels, msg.hand, msg.modePrefs);
       return;
     }
     if (msg.t === 'join') {
@@ -496,7 +499,7 @@ export class RoomServer {
       if (!free) return conn.send({ t: 'error', message: 'That room is full.' });
       this.leaveCurrent(conn);
       this.connRoom.set(conn.id, room);
-      room.addPlayer(conn, free, msg.name, msg.rating, msg.look, !!msg.wheels, msg.hand);
+      room.addPlayer(conn, free, msg.name, msg.rating, msg.look, !!msg.wheels, msg.hand, msg.modePrefs);
       return;
     }
     if (msg.t === 'rejoin') {

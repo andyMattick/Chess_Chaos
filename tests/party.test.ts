@@ -152,3 +152,32 @@ describe('secret missions', () => {
     expect(p.gate).toEqual({ p1: 8, p2: 8 });
   });
 });
+
+import { deckFor, pickModeFor, prefOf, cleanPrefs, PARTY_MODES } from '../src/systems/party';
+describe('mode rankings', () => {
+  it('ranks set how many copies of a mode are in the deck', () => {
+    const d = deckFor({ atomic: 3, horde: 0 });
+    expect(d.filter((m) => m === 'atomic').length).toBe(3);
+    expect(d).not.toContain('horde');
+    expect(d.filter((m) => m === 'standard').length).toBe(3);
+    expect(prefOf({}, 'lava')).toBe(1);
+    expect(deckFor(Object.fromEntries(PARTY_MODES.map((m) => [m, 0])))).toEqual(PARTY_MODES);
+  });
+  it('a never mode stops coming up; favourites come up more', () => {
+    let deck: string[] = [];
+    const prefs = { horde: 0, atomic: 3 };
+    const rand = seeded(3);
+    const seen: string[] = [];
+    for (let i = 0; i < 200; i++) { const d = drawMode(deck, seen.at(-1), rand, prefs); seen.push(d.mode); deck = d.deck; }
+    expect(seen).not.toContain('horde');
+    expect(seen.filter((m) => m === 'atomic').length).toBeGreaterThan(seen.filter((m) => m === 'lava').length * 2);
+  });
+  it('online: both players count; a mode both hate never appears', () => {
+    const rand = seeded(5);
+    const a = { giveaway: 0 }, b = { giveaway: 0, atomic: 3 };
+    const picks = Array.from({ length: 500 }, () => pickModeFor([a, b], rand));
+    expect(picks).not.toContain('giveaway');
+    expect(picks.filter((m) => m === 'atomic').length).toBeGreaterThan(picks.filter((m) => m === 'lava').length);
+    expect(cleanPrefs({ atomic: 9, lava: 2, nope: 1 })).toEqual({ lava: 2 });
+  });
+});

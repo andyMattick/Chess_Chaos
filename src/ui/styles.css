@@ -552,7 +552,7 @@ body[data-calm] .board-wrap.nudge::before { animation: none !important; }
 /* Game modes screen and the draft shop */
 .mode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin: 14px 0; }
 .mode-tile { display: grid; gap: 4px; text-align: left; font: inherit; color: var(--ink); border: 3.5px solid var(--ink); border-radius: var(--wonky2); background: #fffaf0; padding: 10px 12px; box-shadow: 4px 5px 0 var(--ink); transform: rotate(var(--r, 0deg)); cursor: pointer; }
-.mode-tile:hover { background: var(--yolk); }
+
 .mode-tile .mode-emoji { font-size: 2rem; line-height: 1; }
 .mode-tile b { font-family: var(--hand); font-size: 1.2rem; }
 .mode-tile small { font-weight: 700; color: var(--muted); }
@@ -612,3 +612,19 @@ body[data-calm] .board-wrap.nudge::before { animation: none !important; }
   .card-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .panel { padding-left: 14px; padding-right: 14px; }
 }
+
+/* Mode ranking */
+.mode-tile { padding: 0; overflow: hidden; }
+.mode-play { display: grid; gap: 4px; text-align: left; font: inherit; color: var(--ink); background: none; border: none; padding: 10px 12px 6px; cursor: pointer; width: 100%; }
+.mode-play:hover { background: rgba(255, 203, 43, 0.35); }
+.rank-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; border-top: 2.5px dashed var(--ink); padding: 4px 8px; background: rgba(255, 255, 255, 0.6); }
+.rank-btn { width: 32px; height: 28px; font-weight: 900; border: 2.5px solid var(--ink); border-radius: 8px; background: #fff; cursor: pointer; }
+.rank-btn:disabled { opacity: 0.3; }
+.rank-label { font-weight: 800; font-size: 0.85rem; }
+.mode-tile.rank-0 { filter: grayscale(0.8); opacity: 0.75; }
+.mode-tile.rank-3 { background: #ffe0ef; }
+.mode-tile.rank-2 { background: #eaffd6; }
+.rank-row { padding: 4px 6px; gap: 4px; }
+.rank-btn { flex: none; width: 28px; height: 26px; padding: 0; font-size: 0.8rem; }
+.rank-label { flex: 1; min-width: 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 640px) { .rank-label { font-size: 0.72rem; } }
