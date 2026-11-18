@@ -365,3 +365,41 @@ describe('power cards online', () => {
     }
   });
 });
+
+describe('more modes online', () => {
+  function room(game: string, ra = 600, rb = 900) {
+    const server = new RoomServer(() => 0);
+    const a = client('a'), b = client('b');
+    server.handle(a.conn, { t: 'create', name: 'Ava', rating: ra, colour: 'p1', game: game as never });
+    server.handle(b.conn, { t: 'join', code: a.last('joined')!.code, name: 'Ben', rating: rb });
+    return { server, a, b };
+  }
+  it('boss battle gives the boss to the higher-rated player', () => {
+    const { a } = room('boss');
+    const s = replay(a.last('room')!.record)[0];
+    expect(s.pieces.filter((p) => p.at >= 0 && p.owner === 'p2').map((p) => p.type).sort()).toEqual(['boss', 'king']);
+  });
+  it('draft waits for both armies', () => {
+    const { server, a, b } = room('draft');
+    move(server, a, 'e4');
+    expect(a.last('error')!.message).toMatch(/armies/);
+    server.handle(a.conn, { t: 'army', pieces: ['queen', 'queen', 'queen', 'queen'] });
+    expect(a.last('error')!.message).toMatch(/30 points/);
+    server.handle(a.conn, { t: 'army', pieces: ['queen', 'queen', 'rook', 'rook', 'pawn', 'pawn'] });
+    expect(b.last('room')!.armies).toEqual({ p1: 'ready', p2: 'buying' });
+    server.handle(b.conn, { t: 'army', pieces: ['rook', 'rook', 'rook', 'rook', 'rook', 'pawn', 'pawn'] });
+    const s = replay(b.last('room')!.record)[0];
+    expect(s.pieces.filter((p) => p.owner === 'p2' && p.type === 'rook').length).toBe(5);
+  });
+  it('hidden queen: the other player only sees that a pawn was marked', () => {
+    const { server, a, b } = room('hidden-queen');
+    const s = replay(a.last('room')!.record)[0];
+    server.handle(a.conn, { t: 'action', action: { t: 'buff', by: 'p1', id: 'MODE-19', piece: s.sq[12] } });
+    expect(a.last('room')!.record.actions[0]).toMatchObject({ piece: s.sq[12] });
+    expect((b.last('room')!.record.actions[0] as { piece?: number }).piece).toBeUndefined();
+    move(server, a, 'd4');
+    move(server, b, 'a6');
+    server.handle(a.conn, { t: 'action', action: { t: 'move', piece: s.sq[12], to: 39 } }); // e2 to h5 like a queen
+    expect(replay(b.last('room')!.record).at(-1)!.pieces[s.sq[12]].type).toBe('queen');
+  });
+});

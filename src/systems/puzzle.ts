@@ -78,6 +78,8 @@ export interface PuzzleProgress {
   solved: number;
   /** Puzzle ids already paid for (newest first, capped). */
   paid: string[];
+  /** Puzzle gauntlet best score (MODE-11). */
+  gauntletBest?: number;
 }
 
 export const EMPTY_PROGRESS: PuzzleProgress = { streak: 0, best: 0, lastDaily: '', solved: 0, paid: [] };
@@ -107,6 +109,7 @@ export function recordSolve(prev: PuzzleProgress, puzzle: Pick<Puzzle, 'id' | 's
   }
   return {
     progress: {
+      ...p,
       streak, lastDaily, best: Math.max(p.best, streak),
       solved: p.solved + (firstTime ? 1 : 0),
       paid: firstTime ? [puzzle.id, ...p.paid].slice(0, 200) : p.paid,

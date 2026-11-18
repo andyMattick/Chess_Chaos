@@ -12,10 +12,25 @@ import { missionDone } from './missions';
  */
 
 /** Modes in the deck. Classic chess appears three times (docs/08 Q6). */
-export const PARTY_DECK = ['standard', 'standard', 'standard', 'koth', 'three-check', 'capture-race', 'random-piece', 'truce', 'capture-the-flag', 'shuffle', 'hill-wars'];
+export const PARTY_DECK = [
+  'standard', 'standard', 'standard', 'koth', 'three-check', 'capture-race', 'random-piece', 'truce', 'capture-the-flag', 'shuffle', 'hill-wars',
+  'atomic', 'giveaway', 'racing-kings', 'wrap', 'lava', 'mini', 'horde', 'monster', 'shrinking', 'progressive', 'drop-in', 'boss', 'mystery-army', 'hidden-queen',
+];
 
 /** Capabilities each mode removes, for tag filtering (docs/02 s7). */
-const MODE_REMOVES: Record<string, string[]> = { shuffle: ['needsCastling'] };
+const MODE_REMOVES: Record<string, string[]> = {
+  shuffle: ['needsCastling'],
+  wrap: ['needsStandardBoard', 'needsCastling'],
+  mini: ['needsStandardBoard', 'needsCastling', 'needsStandardArmy'],
+  giveaway: ['needsCheck', 'needsCastling'],
+  atomic: ['needsCheck'],
+  'racing-kings': ['needsPawns', 'needsCastling', 'needsStandardArmy', 'needsCheck'],
+  horde: ['needsStandardArmy', 'needsCastling'],
+  monster: ['needsStandardArmy', 'needsCastling'],
+  boss: ['needsStandardArmy'],
+  'mystery-army': ['needsStandardArmy', 'needsCastling'],
+  shrinking: ['needsStandardBoard'],
+};
 
 export function shuffleDeck(rand: () => number): string[] {
   const d = [...PARTY_DECK];

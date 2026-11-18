@@ -316,14 +316,15 @@ export function makeMove(s: GameState, m: MoveAction): GameState {
     }
   }
 
-  if (pieceType(p.type).moves.some((x) => x.kind === 'pawn')) {
+  // A drop (Drop-in mode) comes from the reserve: no from-square, no double step.
+  if (from >= 0 && pieceType(p.type).moves.some((x) => x.kind === 'pawn')) {
     const seat = seatOf(s, p.owner);
     const [fx, fy] = seat.forward;
     const one = step(b, from, fx, fy);
     if (one >= 0 && step(b, one, fx, fy) === m.to) ep = { square: one, victim: m.to, by: p.owner };
   }
 
-  sq[from] = -1;
+  if (from >= 0) sq[from] = -1;
   sq[m.to] = p.id;
   pieces[p.id] = { ...p, at: m.to, moved: true, type: m.promo ?? p.type };
 

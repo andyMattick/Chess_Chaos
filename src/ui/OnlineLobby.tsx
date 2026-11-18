@@ -26,10 +26,18 @@ export function roomFromUrl(): string | null {
   }
 }
 
-function ShareCode({ code }: { code: string }) {
+/** The invite says what you're playing: mode, what it is, and the clock. */
+export function inviteText(code: string, game: RoomGame, clock: { minutes: number; increment: number } | null): string {
+  const g = ROOM_GAMES.find((x) => x.id === game);
+  const name = g ? g.label : '♟️ Classic';
+  const time = clock ? ` ⏱️ ${clock.minutes} min each${clock.increment ? ` +${clock.increment}s` : ''}.` : '';
+  return `Play ${name} with me on Chess Chaos! ${g?.blurb ?? ''}${time} Room code: ${code}`.replace(/\s+/g, ' ');
+}
+
+function ShareCode({ code, game, clock }: { code: string; game: RoomGame; clock: { minutes: number; increment: number } | null }) {
   const [note, setNote] = useState<string | null>(null);
   const link = roomLink(code);
-  const text = `Play chess with me on Chess Chaos! Room code: ${code}`;
+  const text = inviteText(code, game, clock);
   const share = async () => {
     try {
       if (navigator.share) {
@@ -111,7 +119,8 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
         <div className="big-code" aria-label={`Room code ${net.code.split('').join(' ')}`}>
           {net.code.split('').map((c, i) => <span key={i} style={{ transform: `rotate(${[-6, 4, -3, 7][i]}deg)` }}>{c}</span>)}
         </div>
-        <ShareCode code={net.code} />
+        <p className="invite-mode">You're playing <b>{ROOM_GAMES.find((g) => g.id === net.game)?.label}</b>: {ROOM_GAMES.find((g) => g.id === net.game)?.blurb}</p>
+        <ShareCode code={net.code} game={net.game} clock={net.clock ? { minutes: Math.round(((net.clock.left.p1 ?? 0) as number) / 60000), increment: net.clock.increment } : null} />
         {seatIds.length > 2 && (
           <div className="seat-wait">
             <p><b>{ROOM_GAMES.find((g) => g.id === net.game)?.label}</b>: {seatIds.filter((k) => net.seats[k]).length} of {seatIds.length} players here</p>
@@ -141,10 +150,18 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
           <p className="muted">You get a 4-letter code to share.</p>
           <p className="muted small">What are we playing?</p>
           <div className="clock-chips" role="radiogroup" aria-label="Game">
-            {ROOM_GAMES.map((g) => (
+            {ROOM_GAMES.filter((g) => !g.more).map((g) => (
               <button key={g.id} role="radio" aria-checked={g.id === game} className={`chip ${g.id === game ? 'on' : ''}`} onClick={() => setGame(g.id)} title={g.blurb}>{g.label}</button>
             ))}
           </div>
+          <details className="more-modes" open={ROOM_GAMES.find((g) => g.id === game)?.more}>
+            <summary>More modes ({ROOM_GAMES.filter((g) => g.more).length})</summary>
+            <div className="clock-chips" role="radiogroup" aria-label="More game modes">
+              {ROOM_GAMES.filter((g) => g.more).map((g) => (
+                <button key={g.id} role="radio" aria-checked={g.id === game} className={`chip ${g.id === game ? 'on' : ''}`} onClick={() => setGame(g.id)} title={g.blurb}>{g.label}</button>
+              ))}
+            </div>
+          </details>
           <p className="muted small">{ROOM_GAMES.find((g) => g.id === game)?.blurb}</p>
           <p className="muted small">How much time each?</p>
           <div className="clock-chips" role="radiogroup" aria-label="Clock">

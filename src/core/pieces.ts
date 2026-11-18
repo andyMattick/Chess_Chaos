@@ -72,6 +72,10 @@ export const PIECE_TYPES: Record<PieceTypeId, PieceType> = {
   'dragon-bishop': { id: 'dragon-bishop', base: 'bishop', card: '🐲', name: 'Dragon bishop', letter: 'E', value: 5, royal: false, moves: [{ kind: 'ride', dirs: DIAG }, { kind: 'leap', offsets: ORTH }] },
   lance: { id: 'lance', base: 'pawn', card: '🗡️', name: 'Lance', letter: 'T', value: 3, royal: false, moves: [{ kind: 'ride', dirs: [[0, 1]], relative: true }] },
   guard: { id: 'guard', base: 'pawn', card: '🛡️', name: 'Guard', letter: 'U', value: 3, royal: false, moves: [{ kind: 'leap', offsets: [...ORTH, ...DIAG] }] },
+  /** Giveaway: a king with no special status (it can be captured like anything else). */
+  commoner: { id: 'commoner', base: 'king', name: 'King', letter: 'M', value: 3, royal: false, moves: [{ kind: 'leap', offsets: [...ORTH, ...DIAG] }] },
+  /** MODE-08 Boss battle: moves as a queen plus a knight, with 3 lives. */
+  boss: { id: 'boss', base: 'queen', card: '👹', name: 'Boss', letter: 'Y', value: 13, royal: false, moves: [{ kind: 'ride', dirs: [...ORTH, ...DIAG] }, { kind: 'leap', offsets: KNIGHT }] },
   /** CARD-10: a blocker. It never moves and cannot be captured (rules in core/cards.ts). */
   wall: { id: 'wall', name: 'Wall', letter: 'X', value: 0, royal: false, moves: [] },
   'bishop-peace': { id: 'bishop-peace', base: 'bishop', name: 'Peaceful bishop', letter: 'B', value: 1.5, royal: false, moves: [{ kind: 'ride', dirs: DIAG, noCapture: true }] },

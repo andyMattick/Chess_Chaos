@@ -6,6 +6,7 @@ import { skinFor } from '../content/cosmetics';
 import { pieceType } from '../core/pieces';
 import { newRecord, replay, type GameRecord } from '../core/record';
 import { flagSquare, hillData, MODE_INFO, rolledType } from '../core/modes';
+import { type ModeExtra, bossLives, hiddenQueens, lavaNow, progressOf, reserveOf, ringSquares, shrinkIn } from '../core/modes2';
 import { pieceType as typeInfo } from '../core/pieces';
 import { legalActions } from '../core/rules';
 import { toSAN } from '../core/san';
@@ -34,6 +35,7 @@ import { setSoundEnabled, sfx } from './sound';
 import { useYourTurn } from './yourTurn';
 import { QuickToggles } from './QuickToggles';
 import { AnalysisPanel, noteOverlay } from './Analysis';
+import { ArmyShop } from './ModesScreen';
 import type { Analysis, MoveNote } from '../systems/analysis';
 import { CardTile, useHand } from './Cards';
 import { cardById } from '../content/cards';
@@ -45,6 +47,10 @@ export interface GameConfig {
   kind: 'local' | 'bot' | 'online';
   /** Game mode for new games (koth, hill-wars…). Default classic. */
   mode?: string;
+  /** Mode setup choices (boss side, drafted armies, survival position). */
+  extra?: ModeExtra;
+  /** Solo challenges and practice: no rating change. */
+  unrated?: boolean;
   /** Party match setup (modifiers and missions) for a new local game. */
   party?: PartySetup;
   /** Training game: one alert and open goals (docs/02 s2). */
@@ -76,6 +82,14 @@ const REASON_TEXT: Record<string, string> = {
   'mode-win': 'by taking the hill! ⛰️',
 };
 
+/** How each mode is won, for the result line. */
+const MODE_WIN_TEXT: Record<string, string> = {
+  koth: 'by taking the hill! ⛰️', 'hill-wars': 'by holding the hill! 🚩', 'three-check': 'with the third check! ✔️',
+  'capture-race': 'by winning the capture race! 🏁', 'capture-the-flag': 'by capturing the flag! 🏳️', atomic: 'by blowing up the king! 💥',
+  giveaway: 'by giving everything away! 🎁', 'racing-kings': 'by racing to the top! 🏎️', horde: 'by wiping out the horde! 🐜',
+  shrinking: 'when a king fell off the board! 📉', boss: 'by beating the Boss three times! 👹', survival: 'by holding out! 🛡️',
+};
+
 function pick<T>(list: readonly T[]): T {
   return list[Math.floor(Math.random() * list.length)];
 }
@@ -98,6 +112,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     if (reviewRecord) return reviewRecord;
     const r = newRecord(newSeed(), config.names, undefined, config.mode ?? 'standard');
     if (config.party) r.setup = { ...r.setup, party: config.party };
+    if (config.extra) r.setup = { ...r.setup, extra: config.extra };
     return r;
   });
   const rec = isOnline && net.record ? net.record : localRec;
@@ -145,7 +160,10 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     () => (retrying && !retry!.solved && !retry!.reveal ? legalActions(states[fix!.ply]) : isHumanTurn && !reviewing ? legalActions(live) : []),
     [live, isHumanTurn, reviewing, retrying, retry, fix, states],
   );
-  const targets = selected === null ? [] : legal.filter((m) => m.piece === shown.sq[selected]);
+  // Drop-in: a reserve piece picked from the tray. Hidden queen: choosing your secret pawn.
+  const [dropPiece, setDropPiece] = useState<number | null>(null);
+  const [pickingQueen, setPickingQueen] = useState(false);
+  const targets = dropPiece !== null ? legal.filter((m) => m.piece === dropPiece) : selected === null ? [] : legal.filter((m) => m.piece === shown.sq[selected]);
 
   const lastMove = useMemo(() => {
     const idx = view === null ? rec.actions.length : view;
@@ -249,6 +267,16 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
       if (party.lockSelection && selected !== null && !targets.some((m) => m.to === sq)) return;
     }
     const pos = retrying ? states[fix!.ply] : live;
+    if (pickingQueen && !retrying) {
+      const id = pos.sq[sq];
+      if (id >= 0 && pos.pieces[id].owner === me && pos.pieces[id].type === 'pawn') { push({ t: 'buff', by: me, id: 'MODE-19', piece: id }); setPickingQueen(false); }
+      return;
+    }
+    if (dropPiece !== null && !retrying) {
+      const m = targets.find((x) => x.to === sq);
+      setDropPiece(null);
+      if (m) { commit(m); return; }
+    }
     if (selected !== null) {
       const moves = targets.filter((m) => m.to === sq);
       if (moves.length > 1 && moves.some((m) => m.promo)) { setPromo(moves); return; }
@@ -262,6 +290,11 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   // Bot turn (runs on this device).
   useEffect(() => {
     if (!botSeat || live.result || live.turn !== botSeat || reviewing) return;
+    // Hidden queen: the bot secretly picks a pawn first (you never see which).
+    if (live.mode === 'hidden-queen' && hiddenQueens(live)[botSeat] === undefined) {
+      const pawns = live.pieces.filter((p) => p.at >= 0 && p.owner === botSeat && p.type === 'pawn');
+      if (pawns.length) { setLocalRec((r) => ({ ...r, actions: [...r.actions, { t: 'buff', by: botSeat, id: 'MODE-19', piece: pawns[Math.floor(Math.random() * pawns.length)].id }] })); return; }
+    }
     let cancelled = false;
     setThinking(true);
     requestMove(live, bot?.rating ?? 800, nemesis && bot ? { id: bot.id, asWhite: bot.asWhite, asBlack: bot.asBlack } : bot?.id).then((m) => {
@@ -322,7 +355,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
         setCoinAward(award);
         p = { ...p, coins: (p.coins ?? 0) + award.total };
       }
-      if (oppRating !== undefined && rec.actions.length >= 2 && !forFun) {
+      if (oppRating !== undefined && rec.actions.length >= 2 && !forFun && !config.unrated) {
         const score = won ? 1 : drawn ? 0.5 : 0;
         const rating = updateRating(p.rating, oppRating, score, p.gamesPlayed, live.result!.reason === 'mission' ? 0.5 : 1);
         setRatingChange({ before: p.rating, after: rating });
@@ -402,7 +435,8 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   let status: string;
   if (shown.result) {
     const w = shown.result.winners;
-    status = w.length ? `${w.map((x) => names[x]).join(' & ')} wins ${REASON_TEXT[shown.result.reason] ?? ''}` : REASON_TEXT[shown.result.reason] ?? 'Draw';
+    const why = shown.result.reason === 'mode-win' ? MODE_WIN_TEXT[shown.mode] ?? 'by the mode rules!' : REASON_TEXT[shown.result.reason] ?? '';
+    status = w.length ? `${w.map((x) => names[x]).join(' & ')} wins ${why}` : shown.result.reason === 'mode-win' ? 'Draw!' : REASON_TEXT[shown.result.reason] ?? 'Draw';
   } else if (thinking) status = `${names[shown.turn]} is thinking…`;
   else if (!reviewRecord && shown.turn === me) status = 'Your move!';
   else status = `${names[shown.turn]} to move`;
@@ -416,7 +450,8 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     requestAnalysis(rec).then((a) => setAnalysis(a));
   };
   const pickNote = (n: MoveNote) => { setRetry(null); setNote(n); setView(n.ply); };
-  const won = live.result?.winners.includes(me);
+  // Endgame survival: a draw is a win for the side that had to hold.
+  const won = live.result?.winners.includes(me) || (live.mode === 'survival' && !!live.result && !live.result.winners.length && live.modeData?.survivor === me);
   const opp = isOnline ? net.seats[other(me)] : undefined;
   const iVotedRematch = isOnline && net.rematchVotes.includes(me);
   const theyVotedRematch = isOnline && net.rematchVotes.includes(other(me));
@@ -463,9 +498,14 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             interactive={(!reviewing && isHumanTurn) || retrying}
             onSquare={onSquare}
             fx={view === null ? fx : null}
-            overlays={retrying && retry!.reveal && fix ? revealOverlay(states[fix.ply], fix.goodMoves[0]) : note && view === note.ply ? noteOverlay(note) : withFlags(shown, training.overlays ?? party.overlays)}
+            overlays={retrying && retry!.reveal && fix ? revealOverlay(states[fix.ply], fix.goodMoves[0]) : note && view === note.ply ? noteOverlay(note) : withFlags(shown, training.overlays ?? party.overlays, me)}
           />
           {training.modal}
+          {isOnline && net.game === 'draft' && !rec.setup.extra?.armies && (
+            net.armies?.[me] === 'ready'
+              ? <div className="promo" role="dialog" aria-label="Waiting for armies"><p>🛒 Army ready! Waiting for {names[other(me)]} to finish shopping…</p></div>
+              : <div className="promo shop-pop" role="dialog" aria-label="Build your army"><ArmyShop onDone={(army) => online.sendArmy(army)} /></div>
+          )}
           {ask?.status === 'pending' && ask.from !== me && (
             <div className="promo" role="dialog" aria-label="Training wheels request">
               <p>🚲 <b>{names[ask.from]}</b> asks for training wheels: danger alerts and hints that only they can see.</p>
@@ -604,6 +644,30 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
         {!reviewRecord && training.panel}
         {!reviewRecord && party.panel}
         <ModeStatus s={shown} names={names} showBlurb={!partySetup} />
+        {live.mode === 'hidden-queen' && !reviewRecord && !live.result && hiddenQueens(live)[me] === undefined && (
+          <button className={`btn small ${pickingQueen ? 'primary' : ''}`} onClick={() => setPickingQueen((x) => !x)}>
+            {pickingQueen ? 'Tap one of your pawns… (tap here to cancel)' : '👑 Pick your secret queen'}
+          </button>
+        )}
+        {live.mode === 'drop-in' && (
+          <div className="reserve">
+            {(['p1', 'p2'] as PlayerId[]).map((k) => {
+              const res = reserveOf(shown, k);
+              return (
+                <div key={k} className="reserve-row">
+                  <b>{names[k]}'s reserve:</b>
+                  {res.length ? res.map((p) => (
+                    <button key={p.id} className={`reserve-piece ${dropPiece === p.id ? 'on' : ''}`} disabled={k !== me || !isHumanTurn || reviewing || !legal.some((m) => m.piece === p.id)}
+                      onClick={() => { setSelected(null); setDropPiece(dropPiece === p.id ? null : p.id); }} aria-label={`Drop a ${p.type}`}>
+                      <svg viewBox="0 0 100 100"><Character skin={skinFor(skinsNow, k, p.type)} type={p.type} owner={k} /></svg>
+                    </button>
+                  )) : <span className="muted small"> empty</span>}
+                </div>
+              );
+            })}
+            {dropPiece !== null && <small>Tap an empty square to drop it in.</small>}
+          </div>
+        )}
         {live.mode === 'koth' && <div className="hill-goal">⛰️ King of the hill: get your king to a yellow square to win!</div>}
         {live.mode === 'hill-wars' && (() => {
           const h = hillData(shown);
@@ -720,11 +784,21 @@ function PlayerBar({ name, rating, avatar, active, captured, speech, colour, not
 }
 
 /** Capture the flag: tint both flag squares so everyone can see them. */
-function withFlags(s: GameState, o: import('./Board').BoardOverlays | undefined) {
-  if (s.mode !== 'capture-the-flag') return o;
+function withFlags(s: GameState, o: import('./Board').BoardOverlays | undefined, me?: PlayerId) {
   const tint = new Map(o?.tint ?? []);
-  for (const seat of s.seats) tint.set(flagSquare(s, seat.id), seat.id === 'p1' ? 'rgba(80, 160, 255, 0.55)' : 'rgba(255, 70, 70, 0.55)');
-  return { ...(o ?? {}), tint };
+  const badges = new Map(o?.badges ?? []);
+  if (s.mode === 'capture-the-flag') for (const seat of s.seats) tint.set(flagSquare(s, seat.id), seat.id === 'p1' ? 'rgba(80, 160, 255, 0.55)' : 'rgba(255, 70, 70, 0.55)');
+  if (s.mode === 'lava') for (const t of lavaNow(s)) tint.set(t, 'rgba(255, 110, 20, 0.75)');
+  if (s.mode === 'shrinking') {
+    const n = shrinkIn(s);
+    if (n !== null && n <= 4) for (const t of ringSquares(s, ((s.modeData?.rings as number) ?? 0))) tint.set(t, 'rgba(255, 40, 40, 0.45)');
+  }
+  if (s.mode === 'hidden-queen' && me) {
+    const q = hiddenQueens(s)[me];
+    if (typeof q === 'number' && s.pieces[q]?.at >= 0) badges.set(s.pieces[q].at, '👑');
+  }
+  if (!tint.size && !badges.size) return o;
+  return { ...(o ?? {}), tint, badges };
 }
 
 /** Live score box for the 2-player modes that need one (koth and hill wars have their own). */
@@ -747,6 +821,25 @@ function ModeStatus({ s, names, showBlurb }: { s: GameState; names: Record<strin
     line = <div>{left > 0 ? `🕊️ No captures for ${left} more move${left === 1 ? '' : 's'} each` : '💥 Truce is over. Capture away!'}</div>;
   } else if (s.mode === 'capture-the-flag') {
     line = <div>🔵 Blue square: White's flag. 🔴 Red square: Black's flag. Sit on the enemy flag for one turn to win.</div>;
+  } else if (s.mode === 'shrinking') {
+    const n = shrinkIn(s);
+    line = <div>{n === null ? '📉 The board is as small as it gets.' : n <= 4 ? <b>⚠️ The outside ring falls in {Math.ceil(n / 2)} move{n > 2 ? 's' : ''}! Get off the red squares!</b> : `📉 Next ring falls in ${Math.ceil(n / 2)} moves.`}</div>;
+  } else if (s.mode === 'progressive' && !s.result) {
+    const p = progressOf(s);
+    line = <div>📈 {names[s.turn]}: move <b>{p.quota - p.left + 1}</b> of {p.quota}</div>;
+  } else if (s.mode === 'monster' && !s.result && s.turn === 'p1') {
+    line = <div>👾 {names.p1}: move <b>{s.modeData?.monsterSecond ? 2 : 1}</b> of 2</div>;
+  } else if (s.mode === 'boss') {
+    const lives = bossLives(s);
+    line = <div>👹 Boss lives: {'❤️'.repeat(lives)}{'🖤'.repeat(Math.max(0, 3 - lives))}</div>;
+  } else if (s.mode === 'lava') {
+    const n = lavaNow(s).length;
+    line = <div>{n ? '🌋 Lava! Nothing can land on or slide through the orange squares.' : `🌋 Lava appears in ${10 - (s.ply % 10)} half-moves.`}</div>;
+  } else if (s.mode === 'survival') {
+    const left = Math.max(0, Math.ceil((40 - (s.ply - ((s.modeData?.surviveFrom as number) ?? 0))) / 2));
+    line = <div>🛡️ Hold out for <b>{left}</b> more move{left === 1 ? '' : 's'}. A draw counts as a win!</div>;
+  } else if (s.mode === 'racing-kings') {
+    line = <div>🏁 First king to the top row wins. No checks allowed!</div>;
   }
   return (
     <div className="hill-goal">

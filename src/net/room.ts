@@ -4,7 +4,8 @@ import { BOTS } from '../content/bots';
 import { PARTY_DECK, redactParty, refereeMission, setupParty } from '../systems/party';
 import { play } from '../core/rules';
 import type { Action, GameState, PlayerId } from '../core/types';
-import { cleanHand, cleanLook, cleanName, EMOTES, ROOM_GAMES, type ArmyLook, type ClientMsg, type ClockSetting, type ClockState, type RoomGame, type SeatInfo, type ServerMsg, type WheelsAsk } from './protocol';
+import { cleanArmy, cleanHand, cleanLook, cleanName, EMOTES, ROOM_GAMES, type ArmyLook, type ClientMsg, type ClockSetting, type ClockState, type RoomGame, type SeatInfo, type ServerMsg, type WheelsAsk } from './protocol';
+import { DRAFT_BUDGET, randomArmy } from '../core/modes2';
 
 /**
  * Transport-agnostic room server. Adapters (Bun for local dev, Cloudflare
@@ -20,6 +21,8 @@ interface Seat extends SeatInfo {
   token: string;
   /** Power cards for party games. Public once the game starts (setup.party.cards). */
   hand?: string[];
+  /** Draft: the army this player bought. */
+  army?: string[];
   conn: Conn | null;
   leftAt: number | null;
 }
@@ -62,6 +65,35 @@ export class Room {
     this.state = replay(this.record)[0];
     this.states = [this.state];
     this.setClock(clock);
+  }
+
+  /** Boss battle and Draft need the players before the board can be set up. */
+  private maybeStartSetup() {
+    if (!this.allSeated() || this.record.actions.length) return;
+    const extra = this.record.setup.extra ?? {};
+    if (this.game === 'boss' && !extra.boss) {
+      // The lower-rated player takes the full army; the higher-rated one is the Boss.
+      const [a, b] = this.seatIds;
+      const boss = this.seats[a]!.rating > this.seats[b]!.rating ? a : b;
+      this.resetWith({ ...extra, boss });
+    }
+    if (this.game === 'draft' && !extra.armies) {
+      const pick = (n: number) => Math.floor(Math.random() * n);
+      const armyFor = (k: PlayerId) => (this.seats[k]!.botControlled ? randomArmy(DRAFT_BUDGET, pick) : this.seats[k]!.army);
+      const p1 = armyFor('p1'), p2 = armyFor('p2');
+      if (p1 && p2) this.resetWith({ ...extra, armies: { p1, p2 } });
+    }
+  }
+
+  /** Waiting for the draft armies before anyone can move. */
+  needsArmies(): boolean {
+    return this.game === 'draft' && !this.record.setup.extra?.armies;
+  }
+
+  private resetWith(extra: NonNullable<GameRecord['setup']['extra']>) {
+    this.record = { ...this.record, setup: { ...this.record.setup, extra } };
+    this.state = replay(this.record)[0];
+    this.states = [this.state];
   }
 
   /** Party rooms: once everyone is seated, draw the mode and deal modifiers and missions. */
@@ -108,6 +140,7 @@ export class Room {
       this.record.meta.players[k] = this.seats[k]!.name;
     }
     this.maybeStartParty();
+    this.maybeStartSetup();
     this.broadcast();
   }
 
@@ -149,6 +182,7 @@ export class Room {
     this.seats[seat] = s;
     this.host ??= seat;
     this.maybeStartParty();
+    this.maybeStartSetup();
     this.record.meta.players[seat] = s.name;
     this.emptySince = null;
     conn.send({ t: 'joined', code: this.code, seat, token: s.token });
@@ -248,6 +282,7 @@ export class Room {
       case 'action': {
         const a = msg.action;
         if (!this.allSeated()) return conn.send({ t: 'error', message: 'Waiting for everyone to join.' });
+        if (this.needsArmies()) return conn.send({ t: 'error', message: 'Waiting for both armies to be bought.' });
         if (a.t === 'resign') {
           if (this.state.result) return;
           this.apply({ t: 'resign', by: seat });
@@ -287,6 +322,15 @@ export class Room {
         if (last !== undefined && this.now() - last < 1500) return; // no spamming
         this.lastEmote.set(seat, this.now());
         for (const s of Object.values(this.seats)) s?.conn?.send({ t: 'emote', from: seat, id: msg.id });
+        return;
+      }
+      case 'army': {
+        if (this.game !== 'draft' || !this.needsArmies()) return;
+        const army = cleanArmy(msg.pieces);
+        if (!army) return conn.send({ t: 'error', message: 'That army costs more than 30 points.' });
+        this.seats[seat]!.army = army;
+        this.maybeStartSetup();
+        this.broadcast();
         return;
       }
       case 'wheels-ask': {
@@ -381,6 +425,7 @@ export class Room {
     this.wheelsAsk = null;
     this.setClock(this.clockSetting);
     this.maybeStartParty();
+    this.maybeStartSetup();
     this.rematchVotes.clear();
     for (const k of ids) {
       const s = this.seats[k];
@@ -400,8 +445,14 @@ export class Room {
       const s = this.seats[k];
       if (!s?.conn) continue;
       // Each player only sees their own secret mission until the game ends.
-      const record = party && !this.state.result ? { ...this.record, setup: { ...this.record.setup, party: redactParty(party, k) } } : this.record;
-      s.conn.send({ ...base, record });
+      let record = party && !this.state.result ? { ...this.record, setup: { ...this.record.setup, party: redactParty(party, k) } } : this.record;
+      // Hidden queen: others only learn that a pawn was marked, not which one.
+      if (this.game === 'hidden-queen' || this.record.setup.mode === 'hidden-queen') {
+        record = { ...record, actions: record.actions.map((a) => (a.t === 'buff' && a.id === 'MODE-19' && a.by !== k && !this.state.result ? { t: 'buff' as const, by: a.by, id: 'MODE-19' } : a)) };
+      }
+      // Draft: you see your own army; the other one appears when the game starts.
+      const armiesShown = this.needsArmies() ? Object.fromEntries(this.seatIds.map((x) => [x, x === k && this.seats[x]?.army ? 'ready' : this.seats[x]?.army ? 'ready' : 'buying'])) : undefined;
+      s.conn.send({ ...base, record, armies: armiesShown });
     }
   }
 }

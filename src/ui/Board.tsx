@@ -25,6 +25,8 @@ export interface BoardOverlays {
   /** Attackers vs defenders chips (count the fight). */
   counts?: Map<number, { att: number; def: number }>;
   arrows?: { from: number; to: number; label?: string; color?: string }[];
+  /** Small emoji on a square (your hidden queen…). */
+  badges?: Map<number, string>;
   /** Colour per destination square for the selected piece (hot and cold). */
   targetColors?: Map<number, string>;
 }
@@ -205,6 +207,10 @@ function OverlayLayer({ overlays, pos }: { overlays: BoardOverlays; pos: (sq: nu
           </marker>
         ))}
       </defs>
+      {[...(overlays.badges ?? [])].map(([sq, e]) => {
+        const { x, y } = pos(sq);
+        return <text key={`b${sq}`} x={x + 66} y={y + 30} fontSize={24} className="card-badge">{e}</text>;
+      })}
       {[...(overlays.glow ?? [])].map((sq) => {
         const { x, y } = pos(sq);
         return <rect key={`g${sq}`} x={x + 5} y={y + 5} width={90} height={90} rx={18} className="glow-ring" />;

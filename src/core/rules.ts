@@ -2,6 +2,7 @@ import { isLightSquare } from './board';
 import { activeSeats, eliminate, inCheck, legalMoves, makeMove } from './movegen';
 import { positionKey } from './position';
 import { MODE_MODULES } from './modes';
+import { MODE_MODULES_2 } from './modes2';
 import { extraModule } from './modifiers';
 import { cardModule } from './cards';
 import type { Action, GameResult, GameState, MoveAction, PlayerId } from './types';
@@ -23,9 +24,11 @@ export interface RuleModule {
   extraMoves?(s: GameState): MoveAction[];
   /** One-shot buffs: apply the buff action, or throw if it is not allowed. */
   applyBuff?(s: GameState, a: Extract<Action, { t: 'buff' }>): GameState;
+  /** Modes where bare kings are not a draw (Atomic, Giveaway, Horde…). */
+  noMaterialDraw?: boolean;
 }
 
-const MODULES: Record<string, RuleModule[]> = { ...MODE_MODULES };
+const MODULES: Record<string, RuleModule[]> = { ...MODE_MODULES, ...MODE_MODULES_2 };
 
 export function registerMode(mode: string, modules: RuleModule[]) {
   MODULES[mode] = modules;
@@ -183,6 +186,6 @@ function detectEnd(n: GameState, prev: GameState, action: Action, mover: PlayerI
   }
   if (Object.values(n.positionCounts).some((c) => c >= 3)) return { reason: 'draw-repetition', winners: [] };
   if (n.halfmoveClock >= 100) return { reason: 'draw-50', winners: [] };
-  if (insufficientMaterial(n)) return { reason: 'draw-material', winners: [] };
+  if (!modulesFor(n).some((m) => m.noMaterialDraw) && insufficientMaterial(n)) return { reason: 'draw-material', winners: [] };
   return null;
 }

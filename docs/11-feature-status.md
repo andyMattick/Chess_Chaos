@@ -30,28 +30,28 @@ Built so far: Classic, King of the hill, Hill wars (2 and 4 players), 3-way, 4-w
 | MODE-01 | Random piece | Built | Party match |
 | MODE-02 | King of the hill | Built | Battle modes (vs bot), Play online |
 | MODE-03 | Three-check | Built | Party match |
-| MODE-04 | Horde | Planned | Party match (not built yet) |
+| MODE-04 | Horde | Built | Game modes, Party match, Play online |
 | MODE-05 | Shuffle start | Built | Party match |
 | MODE-06 | Capture race | Built | Party match |
-| MODE-07 | Draft | Planned | Party match (not built yet) |
-| MODE-08 | Boss battle | Planned | Party match (not built yet) |
-| MODE-09 | Shrinking board | Planned | Party match (not built yet) |
+| MODE-07 | Draft | Built | Game modes, Play online |
+| MODE-08 | Boss battle | Built | Game modes, Party match, Play online |
+| MODE-09 | Shrinking board | Built | Game modes, Party match, Play online |
 | MODE-10 | Tag team | Planned | Party match (not built yet) |
-| MODE-11 | Puzzle gauntlet | Planned | Party match (not built yet) |
-| MODE-12 | Endgame survival | Planned | Party match (not built yet) |
-| MODE-13 | Atomic | Planned | Party match (not built yet) |
-| MODE-14 | Drop-in | Planned | Party match (not built yet) |
-| MODE-15 | Giveaway | Planned | Party match (not built yet) |
-| MODE-16 | Racing kings | Planned | Party match (not built yet) |
-| MODE-17 | Progressive | Planned | Party match (not built yet) |
-| MODE-18 | Wrap-around | Planned | Party match (not built yet) |
-| MODE-19 | Hidden queen | Planned | Party match (not built yet) |
+| MODE-11 | Puzzle gauntlet | Built | Puzzles (Gauntlet) |
+| MODE-12 | Endgame survival | Built | Puzzles (Survival) |
+| MODE-13 | Atomic | Built | Game modes, Party match, Play online |
+| MODE-14 | Drop-in | Built | Game modes, Party match, Play online |
+| MODE-15 | Giveaway | Built | Game modes, Party match, Play online |
+| MODE-16 | Racing kings | Built | Game modes, Party match, Play online |
+| MODE-17 | Progressive | Built | Game modes, Party match, Play online |
+| MODE-18 | Wrap-around | Built | Game modes, Party match, Play online |
+| MODE-19 | Hidden queen | Built | Game modes, Party match, Play online |
 | MODE-20 | Capture the flag | Built | Party match |
-| MODE-21 | Lava squares | Planned | Party match (not built yet) |
+| MODE-21 | Lava squares | Built | Game modes, Party match, Play online |
 | MODE-22 | Truce | Built | Party match |
-| MODE-23 | Mini board | Planned | Party match (not built yet) |
-| MODE-24 | Monster | Planned | Party match (not built yet) |
-| MODE-25 | Mystery army | Planned | Party match (not built yet) |
+| MODE-23 | Mini board | Built | Game modes, Party match, Play online |
+| MODE-24 | Monster | Built | Game modes, Party match, Play online |
+| MODE-25 | Mystery army | Built | Game modes, Party match, Play online |
 | MODE-26 | Three-way | Built | Battle modes, Play online |
 | MODE-27 | Four-way | Built | Battle modes, Play online |
 | MODE-28 | Four-way teams | Built | Battle modes, Play online |

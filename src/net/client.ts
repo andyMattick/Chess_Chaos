@@ -16,6 +16,8 @@ export interface OnlineSnapshot {
   record: GameRecord | null;
   seats: Partial<Record<PlayerId, SeatInfo>>;
   wheelsAsk?: WheelsAsk | null;
+  /** Draft rooms: who has bought their army. */
+  armies?: Partial<Record<PlayerId, 'ready' | 'buying'>>;
   rematchVotes: PlayerId[];
   error: string | null;
   lastEmote: { from: PlayerId; id: EmoteId; at: number } | null;
@@ -93,7 +95,7 @@ class OnlineSession {
         this.set({ code: m.code, seat: m.seat, error: null });
         break;
       case 'room':
-        this.set({ code: m.code, record: m.record, seats: m.seats, rematchVotes: m.rematchVotes, clock: m.clock ?? null, clockAt: Date.now(), seatIds: m.seatIds ?? ['p1', 'p2'], game: m.game ?? 'standard', host: m.host ?? null, score: m.score ?? {}, gamesPlayed: m.gamesPlayed ?? 0, wheelsAsk: m.wheelsAsk ?? null });
+        this.set({ code: m.code, record: m.record, seats: m.seats, rematchVotes: m.rematchVotes, clock: m.clock ?? null, clockAt: Date.now(), seatIds: m.seatIds ?? ['p1', 'p2'], game: m.game ?? 'standard', host: m.host ?? null, score: m.score ?? {}, gamesPlayed: m.gamesPlayed ?? 0, wheelsAsk: m.wheelsAsk ?? null, armies: m.armies });
         break;
       case 'emote':
         this.set({ lastEmote: { from: m.from, id: m.id, at: Date.now() } });
@@ -145,6 +147,8 @@ class OnlineSession {
   askWheels() { this.send({ t: 'wheels-ask' }); }
   answerWheels(answer: 'fun' | 'rated' | 'no') { this.send({ t: 'wheels-answer', answer }); }
   wheelsOk() { this.send({ t: 'wheels-ok' }); }
+  /** Draft: send the army I bought. */
+  sendArmy(pieces: string[]) { this.send({ t: 'army', pieces }); }
   /** Share my rating after a game ends. */
   shareRating(rating: number) { this.send({ t: 'rating', rating }); }
   act(action: Action) { this.send({ t: 'action', action }); }

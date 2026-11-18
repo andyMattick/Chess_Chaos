@@ -9,6 +9,8 @@ import { moveEvents, shakeFor, type MoveEvents } from './effects';
 import { setSoundEnabled, sfx } from './sound';
 import { useSave } from './store';
 import { QuickToggles } from './QuickToggles';
+import { SURVIVAL } from '../content/survival';
+import type { GameConfig } from './GameScreen';
 
 /**
  * Puzzles (docs/06 CC-02, CC-03): Chess.com's daily and random puzzles played
@@ -16,10 +18,10 @@ import { QuickToggles } from './QuickToggles';
  * back; one hint per puzzle (the right piece glows). Daily solves build a
  * streak. Puzzles never change the rating (docs/02).
  */
-type Tab = 'daily' | 'random' | 'warmup';
+type Tab = 'daily' | 'random' | 'warmup' | 'gauntlet' | 'survival';
 type Phase = 'loading' | 'play' | 'wrong' | 'reply' | 'solved' | 'shown' | 'error';
 
-export function PuzzleScreen({ back }: { back: () => void }) {
+export function PuzzleScreen({ back, startGame }: { back: () => void; startGame?: (c: GameConfig) => void }) {
   const save = useSave();
   const p = activeProfile(save);
   const ccOn = save.settings.chesscomEnabled;
@@ -36,6 +38,8 @@ export function PuzzleScreen({ back }: { back: () => void }) {
   const [fx, setFx] = useState<MoveEvents | null>(null);
   const [reward, setReward] = useState<{ coins: number; streakUp: boolean; streak: number } | null>(null);
   const [warmIdx, setWarmIdx] = useState(0);
+  // MODE-11 Puzzle gauntlet: three lives, keep going as long as you can.
+  const [run, setRun] = useState<{ lives: number; score: number; idx: number; seen: string[]; over: boolean } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const timers = useRef<number[]>([]);
   const later = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)); };
@@ -51,8 +55,33 @@ export function PuzzleScreen({ back }: { back: () => void }) {
     setHint(false); setTries(0); setLastMove(null); setFx(null); setReward(null); setError(null);
   }
 
+  // Only the latest load may change the screen (a slow Chess.com answer must not undo a later choice).
+  const loadId = useRef(0);
   async function load(t: Tab, idx = warmIdx) {
+    const my = ++loadId.current;
+    const stale = () => my !== loadId.current;
     setTab(t); setPhase('loading'); setPuzzle(null); setError(null);
+    if (t === 'survival') { setPhase('play'); return; }
+    if (t === 'gauntlet') {
+      const r = run && !run.over ? run : { lives: 3, score: 0, idx: 0, seen: [], over: false };
+      setRun(r);
+      const all = builtInPuzzles();
+      if (r.idx < all.length) { start(all[r.idx]); return; }
+      if (!ccOn) { setRun({ ...r, over: true }); setPhase('play'); return; }
+      try {
+        const raw = r.idx === all.length ? await chesscom.dailyPuzzle() : await chesscom.randomPuzzle();
+        if (stale()) return;
+        const id = `cc-${r.idx === all.length ? 'daily' : 'random'}-${raw.publish_time ?? raw.url ?? raw.fen}`;
+        const pz = puzzleFrom({ id, title: raw.title, source: r.idx === all.length ? 'daily' : 'random', fen: raw.fen, pgn: raw.pgn, url: raw.url });
+        if (!pz || r.seen.includes(id)) { setRun({ ...r, over: true }); setPhase('play'); return; }
+        setRun({ ...r, seen: [...r.seen, id] });
+        start(pz);
+      } catch {
+        if (stale()) return;
+        setRun({ ...r, over: true }); setPhase('play');
+      }
+      return;
+    }
     if (t === 'warmup') {
       const all = builtInPuzzles();
       // Unsolved warm-ups first, then round again.
@@ -62,11 +91,13 @@ export function PuzzleScreen({ back }: { back: () => void }) {
     }
     try {
       const raw = t === 'daily' ? await chesscom.dailyPuzzle() : await chesscom.randomPuzzle();
+      if (stale()) return;
       const id = `cc-${t}-${raw.publish_time ?? raw.url ?? raw.fen}`;
       const pz = puzzleFrom({ id, title: raw.title, source: t, fen: raw.fen, pgn: raw.pgn, url: raw.url });
       if (!pz) throw new Error('unreadable');
       start(pz);
     } catch (e) {
+      if (stale()) return;
       setPhase('error');
       setError(e instanceof ChessComError ? e.message : 'Chess.com is not answering right now. Try a warm-up instead!');
     }
@@ -95,9 +126,11 @@ export function PuzzleScreen({ back }: { back: () => void }) {
 
   function solved(pz: Puzzle) {
     setPhase('solved');
+    const score = tab === 'gauntlet' && run ? run.score + 1 : 0;
+    if (tab === 'gauntlet' && run) setRun({ ...run, score, idx: run.idx + 1 });
     if (!p) return;
     const r = recordSolve(progress, pz, hint);
-    updateProfile((x) => ({ ...x, coins: (x.coins ?? 0) + r.coins, puzzles: r.progress }));
+    updateProfile((x) => ({ ...x, coins: (x.coins ?? 0) + r.coins, puzzles: { ...r.progress, gauntletBest: Math.max(x.puzzles?.gauntletBest ?? 0, score) } }));
     setReward({ coins: r.coins, streakUp: r.streakUp, streak: r.progress.streak });
   }
 
@@ -108,6 +141,14 @@ export function PuzzleScreen({ back }: { back: () => void }) {
     const before = state;
     const after = playMove(before, m, ply);
     setState(after);
+    if (verdict === 'wrong' && tab === 'gauntlet' && run) {
+      // Gauntlet: a wrong move costs a life; then see the answer and move on.
+      const lives = run.lives - 1;
+      setRun({ ...run, lives, idx: run.idx + 1, over: lives <= 0 });
+      sfx.nudge();
+      later(() => { setState(before); setLastMove(null); setFx(null); showMeFrom(before, ply); }, 650);
+      return;
+    }
     if (verdict === 'wrong') {
       setPhase('wrong');
       setTries((t) => t + 1);
@@ -130,11 +171,14 @@ export function PuzzleScreen({ back }: { back: () => void }) {
 
   /** Play the rest of the line for them. */
   function showMe() {
-    if (!puzzle || !state) return;
+    if (state) showMeFrom(state, ply);
+  }
+  function showMeFrom(from: GameState, at: number) {
+    if (!puzzle) return;
     setPhase('shown'); setSelected(null);
-    let s = state;
-    puzzle.line.slice(ply).forEach((m, i) => {
-      later(() => { s = playMove(s, m, ply + i); setState(s); }, 400 + i * 800);
+    let s = from;
+    puzzle.line.slice(at).forEach((m, i) => {
+      later(() => { s = playMove(s, m, at + i); setState(s); }, 400 + i * 800);
     });
   }
 
@@ -159,6 +203,7 @@ export function PuzzleScreen({ back }: { back: () => void }) {
   const side = puzzle?.solver === 'p1' ? 'White' : 'Black';
   const left = puzzle ? solverMoves(puzzle) - Math.floor(ply / 2) : 0;
   const nextPuzzle = () => {
+    if (tab === 'gauntlet') { if (!run?.over) load('gauntlet'); return; }
     if (tab === 'warmup') { const i = warmIdx + 1; setWarmIdx(i); load('warmup', i); }
     else load(tab === 'daily' ? 'random' : tab);
   };
@@ -223,7 +268,28 @@ export function PuzzleScreen({ back }: { back: () => void }) {
           {ccOn && <button className={`btn ${tab === 'daily' ? 'primary' : ''}`} onClick={() => load('daily')}>📅 Today's</button>}
           {ccOn && <button className={`btn ${tab === 'random' ? 'primary' : ''}`} onClick={() => load('random')}>🎲 Random</button>}
           <button className={`btn ${tab === 'warmup' ? 'primary' : ''}`} onClick={() => load('warmup')}>🌱 Warm-ups</button>
+          <button className={`btn ${tab === 'gauntlet' ? 'primary' : ''}`} onClick={() => { setRun(null); setTimeout(() => load('gauntlet'), 0); }}>❤️ Gauntlet</button>
+          {startGame && <button className={`btn ${tab === 'survival' ? 'primary' : ''}`} onClick={() => load('survival')}>🛡️ Survival</button>}
         </div>
+        {tab === 'gauntlet' && run && (
+          <div className="gauntlet">
+            <b>{'❤️'.repeat(Math.max(0, run.lives))}{'🖤'.repeat(Math.max(0, 3 - run.lives))}</b> Score: <b>{run.score}</b> · Best: {progress.gauntletBest ?? 0}
+            {run.over && <p><b>{run.lives <= 0 ? 'Out of lives!' : 'You did every puzzle we have!'}</b> Final score: {run.score}. <button className="btn small" onClick={() => { setRun(null); setTimeout(() => load('gauntlet'), 0); }}>Go again</button></p>}
+          </div>
+        )}
+        {tab === 'survival' && startGame && (
+          <div className="survival-list">
+            <p className="muted small">Hold out for 20 moves against a strong bot. A draw counts as a win!</p>
+            {SURVIVAL.map((l) => (
+              <button key={l.id} className="mode-tile" onClick={() => startGame({
+                kind: 'bot', botId: 'BOT-18', humanSeat: l.survivor, mode: 'survival', unrated: true, extra: { fen: l.fen, survivor: l.survivor },
+                names: l.survivor === 'p1' ? { p1: p?.nickname ?? 'You', p2: 'Survival bot' } : { p1: 'Survival bot', p2: p?.nickname ?? 'You' },
+              })}>
+                <span className="mode-emoji">{l.emoji}</span><b>{l.name}</b><small>{l.tip}</small>
+              </button>
+            ))}
+          </div>
+        )}
         {puzzle && <p className="status">{puzzle.title}</p>}
         {(phase === 'loading' || phase === 'error') && <p className="status">{status}</p>}
         {puzzle && puzzle.source !== 'built-in' && <p className="muted small">Puzzle from Chess.com.{tab === 'daily' ? ' Solve one every day to grow your streak!' : ''}</p>}

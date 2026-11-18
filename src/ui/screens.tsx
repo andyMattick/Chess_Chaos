@@ -24,7 +24,7 @@ export function ProfileChip({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train' | 'chesscom' | 'battle' | 'leaderboard' | 'party' | 'puzzles' | 'cards') => void }) {
+export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train' | 'chesscom' | 'battle' | 'leaderboard' | 'party' | 'puzzles' | 'cards' | 'modes') => void }) {
   const save = useSave();
   const p = activeProfile(save);
   return (
@@ -79,6 +79,11 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
           <span className="big-emoji">🎉</span>
           <span className="big-title">Party match</span>
           <span className="big-sub">Surprise mode, secret mission, buffs, handicaps and power cards</span>
+        </button>
+        <button className="big" style={{ ['--c' as string]: '#36c5c5' }} onClick={() => go('modes')} disabled={!p}>
+          <span className="big-emoji">🎮</span>
+          <span className="big-title">Game modes</span>
+          <span className="big-sub">Atomic, Horde, Lava, Drop-in, Boss battle… 25 ways to play</span>
         </button>
         <button className="big" style={{ ['--c' as string]: '#c08cff' }} onClick={() => go('cards')} disabled={!p}>
           <span className="big-emoji">🃏</span>

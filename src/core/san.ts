@@ -11,6 +11,9 @@ export function toSAN(s: GameState, m: MoveAction, legal: MoveAction[] = legalAc
   let san: string;
   if (m.castle) {
     san = m.castle === 'k' ? 'O-O' : 'O-O-O';
+  } else if (p.at < 0) {
+    // Drop-in: a piece from the reserve, written like N@e4.
+    san = `${baseType(p.type) === 'pawn' ? 'P' : pieceType(baseType(p.type)).letter}@${squareName(b, m.to)}`;
   } else {
     const isPawn = baseType(p.type) === 'pawn';
     const isCapture = s.sq[m.to] >= 0 || (isPawn && s.enPassant?.square === m.to);

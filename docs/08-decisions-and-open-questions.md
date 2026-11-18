@@ -134,3 +134,18 @@ Implementing agent: add dated entries below when you resolve an ambiguity or rec
 
 - Training wheels are no longer switched on in the lobby. Once both players are in the room and before the first move, a player taps "Ask for training wheels". The other player answers: **Yes, just for fun** (their own rating does not change), **Yes, and it counts** (both ratings count), or **No thanks**. After a no, the asker chooses to play without them or leave. Moves wait while a question is open. Against a bot that took over a seat, the request is accepted at once.
 - The asker's rating always counts (earlier owner decision). The answer stays with the players across rematches in the same room.
+
+### 2026-11-17: Seventeen more modes
+
+- **Built:** Atomic, Giveaway, Racing kings, Wrap-around, Lava squares, Mini board, Horde, Monster, Shrinking board, Progressive, Drop-in, Boss battle, Mystery army, Hidden queen and Draft (all in the new Game modes screen against a bot and in Play online under "More modes"; all but Draft are in the Party match deck), plus Puzzle gauntlet and Endgame survival in Puzzles. Rules in `src/core/modes2.ts`, one test each in `tests/modes2.test.ts`.
+- **Atomic:** played without check rules (like the battles): you win by blowing up or capturing the king; you may not blow up your own king.
+- **Giveaway:** kings become ordinary pieces ("commoner"). Bare kings are not a draw in Atomic, Giveaway, Horde, Monster and Racing kings.
+- **Lava:** lava blocks moving onto and sliding through it; it does not block attacks or checks.
+- **Monster:** White's king must be safe after each of its two moves (the catalog only requires it at the end of the turn), and White may never take the king between its two moves.
+- **Hidden queen:** the secret pawn attacks only as a pawn until it moves as a queen; then it becomes a real queen. Online, the other player is told only that a pawn was marked. Bots mark a pawn too, and in bot games the bot knows your mark.
+- **Draft:** each player buys an army privately (30 points, king free, up to 15 pieces) and the game places it: pieces on the back row centre-out, pawns on the second row. The catalog's alternate picking and hand placement are not built.
+- **Boss battle:** the higher-rated player is the Boss (in Party matches, Black is). The Boss gets the queen's square.
+- **Mini board:** Gardner layout (R N B Q K on the first row).
+- **Endgame survival:** 5 positions against the strongest bot, unrated; a draw counts as holding out. **Puzzle gauntlet:** 3 lives through the warm-ups, then today's and random Chess.com puzzles; best score saved.
+- **Invites** now name the mode, say what it is, and give the clock.
+- The AI does not plan for Monster's and Progressive's extra moves or for drops; it still plays legal moves.
