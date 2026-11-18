@@ -44,6 +44,8 @@ export interface MailGame {
   game: RoomGame;
   status: 'invited' | 'playing' | 'done' | 'declined' | 'expired';
   from: string;
+  /** Part of a tournament (its id). */
+  tournament?: string;
   record: GameRecord;
   createdAt: number;
   updatedAt: number;
@@ -146,6 +148,7 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
           g.record.meta.result = play(s, { t: 'timeout', by: s.turn }).result;
           g.status = 'done';
           await save(g);
+          if (g.tournament) await stepTournament(store, g.tournament, now);
         }
         // Finished games stay listed for 30 days.
         if (['done', 'declined', 'expired'].includes(g.status) && now - g.updatedAt > 30 * 24 * 3600 * 1000) { await store.delete(k); continue; }
@@ -222,9 +225,193 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
       g.record = { ...g.record, actions: [...g.record.actions, a] };
       if (n.result) { g.record.meta.result = n.result; g.status = 'done'; }
       await save(g);
+      if (g.status === 'done' && g.tournament) await stepTournament(store, g.tournament, now);
       return json({ game: view(g) });
     }
     return bad('Unknown action.', 404);
   }
+  // ---- Tournaments ------------------------------------------------------
+  if (parts[0] === 'tournaments') {
+    if (!who) return bad('no key', 401);
+    const mine = async () => {
+      const out: Tournament[] = [];
+      for (const k of (await store.list(`ti:${who}:`)).keys()) {
+        let t = await loadT(store, k.split(':')[2]);
+        if (!t) { await store.delete(k); continue; }
+        if (t.status === 'running') t = (await stepTournament(store, t.id, now)) ?? t;
+        if (t.status === 'invited' && now - t.updatedAt > MAIL_TIMEOUT_MS) { t.status = 'cancelled'; await saveT(store, t, now); }
+        if (['done', 'cancelled'].includes(t.status) && now - t.updatedAt > 30 * 24 * 3600 * 1000) { await store.delete(k); continue; }
+        out.push(t);
+      }
+      return out.sort((a, b) => b.updatedAt - a.updatedAt);
+    };
+    if (req.method === 'GET' && parts.length === 1) return json({ tournaments: await mine() });
+    if (req.method === 'POST' && parts.length === 1) {
+      const body = (await req.json().catch(() => null)) as { players?: string[]; game?: string; rating?: number } | null;
+      const others = [...new Set((body?.players ?? []).map((x) => String(x).replace(/\D/g, '')).filter((x) => isNumber(x) && x !== who))];
+      if (others.length < 1 || others.length > TOURNAMENT_MAX - 1) return bad(`Pick 1 to ${TOURNAMENT_MAX - 1} friends.`);
+      for (const n of others) if (!(await exists(n))) return bad(`No player has the number ${n}.`, 404);
+      const game = MAIL_GAMES.includes(body?.game as RoomGame) ? (body!.game as RoomGame) : 'standard';
+      const t: Tournament = {
+        id: newId(), organizer: who, game, players: [who, ...others], joined: [who], declined: [],
+        ratings: { [who]: clampRating(body?.rating) }, status: 'invited', rounds: [], createdAt: now, updatedAt: now,
+      };
+      await saveT(store, t, now);
+      return json({ tournament: t }, 201);
+    }
+    const t = parts[1] ? await loadT(store, parts[1]) : null;
+    if (!t || !t.players.includes(who)) return bad('No such tournament.', 404);
+    if (req.method === 'GET' && parts.length === 2) return json({ tournament: t });
+    if (req.method !== 'POST') return bad('method', 405);
+    const body = (await req.json().catch(() => ({}))) as { rating?: number };
+    const act = parts[2];
+    if (act === 'join' || act === 'decline') {
+      if (t.status !== 'invited' || t.joined.includes(who) || t.declined.includes(who)) return bad('Nothing to answer.');
+      if (act === 'join') { t.joined.push(who); t.ratings[who] = clampRating(body.rating); } else t.declined.push(who);
+      // Everyone answered: start by itself.
+      if (t.joined.length + t.declined.length === t.players.length && t.joined.length >= 2) await startTournament(store, t, now);
+      else await saveT(store, t, now);
+      return json({ tournament: t });
+    }
+    if (act === 'start') {
+      if (t.organizer !== who || t.status !== 'invited') return bad('Only the organizer can start it, once.');
+      if (t.joined.length < 2) return bad('Wait until at least one friend has joined.');
+      await startTournament(store, t, now);
+      return json({ tournament: t });
+    }
+    if (act === 'cancel') {
+      if (t.organizer !== who || t.status !== 'invited') return bad('Only the organizer can cancel it before it starts.');
+      t.status = 'cancelled';
+      await saveT(store, t, now);
+      return json({ tournament: t });
+    }
+    return bad('Unknown action.', 404);
+  }
+
+  // ---- What everyone likes: mode rankings, added up ----------------------
+  if (parts[0] === 'modes') {
+    if (req.method === 'GET') {
+      const sum: Record<string, { n: number; total: number; fav: number; never: number }> = {};
+      for (const v of (await store.list('m:')).values()) {
+        const prefs = JSON.parse(v) as Record<string, number>;
+        for (const [mode, x] of Object.entries(prefs)) {
+          const e = (sum[mode] ??= { n: 0, total: 0, fav: 0, never: 0 });
+          e.n++; e.total += x; if (x === 3) e.fav++; if (x === 0) e.never++;
+        }
+      }
+      return json({ voters: (await store.list('m:')).size, modes: Object.entries(sum).map(([mode, e]) => ({ mode, average: Math.round((e.total / e.n) * 100) / 100, favourite: e.fav, never: e.never, votes: e.n })).sort((a, b) => b.average - a.average) });
+    }
+    const n = parts[1];
+    if (!n || !isNumber(n) || who !== n) return bad('wrong player', 403);
+    if (req.method === 'DELETE') { await store.delete(`m:${n}`); return json({ ok: true }); }
+    if (req.method === 'POST') {
+      const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+      const clean: Record<string, number> = {};
+      for (const [mode, x] of Object.entries(body ?? {}).slice(0, 80)) {
+        if (/^[a-z0-9-]{2,30}$/.test(mode) && [0, 1, 2, 3].includes(Number(x))) clean[mode] = Number(x);
+      }
+      await store.put(`m:${n}`, JSON.stringify(clean));
+      return json({ ok: true });
+    }
+    return bad('method', 405);
+  }
   return bad('not found', 404);
+}
+
+/* ---------------------------------------------------------------------------
+ * Tournaments (owner, 2026-11-18): a knockout bracket of 2 to 8 friends, every
+ * game a challenge game. Draw: the player who had Black goes through. A bye
+ * goes straight to the next round.
+ * ------------------------------------------------------------------------- */
+export const TOURNAMENT_MAX = 8;
+
+export interface Tournament {
+  id: string;
+  organizer: string;
+  game: RoomGame;
+  /** Everyone invited (organizer first). */
+  players: string[];
+  joined: string[];
+  declined: string[];
+  ratings: Record<string, number>;
+  status: 'invited' | 'running' | 'done' | 'cancelled';
+  /** Each round: pairs of player numbers (null = a bye) and the game for each pair. */
+  rounds: { pairs: [string, string | null][]; games: (string | null)[]; winners: (string | null)[] }[];
+  winner?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+const clampRating = (x: unknown) => Math.max(100, Math.min(3000, Math.round(Number(x)) || 600));
+
+async function loadT(store: WorldStore, id: string): Promise<Tournament | null> {
+  const v = await store.get(`t:${id}`);
+  return v ? (JSON.parse(v) as Tournament) : null;
+}
+async function saveT(store: WorldStore, t: Tournament, now: number) {
+  t.updatedAt = now;
+  await store.put(`t:${t.id}`, JSON.stringify(t));
+  for (const n of t.players) await store.put(`ti:${n}:${t.id}`, '1');
+}
+
+/** Shuffle with a fresh random order (seeding is luck, like drawing names from a hat). */
+function shuffle<T>(a: T[]): T[] {
+  const out = a.slice();
+  for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+  return out;
+}
+
+async function newRound(store: WorldStore, t: Tournament, players: string[], now: number) {
+  const pairs: [string, string | null][] = [];
+  for (let i = 0; i < players.length; i += 2) pairs.push([players[i], players[i + 1] ?? null]);
+  const games: (string | null)[] = [];
+  const winners: (string | null)[] = [];
+  for (const [a, b] of pairs) {
+    if (!b) { games.push(null); winners.push(a); continue; } // a bye
+    const white = Math.random() < 0.5 ? a : b;
+    const black = white === a ? b : a;
+    const mode = t.game === 'standard' ? 'standard' : t.game;
+    const g: MailGame = {
+      id: newId(), players: { p1: white, p2: black }, ratings: { p1: t.ratings[white] ?? 600, p2: t.ratings[black] ?? 600 }, game: t.game,
+      status: 'playing', from: t.organizer, tournament: t.id,
+      record: newRecord((Math.random() * 0xffffffff) | 0, { p1: `#${white}`, p2: `#${black}` }, undefined, mode), createdAt: now, updatedAt: now,
+    };
+    await store.put(`g:${g.id}`, JSON.stringify(g));
+    await store.put(`i:${white}:${g.id}`, '1');
+    await store.put(`i:${black}:${g.id}`, '1');
+    games.push(g.id);
+    winners.push(null);
+  }
+  t.rounds.push({ pairs, games, winners });
+}
+
+async function startTournament(store: WorldStore, t: Tournament, now: number) {
+  t.status = 'running';
+  await newRound(store, t, shuffle(t.joined), now);
+  await saveT(store, t, now);
+  await stepTournament(store, t.id, now);
+}
+
+/** Move a running tournament on: record finished games, start the next round, crown the winner. */
+export async function stepTournament(store: WorldStore, id: string, now: number): Promise<Tournament | null> {
+  const t = await loadT(store, id);
+  if (!t || t.status !== 'running') return t;
+  for (;;) {
+    const r = t.rounds[t.rounds.length - 1];
+    for (let i = 0; i < r.pairs.length; i++) {
+      if (r.winners[i] || !r.games[i]) continue;
+      const v = await store.get(`g:${r.games[i]}`);
+      const g = v ? (JSON.parse(v) as MailGame) : null;
+      if (!g || g.status !== 'done') continue;
+      const w = g.record.meta.result?.winners ?? [];
+      // A draw: Black goes through.
+      r.winners[i] = w.length ? g.players[w[0] as 'p1' | 'p2'] : g.players.p2;
+    }
+    if (r.winners.some((w) => !w)) break;
+    const through = r.winners as string[];
+    if (through.length === 1) { t.status = 'done'; t.winner = through[0]; break; }
+    await newRound(store, t, through, now);
+  }
+  await saveT(store, t, now);
+  return t;
 }

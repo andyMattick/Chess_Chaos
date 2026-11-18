@@ -1,5 +1,6 @@
 import { authToken } from '../net/vault';
-import type { MailGame } from '../net/world';
+import type { MailGame, Tournament } from '../net/world';
+export type { Tournament };
 import type { RoomGame } from '../net/protocol';
 import type { Action } from '../core/types';
 import { vaultBase } from './cloud';
@@ -51,8 +52,8 @@ export async function setOnBoard(on: boolean): Promise<void> {
   const p = activeProfile();
   if (!p?.cloud) return;
   updateProfile((x) => ({ ...x, worldBoard: on }));
-  if (on) await postBoard({ ...p, worldBoard: true });
-  else await call(p, 'DELETE', `/board/${p.cloud.number}`);
+  if (on) { await postBoard({ ...p, worldBoard: true }); await postModeVotes({ ...p, worldBoard: true }); }
+  else { await call(p, 'DELETE', `/board/${p.cloud.number}`); await call(p, 'DELETE', `/modes/${p.cloud.number}`); }
 }
 
 export async function myGames(): Promise<MailGame[]> {
@@ -122,4 +123,36 @@ export function myRecord(p: Profile): { w: number; l: number; d: number } {
 export function recordVs(p: Profile | undefined, n: string): { w: number; l: number; d: number } | null {
   const o = p?.opponents?.[`mail:${n}`];
   return o ? { w: o.w, l: o.l, d: o.d } : null;
+}
+
+/* ---- Tournaments ---- */
+export async function myTournaments(): Promise<Tournament[]> {
+  const p = activeProfile();
+  if (!p?.cloud) return [];
+  return (await answer<{ tournaments: Tournament[] }>(await call(p, 'GET', '/tournaments'))).tournaments;
+}
+
+export async function createTournament(players: string[], game: RoomGame): Promise<Tournament> {
+  const p = activeProfile()!;
+  return (await answer<{ tournament: Tournament }>(await call(p, 'POST', '/tournaments', { players, game, rating: p.rating }))).tournament;
+}
+
+export async function tournamentAction(id: string, act: 'join' | 'decline' | 'start' | 'cancel'): Promise<Tournament> {
+  const p = activeProfile()!;
+  return (await answer<{ tournament: Tournament }>(await call(p, 'POST', `/tournaments/${id}/${act}`, { rating: p.rating }))).tournament;
+}
+
+/* ---- What everyone likes ---- */
+export interface ModeVotes { voters: number; modes: { mode: string; average: number; favourite: number; never: number; votes: number }[] }
+
+export async function fetchModeVotes(): Promise<ModeVotes> {
+  const base = vaultBase();
+  if (!base) throw new Error('No server here.');
+  return answer<ModeVotes>(await fetch(`${base}/world/modes`));
+}
+
+/** Share this player's mode rankings (numbers only), unless they switched the world leaderboard off. */
+export async function postModeVotes(p: Profile | undefined = activeProfile()): Promise<void> {
+  if (!p?.cloud || p.worldBoard === false || !p.modePrefs || !Object.keys(p.modePrefs).length) return;
+  await call(p, 'POST', `/modes/${p.cloud.number}`, p.modePrefs);
 }

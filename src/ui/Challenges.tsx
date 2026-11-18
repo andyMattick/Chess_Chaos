@@ -5,7 +5,8 @@ import { MAIL_GAMES, type MailGame } from '../net/world';
 import { replay } from '../core/record';
 import { vaultBase } from '../storage/cloud';
 import { activeProfile } from '../storage/storage';
-import { addFriend, answerChallenge, challenge, labelFor, myGames, nameNumber, removeFriend } from '../storage/world';
+import { addFriend, answerChallenge, challenge, createTournament, labelFor, myGames, myTournaments, nameNumber, removeFriend, tournamentAction, type Tournament } from '../storage/world';
+import { TOURNAMENT_MAX } from '../net/world';
 import { showNumber as fmt } from '../net/vault';
 import { CloudSaveCard } from './CloudSave';
 import { StatsLine, useWorldBoard } from './FriendStats';
@@ -30,10 +31,13 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
   const [nameText, setNameText] = useState('');
   const [addNo, setAddNo] = useState('');
   const [addName, setAddName] = useState('');
+  const [tours, setTours] = useState<Tournament[]>([]);
+  const [tPick, setTPick] = useState<string[]>([]);
+  const [tGame, setTGame] = useState<RoomGame>('standard');
   const number = p?.cloud?.number;
   const { board } = useWorldBoard();
 
-  const refresh = () => myGames().then((g) => { setGames(g); setErr(null); }).catch((e) => setErr((e as Error).message));
+  const refresh = () => Promise.all([myGames(), myTournaments()]).then(([g, t]) => { setGames(g); setTours(t); setErr(null); }).catch((e) => setErr((e as Error).message));
   useEffect(() => {
     if (!number) return;
     void refresh();
@@ -97,7 +101,7 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
     );
   };
   const row = (g: MailGame, actions: React.ReactNode) => (
-    <li key={g.id} className="mail-row">{who(g)}<small>{modeLabel(g)} · you play {mySeat(g) === 'p1' ? 'White' : 'Black'}</small><span className="row wrap">{actions}</span></li>
+    <li key={g.id} className="mail-row">{who(g)}<small>{g.tournament ? '🏆 Tournament · ' : ''}{modeLabel(g)} · you play {mySeat(g) === 'p1' ? 'White' : 'Black'}</small><span className="row wrap">{actions}</span></li>
   );
 
   return (
@@ -155,6 +159,23 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
         <button className="btn small" disabled={addNo.replace(/\D/g, '').length !== 8} onClick={() => { try { addFriend(addNo, addName); setAddNo(''); setAddName(''); } catch (e) { setErr((e as Error).message); } }}>➕ Add friend</button>
       </div>
 
+      <h3>🏆 Tournaments <span className="scribble">knockout, a move at a time</span></h3>
+      {tours.map((t) => <TournamentCard key={t.id} t={t} me={number} label={label} games={list} open={open} act={(a) => tournamentAction(t.id, a).then(refresh).catch((e) => setErr((e as Error).message))} />)}
+      {(p.friends ?? []).length > 0 ? (
+        <div className="mail-form">
+          <small className="muted">Pick up to {TOURNAMENT_MAX - 1} friends and a mode. Each round is a challenge game; win to go through. A draw: the player with Black goes through.</small>
+          <div className="clock-chips">
+            {(p.friends ?? []).map((n) => (
+              <button key={n} className={`chip ${tPick.includes(n) ? 'on' : ''}`} onClick={() => setTPick(tPick.includes(n) ? tPick.filter((x) => x !== n) : tPick.length < TOURNAMENT_MAX - 1 ? [...tPick, n] : tPick)}>{tPick.includes(n) ? '✅ ' : ''}{label(n)}</button>
+            ))}
+          </div>
+          <select aria-label="Tournament game" value={tGame} onChange={(e) => setTGame(e.target.value as RoomGame)}>
+            {MAIL_GAMES.map((id) => <option key={id} value={id}>{ROOM_GAMES.find((x) => x.id === id)?.label ?? id}</option>)}
+          </select>
+          <button className="btn primary" disabled={!tPick.length || busy} onClick={() => { setBusy(true); createTournament(tPick, tGame).then(() => { setTPick([]); return refresh(); }).catch((e) => setErr((e as Error).message)).finally(() => setBusy(false)); }}>🏆 Start a tournament ({tPick.length + 1} players)</button>
+        </div>
+      ) : <p className="muted small">Add friends above to start a tournament.</p>}
+
       <h3>⚔️ Challenge a friend</h3>
       {(p.friends ?? []).length > 0 && (
         <div className="clock-chips">
@@ -182,6 +203,48 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
         {g.status === 'done' && <button className="btn small" onClick={() => open(g)}>Look</button>}
       </>))}</ul></>}
       <button className="btn" onClick={back}>← Home</button>
+    </div>
+  );
+}
+
+/** One tournament: invites, the bracket, your game, the champion. */
+function TournamentCard({ t, me, label, games, open, act }: { t: Tournament; me: string; label: (n: string) => string; games: MailGame[]; open: (g: MailGame) => void; act: (a: 'join' | 'decline' | 'start' | 'cancel') => void }) {
+  const who = (n: string | null) => (!n ? 'bye' : n === me ? 'You' : label(n));
+  const mode = ROOM_GAMES.find((x) => x.id === t.game)?.label ?? t.game;
+  const answered = t.joined.includes(me) || t.declined.includes(me);
+  const myGame = t.status === 'running' ? games.find((g) => g.tournament === t.id && g.status === 'playing') : undefined;
+  return (
+    <div className="tour-card">
+      <b>🏆 {mode} Cup</b> <small className="muted">by {who(t.organizer)} · {t.players.length} invited</small>
+      {t.status === 'invited' && (
+        <>
+          <p className="small">Joined: {t.joined.map(who).join(', ')}{t.declined.length ? ` · said no: ${t.declined.map(who).join(', ')}` : ''}</p>
+          <div className="row wrap">
+            {!answered && <><button className="btn small primary" onClick={() => act('join')}>Join!</button><button className="btn small" onClick={() => act('decline')}>No thanks</button></>}
+            {t.organizer === me && <><button className="btn small primary" disabled={t.joined.length < 2} onClick={() => act('start')}>Start now ({t.joined.length})</button><button className="btn small" onClick={() => act('cancel')}>Cancel</button></>}
+            {answered && t.organizer !== me && <span className="small muted">Waiting for the others to answer…</span>}
+          </div>
+        </>
+      )}
+      {(t.status === 'running' || t.status === 'done') && (
+        <div className="bracket">
+          {t.rounds.map((r, i) => (
+            <div key={i} className="bracket-round">
+              <small className="muted">{i === t.rounds.length - 1 && r.pairs.length === 1 ? 'Final' : `Round ${i + 1}`}</small>
+              {r.pairs.map(([a, b], k) => (
+                <div key={k} className="bracket-pair">
+                  <span className={r.winners[k] === a ? 'won' : ''}>{who(a)}</span>
+                  <span className="muted"> vs </span>
+                  <span className={r.winners[k] === b ? 'won' : ''}>{who(b)}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+      {myGame && <button className="btn small primary" onClick={() => open(myGame)}>Play your {t.rounds[t.rounds.length - 1].pairs.length === 1 ? 'final' : 'game'}</button>}
+      {t.status === 'done' && <p className="tour-champ">🏆 Champion: <b>{who(t.winner ?? null)}</b>{t.winner === me ? ' 🎉' : ''}</p>}
+      {t.status === 'cancelled' && <p className="small muted">Cancelled.</p>}
     </div>
   );
 }

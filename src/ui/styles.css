@@ -704,3 +704,9 @@ body[data-calm] .die { animation: none; }
 .set-pieces { font-size: 1.4rem; letter-spacing: 2px; }
 .set-pieces .need { opacity: 0.3; }
 .set-pieces .got { color: #2f8f4e; }
+.tour-card { display: grid; gap: 6px; padding: 10px 12px; margin-bottom: 10px; background: #fff8dc; border: 3px solid var(--ink); border-radius: var(--wonky2); box-shadow: 3px 4px 0 var(--ink); }
+.bracket { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.bracket-round { display: grid; gap: 6px; align-content: start; min-width: 120px; }
+.bracket-pair { padding: 4px 6px; background: var(--card); border: 2px solid var(--ink); border-radius: 8px; font-size: 0.85rem; }
+.bracket-pair .won { font-weight: 800; color: #2f8f4e; }
+.tour-champ { font-size: 1.1rem; margin: 0; }

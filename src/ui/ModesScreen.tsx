@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { vaultBase } from '../storage/cloud';
+import { fetchModeVotes, type ModeVotes } from '../storage/world';
 import { BOTS } from '../content/bots';
 import { MODE_INFO } from '../core/modes';
 import { armyCost, DRAFT_BUDGET, randomArmy } from '../core/modes2';
@@ -56,6 +58,7 @@ export function ModesScreen({ start, back }: { start: (c: GameConfig) => void; b
         {open.map((b) => <button key={b.id} className={`chip ${b.id === botId ? 'on' : ''}`} onClick={() => setBotId(b.id)}>{b.emoji} {b.name} ★{b.rating}</button>)}
       </div>
       <p className="muted small">Rank modes up or down with ▲ ▼ to change how often they come up in your Party matches. Online, both players' ranks count.</p>
+      <EveryoneLikes />
       <div className="mode-grid">
         {[...(PARTY_MODES.includes('standard') ? [{ id: 'standard', emoji: '♟️', name: 'Classic', blurb: 'Normal chess.' }] : []), ...modes].map((m, i) => {
           const inDeck = PARTY_MODES.includes(m.id);
@@ -118,5 +121,29 @@ export function ArmyShop({ onDone, onCancel, title = 'Build your army' }: { onDo
         {onCancel && <button className="btn" onClick={onCancel}>← Back</button>}
       </div>
     </div>
+  );
+}
+
+/** "What everyone likes": all players' ▲▼ rankings added up (player numbers only). */
+function EveryoneLikes() {
+  const [votes, setVotes] = useState<ModeVotes | null>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => { if (open && !votes && vaultBase()) fetchModeVotes().then(setVotes).catch(() => {}); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!vaultBase()) return null;
+  const name = (id: string) => (id === 'standard' ? '♟️ Classic' : (() => { const m = MODE_INFO.find((x) => x.id === id); return m ? `${m.emoji} ${m.name}` : id; })());
+  return (
+    <details className="settings" onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
+      <summary>🌍 What everyone likes</summary>
+      {!votes ? <p className="muted small">Loading…</p> : votes.voters === 0 ? <p className="muted small">No votes yet. Rank some modes and you're the first!</p> : (
+        <>
+          <p className="muted small">{votes.voters} {votes.voters === 1 ? 'player has' : 'players have'} ranked modes (only players with a player number, no names).</p>
+          <ol className="leaderboard">
+            {votes.modes.slice(0, 10).map((m, i) => (
+              <li key={m.mode}><span className="place">{i + 1}</span><span className="lb-name"><b>{name(m.mode)}</b><small>❤️ {m.favourite} favourite · 🚫 {m.never} never</small></span><span className="bot-rating">{'★'.repeat(Math.round(m.average))}{'☆'.repeat(3 - Math.round(m.average))}</span></li>
+            ))}
+          </ol>
+        </>
+      )}
+    </details>
   );
 }

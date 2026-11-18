@@ -113,3 +113,67 @@ describe('challenges', () => {
     expect(list.find((x) => x.id === h.id)!.status).toBe('expired');
   });
 });
+
+describe('tournaments', () => {
+  it('runs a knockout of 3 friends with a bye, to a winner', async () => {
+    const sv = server();
+    const a = await sv.player(), b = await sv.player(), c = await sv.player();
+    const made = await a.call('POST', '/tournaments', { players: [b.number, c.number], game: 'koth', rating: 900 });
+    expect(made.status).toBe(201);
+    const t0 = (await made.json()).tournament;
+    expect(t0.status).toBe('invited');
+    await b.call('POST', `/tournaments/${t0.id}/join`, { rating: 700 });
+    const t1 = (await (await c.call('POST', `/tournaments/${t0.id}/join`, { rating: 800 })).json()).tournament;
+    expect(t1.status).toBe('running'); // everyone answered: it starts by itself
+    expect(t1.rounds[0].pairs.length).toBe(2); // one game and one bye
+    const gid = t1.rounds[0].games.find((x: string | null) => x)!;
+    const players = [a, b, c];
+    // Round 1: the game's Black player resigns.
+    let g = (await (await a.call('GET', '/games')).json()).games.find((x: MailGame) => x.id === gid) as MailGame | undefined;
+    const p1 = players.find((p) => p.number === (g?.players.p1 ?? ''))!;
+    const p2 = players.find((p) => p.number === (g?.players.p2 ?? ''))!;
+    g = (await (await p2.call('GET', `/games/${gid}`)).json()).game;
+    expect(g!.tournament).toBe(t0.id);
+    await p2.call('POST', `/games/${gid}/resign`);
+    let t = (await (await a.call('GET', `/tournaments/${t0.id}`)).json()).tournament;
+    expect(t.rounds.length).toBe(2); // final made
+    expect(t.rounds[1].pairs[0]).toContain(p1.number);
+    // Final: a draw-free finish, someone resigns; then there is a champion.
+    const fid = t.rounds[1].games[0];
+    const fg = (await (await p1.call('GET', `/games/${fid}`)).json()).game as MailGame;
+    const loser = players.find((p) => p.number === fg.players.p2)!;
+    await loser.call('POST', `/games/${fid}/resign`);
+    t = (await (await a.call('GET', `/tournaments/${t0.id}`)).json()).tournament;
+    expect(t.status).toBe('done');
+    expect(t.winner).toBe(fg.players.p1);
+  });
+  it('organizer can start early with who joined, or cancel; strangers cannot see it', async () => {
+    const sv = server();
+    const a = await sv.player(), b = await sv.player(), c = await sv.player(), d = await sv.player();
+    const t0 = (await (await a.call('POST', '/tournaments', { players: [b.number, c.number] })).json()).tournament;
+    expect((await d.call('GET', `/tournaments/${t0.id}`)).status).toBe(404);
+    expect((await a.call('POST', `/tournaments/${t0.id}/start`)).status).toBe(400); // nobody joined yet
+    await b.call('POST', `/tournaments/${t0.id}/join`);
+    const t1 = (await (await a.call('POST', `/tournaments/${t0.id}/start`)).json()).tournament;
+    expect(t1.status).toBe('running');
+    expect(t1.rounds[0].pairs).toHaveLength(1);
+    const t2 = (await (await a.call('POST', '/tournaments', { players: [c.number] })).json()).tournament;
+    expect((await (await a.call('POST', `/tournaments/${t2.id}/cancel`)).json()).tournament.status).toBe('cancelled');
+    expect((await a.call('POST', '/tournaments', { players: ['12345678'] })).status).toBe(404);
+  });
+});
+
+describe('what everyone likes', () => {
+  it('adds up mode rankings by player number', async () => {
+    const sv = server();
+    const a = await sv.player(), b = await sv.player();
+    await a.call('POST', `/modes/${a.number}`, { koth: 3, atomic: 0, standard: 2, 'bad mode!': 3 });
+    await b.call('POST', `/modes/${b.number}`, { koth: 2, atomic: 1 });
+    expect((await a.call('POST', `/modes/${b.number}`, { koth: 0 })).status).toBe(403);
+    const r = await (await sv.fetch(new Request('https://x.dev/world/modes'))).json();
+    expect(r.voters).toBe(2);
+    expect(r.modes[0]).toEqual({ mode: 'koth', average: 2.5, favourite: 1, never: 0, votes: 2 });
+    expect(r.modes.find((m: { mode: string }) => m.mode === 'atomic')).toEqual({ mode: 'atomic', average: 0.5, favourite: 0, never: 1, votes: 2 });
+    expect(r.modes.some((m: { mode: string }) => m.mode === 'bad mode!')).toBe(false);
+  });
+});
