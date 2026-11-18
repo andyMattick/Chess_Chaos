@@ -154,7 +154,7 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
       if (!(await exists(other))) return bad('No player has that number.', 404);
       // They already asked you: that's a yes from both.
       if (await store.get(`fr:${who}:${other}`)) { await befriend(); return json({ status: 'friends' }); }
-      if ((await store.list(`fr:${other}:`)).length >= FRIEND_REQUEST_MAX) return bad('They have too many friend requests waiting.', 429);
+      if ([...(await store.list(`fr:${other}:`))].length >= FRIEND_REQUEST_MAX) return bad('They have too many friend requests waiting.', 429);
       await store.put(`fr:${other}:${who}`, String(now));
       await store.put(`fs:${who}:${other}`, String(now));
       return json({ status: 'sent' });

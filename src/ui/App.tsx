@@ -102,7 +102,7 @@ export function App() {
 
   return (
     <main className="app">
-      <Popups openChallenges={() => setScreen({ name: 'challenges' })} quiet={inGame || screen.name === 'battle-game' || askOpen} inChallenges={screen.name === 'challenges'} />
+      <Popups openChallenges={() => setScreen({ name: 'challenges' })} quiet={inGame || askOpen} inChallenges={screen.name === 'challenges'} />
       {askOpen && askP && (
         <div className="number-modal" role="dialog" aria-label="Get a player number">
           <div>

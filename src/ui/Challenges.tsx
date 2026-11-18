@@ -5,7 +5,7 @@ import { MAIL_GAMES, type MailGame } from '../net/world';
 import { replay } from '../core/record';
 import { vaultBase } from '../storage/cloud';
 import { activeProfile } from '../storage/storage';
-import { acceptFriend, declineFriend, friendInbox, requestFriend, takeAccepted, type FriendInbox, addFriend, answerChallenge, challenge, createTournament, labelFor, myGames, myTournaments, nameNumber, removeFriend, tournamentAction, type Tournament } from '../storage/world';
+import { acceptFriend, declineFriend, friendInbox, requestFriend, takeAccepted, type FriendInbox, answerChallenge, challenge, createTournament, labelFor, myGames, myTournaments, nameNumber, removeFriend, tournamentAction, type Tournament } from '../storage/world';
 import { isBotSeat, TOURNAMENT_MAX } from '../net/world';
 import { botForSeat, seatBotLabel, tournamentBots } from '../systems/tournamentBots';
 import { showNumber as fmt } from '../net/vault';
