@@ -38,6 +38,8 @@ export interface Profile {
   puzzles: PuzzleProgress;
   /** Nemesis bots built from Chess.com players (newest first, at most 6). */
   nemeses: Nemesis[];
+  /** Power cards picked for the next party match (only cards still in the collection count). */
+  partyHand?: string[];
 }
 
 export interface Opponent {

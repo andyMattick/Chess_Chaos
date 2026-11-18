@@ -114,3 +114,12 @@ Implementing agent: add dated entries below when you resolve an ambiguity or rec
 - Saved on the profile (up to 6) and listed on the Bot path under "Your nemeses", so it plays offline afterwards. Wins and losses count like any bot game; the first win pays the new-bot bonus.
 - **No style copying beyond openings.** The middle game is our engine, not an imitation of the person. Copying style (trades, attack) from game statistics is a possible later step.
 - The opening book travels with each AI request (the worker has no access to the save) and is cached in the worker by bot id.
+
+### 2026-11-17: Power cards
+
+- **Built:** 23 of 24 cards play (all but CARD-23 Decoy king, which needs hidden information). Collection on the profile, a hand of up to 3 picked on the Power cards screen (also in Party setup and the online lobby), played from the Party match panel, burned after the game. Earning runs after every finished 1 vs 1 game; players under 800 get a random Common every third game.
+- **Engine:** cards are rule modules attached as `CARD-xx@player` and played with the existing `buff` action, so every game still replays from its record. New move patterns: rides that pass own pieces (Ghost bishop) or one piece (Jumper rook), seat-relative rides (Lance), the grasshopper hop and the cannon. One card per turn. Card pieces wear their base piece's art with a badge; Phoenix, Bomb and Bodyguard marks are shown to both players.
+- **Hands are public** once the game starts: both players see what the other brought and what has been used.
+- **Earn conditions simplified:** "win material with a fork / discovered attack" counts when the tactic is played. Twin (Draft), Grasshopper (Mini board) and Bomb pawn (Atomic) need modes that are not built yet; until then they come only from the beginner gift. Decoy king cannot be earned yet.
+- **Bots** do not carry or play cards yet (docs/05 signature cards are later). Cards are only used in Party matches; the card play is not shown in the move list.
+- **Wall** stops riders, but leapers (knights) can still jump it; Jumper rook and Grasshopper may pass it. Bomb pawn does not explode on an en passant capture.

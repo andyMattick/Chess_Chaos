@@ -491,3 +491,33 @@ body[data-calm] .board-wrap.nudge::before { animation: none !important; }
 .nemesis-card p { margin: 2px 0; }
 .nemesis-face { font-size: 3rem; line-height: 1; animation: hop 1.6s ease-in-out infinite; }
 .nemesis-list { margin-top: 14px; }
+
+/* Power cards */
+.card-badge { paint-order: stroke; stroke: #fff; stroke-width: 5px; }
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; margin: 14px 0; }
+.power-card {
+  position: relative; display: grid; gap: 4px; align-content: start; text-align: left; font: inherit; color: var(--ink);
+  border: 3.5px solid var(--ink); border-radius: var(--wonky2); background: #fffaf0; padding: 10px 12px; box-shadow: 4px 5px 0 var(--ink);
+}
+.power-card:nth-child(3n) { transform: rotate(1.2deg); }
+.power-card:nth-child(3n + 1) { transform: rotate(-1deg); }
+.power-card.rare { background: #e6f0ff; }
+.power-card.epic { background: linear-gradient(135deg, #ffe0f4, #fff3b8); }
+.power-card.unowned { filter: grayscale(0.85); opacity: 0.75; }
+.power-card.on { outline: 4px solid #ff4f9a; outline-offset: 2px; transform: rotate(-2deg) scale(1.04); }
+.power-card .pc-emoji { font-size: 2rem; line-height: 1; }
+.power-card .pc-name { font-weight: 900; font-family: var(--hand); font-size: 1.15rem; }
+.power-card .pc-kind { font-size: 0.75rem; font-weight: 800; color: var(--muted); text-transform: uppercase; }
+.power-card .pc-blurb { font-size: 0.9rem; font-weight: 700; }
+.power-card .pc-earn { font-size: 0.82rem; font-weight: 700; color: #6b4fa0; }
+.power-card .pc-count { position: absolute; top: 6px; right: 10px; font-weight: 900; font-family: var(--hand); font-size: 1.2rem; }
+.power-card.small { padding: 6px 10px; min-width: 120px; }
+.power-card.small .pc-emoji { font-size: 1.5rem; }
+.power-card.burned { opacity: 0.45; filter: grayscale(1); }
+.hand-picker h3 small { color: var(--muted); }
+.hand-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 10px; }
+.hand-empty { font-weight: 700; background: #f1e6ff; border: 3px dashed var(--ink); border-radius: var(--wonky2); padding: 8px 12px; }
+.party-cards { display: grid; gap: 6px; }
+.party-cards .hand-row { margin: 0; }
+.party-cards .power-card .btn { margin-top: 4px; }
+.new-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 6px 0; }

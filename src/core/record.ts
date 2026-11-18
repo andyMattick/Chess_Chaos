@@ -3,6 +3,7 @@ import { play } from './rules';
 import { fromFEN, STANDARD_FEN } from './setup';
 import type { Action, GameState, PlayerId } from './types';
 import { applySetup } from './modifiers';
+import { cardRules } from './cards';
 import { MODE_SETUP } from './modes';
 import { rngInt } from './rng';
 import { battleStart, type BattleKind } from './variants';
@@ -15,7 +16,7 @@ export interface GameRecord {
   id: string;
   setup: ({ kind: 'fen'; fen: string; mode: string } | { kind: 'battle'; battle: BattleKind; mode: string }) & {
     /** Party match extras: public modifiers and each player's secret mission ('?' when hidden from you). */
-    party?: { modifiers: Partial<Record<PlayerId, string[]>>; missions: Partial<Record<PlayerId, string>>; gate: Partial<Record<PlayerId, number>> };
+    party?: { modifiers: Partial<Record<PlayerId, string[]>>; missions: Partial<Record<PlayerId, string>>; gate: Partial<Record<PlayerId, number>>; cards?: Partial<Record<PlayerId, string[]>> };
   };
   seed: number;
   actions: Action[];
@@ -46,6 +47,8 @@ export function initialState(rec: GameRecord): GameState {
   const modeSetup = MODE_SETUP[s.mode];
   if (modeSetup) s = modeSetup(s, pick);
   if (rec.setup.party) s = applySetup(s, rec.setup.party.modifiers, pick);
+  // Power cards in each hand become rule modules (played with a buff action, then burned).
+  if (rec.setup.party?.cards) s = { ...s, rules: [...(s.rules ?? []), ...cardRules(rec.setup.party.cards)] };
   return s;
 }
 

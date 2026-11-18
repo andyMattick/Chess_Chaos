@@ -330,3 +330,21 @@ describe('ratings after a game', () => {
     expect(b.last('room')!.seats.p1!.rating).toBe(588);
   });
 });
+
+describe('power cards online', () => {
+  it('deals each player\'s hand into a party room and plays a card', () => {
+    const server = new RoomServer(() => 0);
+    const a = client('a'), b = client('b');
+    server.handle(a.conn, { t: 'create', name: 'Ava', rating: 600, colour: 'p1', game: 'party', hand: ['CARD-07', 'CARD-07', 'NOPE', 'CARD-10'] });
+    server.handle(b.conn, { t: 'join', code: a.last('joined')!.code, name: 'Ben', rating: 640, hand: ['CARD-20'] });
+    const room = a.last('room')!;
+    expect(room.record.setup.party!.cards).toEqual({ p1: ['CARD-07', 'CARD-10'], p2: ['CARD-20'] });
+    const s = replay(room.record).at(-1)!;
+    if (s.mode === 'standard' || s.mode === 'koth' || s.mode === 'three-check' || s.mode === 'truce' || s.mode === 'capture-race' || s.mode === 'hill-wars' || s.mode === 'capture-the-flag') {
+      server.handle(a.conn, { t: 'action', action: { t: 'buff', by: 'p1', id: 'CARD-07', piece: s.sq[6] } });
+      const after = replay(b.last('room')!.record).at(-1)!;
+      expect(after.pieces[s.sq[6]].type).toBe('nightrider');
+      expect(after.turn).toBe('p2');
+    }
+  });
+});

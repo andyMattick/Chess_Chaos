@@ -9,6 +9,9 @@ import type { PartySetup } from '../systems/party';
 import { missionsLive } from '../systems/party';
 import { attackersOf, defendersOf, hanging } from '../tactics/attacks';
 import type { BoardOverlays } from './Board';
+import { cardById } from '../content/cards';
+import { playedCards } from '../core/cards';
+import { CardTile } from './Cards';
 
 /**
  * Party match layer on top of a game: shows the mode, both sides' modifiers,
@@ -57,6 +60,8 @@ const PROMPTS: Record<BuffTarget, string[]> = {
 
 export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, selected }: Args): PartyApi {
   const [aiming, setAiming] = useState<{ id: string; target: BuffTarget; taps: number[] } | null>(null);
+  // A power card waiting for taps.
+  const [cardAim, setCardAim] = useState<{ id: string; taps: number[] } | null>(null);
   const [peek, setPeek] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [usedLocal, setUsedLocal] = useState<string[]>([]);
@@ -73,7 +78,7 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
   const used = (id: string) => usedEngine.includes(id) || usedLocal.includes(id);
 
   // Stop aiming a buff when the turn passes.
-  useEffect(() => { if (!myTurn) setAiming(null); }, [myTurn]);
+  useEffect(() => { if (!myTurn) { setAiming(null); setCardAim(null); } }, [myTurn]);
 
   // "Missions are live" announcement.
   const live_ = party ? missionsLive(live, party, me) : false;
@@ -139,7 +144,47 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
     setAiming({ id, target, taps: [] });
   }
 
+  // ---- Power cards ----
+  const myCards = party.cards?.[me] ?? [];
+  const played = playedCards(live, me);
+  const cardThisTurn = (live.modeData?.cardPly as number | undefined) === live.ply;
+
+  function fireCard(id: string, taps: number[]) {
+    const def = cardById(id)!;
+    const a: Action = { t: 'buff', by: me, id };
+    def.taps.forEach((t, i) => {
+      const sq = taps[i];
+      if (t.field === 'piece') a.piece = live.sq[sq];
+      if (t.field === 'target') a.target = live.sq[sq];
+      // A square: also pass what is on it (Twin joins two knights).
+      if (t.field === 'to') { a.to = sq; if (live.sq[sq] >= 0) a.target = live.sq[sq]; }
+    });
+    try {
+      play(live, a);
+      push(a);
+      say(`${def.emoji} ${def.name}!`);
+    } catch (e) {
+      say(`Can't do that: ${(e as Error).message}`);
+    }
+    setCardAim(null);
+  }
+
+  function playCard(id: string) {
+    const def = cardById(id);
+    if (!def || !myTurn || played.includes(id) || cardThisTurn) return;
+    setAiming(null);
+    if (!def.taps.length) { fireCard(id, []); return; }
+    setCardAim({ id, taps: [] });
+  }
+
   function interceptSquare(sq: number): boolean {
+    if (cardAim) {
+      const def = cardById(cardAim.id)!;
+      const taps = [...cardAim.taps, sq];
+      if (taps.length >= def.taps.length) fireCard(cardAim.id, taps);
+      else setCardAim({ ...cardAim, taps });
+      return true;
+    }
     if (!aiming) return false;
     const taps = [...aiming.taps, sq];
     if (taps.length >= PROMPTS[aiming.target].length) fire(aiming.id, taps);
@@ -163,6 +208,7 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
     const o: BoardOverlays = {};
     if (hint !== null && myTurn) o.glow = new Set([hint]);
     if (aiming) o.glow = new Set(aiming.taps);
+    if (cardAim) o.glow = new Set(cardAim.taps);
     if (xrayUntil > live.ply && myTurn) {
       o.counts = new Map();
       for (const p of live.pieces) {
@@ -213,6 +259,33 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
       >
         {peek && missionText ? <>🎯 <b>{missionText.name}</b><small>{missionText.blurb}</small></> : <>🤫 Secret mission<small>{live_ ? 'LIVE! Hold to peek' : `Hold to peek · live after move ${party.gate[me] ?? 10}`}</small></>}
       </button>
+      {(myCards.length > 0 || (other && (party.cards?.[other]?.length ?? 0) > 0)) && (
+        <div className="party-cards">
+          <h4>🃏 Your power cards</h4>
+          {myCards.length ? (
+            <div className="hand-row">
+              {myCards.map((id) => {
+                const def = cardById(id);
+                if (!def) return null;
+                const burned = played.includes(id);
+                return (
+                  <CardTile key={id} c={def} small>
+                    <span className="pc-blurb">{def.blurb}</span>
+                    {burned ? <span className="pc-kind">🔥 burned</span> : (
+                      <button className="btn small" disabled={!myTurn || cardThisTurn || (!!cardAim && cardAim.id !== id)} onClick={() => (cardAim?.id === id ? setCardAim(null) : playCard(id))}>
+                        {cardAim?.id === id ? 'Cancel' : def.usesMove ? 'Play (uses move)' : 'Play (free)'}
+                      </button>
+                    )}
+                  </CardTile>
+                );
+              })}
+            </div>
+          ) : <p className="muted small">No cards this game.</p>}
+          {other && (party.cards?.[other]?.length ?? 0) > 0 && (
+            <p className="muted small">{names[other]} has: {party.cards![other]!.map((id) => `${cardById(id)?.emoji} ${cardById(id)?.name}${playedCards(live, other).includes(id) ? ' (used)' : ''}`).join(' · ')}</p>
+          )}
+        </div>
+      )}
       {clockLeft !== null && <div className={`clock running ${clockLeft <= 3 ? 'panic' : 'low'}`}>⏱️ {clockLeft}</div>}
     </div>
   );
@@ -229,14 +302,14 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
 
   return {
     active: true,
-    targeting: !!aiming,
+    targeting: !!aiming || !!cardAim,
     interceptSquare,
     beforeCommit,
     overlays,
     hideHints: has('HCAP-16'),
     lockSelection: has('HCAP-04') && selected !== null,
     panel,
-    banner: aiming ? `${modifierById(aiming.id)?.emoji} ${PROMPTS[aiming.target][aiming.taps.length]} (tap the button again to cancel)` : null,
+    banner: cardAim ? `${cardById(cardAim.id)?.emoji} ${cardById(cardAim.id)?.taps[cardAim.taps.length]?.prompt} (tap Cancel to stop)` : aiming ? `${modifierById(aiming.id)?.emoji} ${PROMPTS[aiming.target][aiming.taps.length]} (tap the button again to cancel)` : null,
     modal,
     toast,
   };

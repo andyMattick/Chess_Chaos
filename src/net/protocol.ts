@@ -1,3 +1,4 @@
+import { PLAYABLE_CARDS } from '../core/cards';
 import type { GameRecord } from '../core/record';
 import type { Action, PlayerId } from '../core/types';
 
@@ -83,16 +84,17 @@ export const ROOM_GAMES: { id: RoomGame; label: string; seats: number; blurb: st
 ];
 
 export type ClientMsg =
-  | { t: 'create'; name: string; rating: number; colour: 'p1' | 'p2' | 'random'; clock?: ClockSetting | null; game?: RoomGame; look?: ArmyLook; wheels?: boolean }
+  | { t: 'create'; name: string; rating: number; colour: 'p1' | 'p2' | 'random'; clock?: ClockSetting | null; game?: RoomGame; look?: ArmyLook; wheels?: boolean; hand?: string[] }
   | { t: 'fill-bots' }
-  | { t: 'join'; code: string; name: string; rating: number; look?: ArmyLook; wheels?: boolean }
+  | { t: 'join'; code: string; name: string; rating: number; look?: ArmyLook; wheels?: boolean; hand?: string[] }
   | { t: 'rejoin'; code: string; token: string }
   | { t: 'action'; action: Action }
   | { t: 'emote'; id: EmoteId }
   | { t: 'wheels'; on: boolean }
   /** After a game: my new rating, so everyone's leaderboard shows it. */
   | { t: 'rating'; rating: number }
-  | { t: 'rematch' }
+  /** hand: power cards for the next party game (some may have burned). */
+  | { t: 'rematch'; hand?: string[] }
   | { t: 'leave' };
 
 export type ServerMsg =
@@ -108,4 +110,10 @@ export function cleanName(raw: string): string {
   const s = String(raw ?? '').replace(/[^\p{L}\p{N} _-]/gu, '').trim().slice(0, 16);
   if (!s || NAME_BLOCK.test(s.replace(/[\s_-]/g, ''))) return 'Player';
   return s;
+}
+
+/** Up to 3 different playable power cards. */
+export function cleanHand(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return [...new Set(raw.filter((x): x is string => typeof x === 'string' && PLAYABLE_CARDS.has(x)))].slice(0, 3);
 }

@@ -24,7 +24,7 @@ export function ProfileChip({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train' | 'chesscom' | 'battle' | 'leaderboard' | 'party' | 'puzzles') => void }) {
+export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train' | 'chesscom' | 'battle' | 'leaderboard' | 'party' | 'puzzles' | 'cards') => void }) {
   const save = useSave();
   const p = activeProfile(save);
   return (
@@ -78,7 +78,12 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
         <button className="big" style={{ ['--c' as string]: '#ff6fb5' }} onClick={() => go('party')} disabled={!p}>
           <span className="big-emoji">🎉</span>
           <span className="big-title">Party match</span>
-          <span className="big-sub">Surprise mode, secret mission, buffs and handicaps</span>
+          <span className="big-sub">Surprise mode, secret mission, buffs, handicaps and power cards</span>
+        </button>
+        <button className="big" style={{ ['--c' as string]: '#c08cff' }} onClick={() => go('cards')} disabled={!p}>
+          <span className="big-emoji">🃏</span>
+          <span className="big-title">Power cards</span>
+          <span className="big-sub">{p ? `${Object.values(p.collection ?? {}).reduce((a, n) => a + n, 0)} cards. Pick your hand for Party matches` : 'Earn them by playing'}</span>
         </button>
         {save.settings.chesscomEnabled && (
           <button className="big" style={{ ['--c' as string]: '#7fb069' }} onClick={() => go('chesscom')} disabled={!p}>

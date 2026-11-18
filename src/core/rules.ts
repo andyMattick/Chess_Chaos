@@ -3,6 +3,7 @@ import { activeSeats, eliminate, inCheck, legalMoves, makeMove } from './movegen
 import { positionKey } from './position';
 import { MODE_MODULES } from './modes';
 import { extraModule } from './modifiers';
+import { cardModule } from './cards';
 import type { Action, GameResult, GameState, MoveAction, PlayerId } from './types';
 
 /**
@@ -33,7 +34,7 @@ export function registerMode(mode: string, modules: RuleModule[]) {
 function modulesFor(s: GameState): RuleModule[] {
   const base = MODULES[s.mode] ?? [];
   if (!s.rules?.length) return base;
-  return [...base, ...s.rules.map(extraModule).filter((m): m is RuleModule => !!m)];
+  return [...base, ...s.rules.map((r) => extraModule(r) ?? cardModule(r)).filter((m): m is RuleModule => !!m)];
 }
 
 /** True when some module filters moves, so search must use the full legal list. */

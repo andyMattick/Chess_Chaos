@@ -7,6 +7,7 @@ import { landscapeById, squareDoodle } from './landscapes';
 import { Character } from './skins';
 import { FxLayer, type MoveEvents } from './effects';
 import { hillSquares } from '../core/modes';
+import { baseType, pieceType } from '../core/pieces';
 
 /**
  * SVG board. Renders from GameState plus overlays; knows nothing about game
@@ -65,6 +66,13 @@ export function Board({ state, bottom, selected, targets, lastMove, showCoordina
     else if (fwd[0] > 0) { x = b.height - 1 - r; y = b.width - 1 - f; }
     else { x = r; y = f; }
     return { x: x * SIZE, y: y * SIZE };
+  };
+  // Power card marks are public: both players see them (docs/03 Cards notes).
+  const md = state.modeData ?? {};
+  const cardMarks = {
+    phoenix: new Set((md.phoenix as number[] | undefined) ?? []),
+    bombs: new Set((md.bombs as number[] | undefined) ?? []),
+    guarded: new Set(((md.bodyguard as { piece: number; until: number }[] | undefined) ?? []).filter((g) => state.ply < g.until).map((g) => g.piece)),
   };
   const checked = new Set<number>();
   for (const p of state.pieces) {
@@ -152,9 +160,15 @@ export function Board({ state, bottom, selected, targets, lastMove, showCoordina
           const wob = overlays?.wobble?.has(p.at) || (checked.has(p.at) && !!fx);
           return (
             <g key={p.id} className={`piece ${sel ? 'lifted' : ''} ${wob ? 'wobbly' : ''}`} style={{ transform: `translate(${x}px, ${y}px)` }} data-piece={p.type} data-owner={p.owner}>
-              <g className="bob">
-                <Character skin={skinFor(skins, p.owner, p.type)} type={p.type} owner={p.owner} seed={p.id + 1} badge={skins.badges && skinFor(skins, p.owner, p.type) !== 'classic'} />
-              </g>
+              {p.type === 'wall' ? <WallBlock seed={p.id} /> : (
+                <g className="bob">
+                  <Character skin={skinFor(skins, p.owner, baseType(p.type))} type={baseType(p.type)} owner={p.owner} seed={p.id + 1} badge={skins.badges && skinFor(skins, p.owner, baseType(p.type)) !== 'classic'} />
+                </g>
+              )}
+              {pieceType(p.type).card && <text x={18} y={30} fontSize={26} className="card-badge">{pieceType(p.type).card}</text>}
+              {cardMarks.phoenix.has(p.id) && <text x={66} y={30} fontSize={24} className="card-badge">🔥</text>}
+              {cardMarks.bombs.has(p.id) && <text x={66} y={30} fontSize={24} className="card-badge">🧨</text>}
+              {cardMarks.guarded.has(p.id) && <text x={66} y={96} fontSize={20} className="card-badge">💂</text>}
             </g>
           );
         })}
@@ -221,6 +235,18 @@ function OverlayLayer({ overlays, pos }: { overlays: BoardOverlays; pos: (sq: nu
           </g>
         );
       })}
+    </g>
+  );
+}
+
+/** CARD-10: a scrappy brick wall. */
+function WallBlock({ seed }: { seed: number }) {
+  const tilt = ((seed * 37) % 7) - 3;
+  return (
+    <g transform={`rotate(${tilt} 50 50)`}>
+      <rect x={10} y={22} width={80} height={68} rx={6} fill="#c8553d" stroke="#2d2a3e" strokeWidth={4} />
+      {[40, 58, 76].map((y, i) => <path key={y} d={`M12 ${y} H88`} stroke="#2d2a3e" strokeWidth={3} />)}
+      {[[36, 22, 40], [64, 22, 40], [26, 40, 58], [54, 40, 58], [74, 40, 58], [40, 58, 76], [66, 58, 76], [30, 76, 90], [58, 76, 90]].map(([x, a, b], i) => <path key={i} d={`M${x} ${a} V${b}`} stroke="#2d2a3e" strokeWidth={3} />)}
     </g>
   );
 }

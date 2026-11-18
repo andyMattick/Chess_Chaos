@@ -33,6 +33,10 @@ import { moveEvents, shakeFor, type MoveEvents } from './effects';
 import { setSoundEnabled, sfx } from './sound';
 import { useYourTurn } from './yourTurn';
 import { QuickToggles } from './QuickToggles';
+import { CardTile, useHand } from './Cards';
+import { cardById } from '../content/cards';
+import { playedCards } from '../core/cards';
+import { cardsEarned, updateCollection } from '../systems/cards';
 
 export interface GameConfig {
   /** 'local' is only used to replay saved games. */
@@ -109,6 +113,8 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   const [flipped, setFlipped] = useState(false);
   const [ratingChange, setRatingChange] = useState<{ before: number; after: number } | null>(null);
   const [coinAward, setCoinAward] = useState<CoinAward | null>(null);
+  const [newCards, setNewCards] = useState<string[]>([]);
+  const hand = useHand();
   const finishedRef = useRef(!!reviewRecord);
   const reviewing = !!reviewRecord || view !== null;
 
@@ -277,6 +283,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     if (isOnline && !live.result && rec.actions.length === 0) {
       finishedRef.current = false;
       setRatingChange(null);
+      setNewCards([]);
       setView(null);
     }
   }, [isOnline, live.result, rec.actions.length]);
@@ -331,6 +338,12 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
       if (trainingCfg) {
         p = { ...p, lastAlert: trainingCfg.alertId, badges: { ...p.badges, 'goal-getter': (p.badges['goal-getter'] ?? 0) + training.goalsDone.length } };
       }
+      // Power cards: burn the ones played, add the ones earned (docs/02 s6, s8).
+      try {
+        const earned = cardsEarned({ record: finalRec, states, me, rated: !trainingCfg, missionsCompleted: p.missionsCompleted, rating: p.rating, gamesPlayed: p.gamesPlayed }, p.cardProgress ?? {});
+        p = { ...p, collection: updateCollection(p.collection ?? {}, earned.cards, playedCards(live, me)), cardProgress: earned.progress };
+        setNewCards(earned.cards);
+      } catch (e) { console.warn('card check failed', e); }
       if (isOnline) online.shareRating(p.rating);
       return addGame(upsertProfile(d, p), p.id, finalRec);
     });
@@ -496,6 +509,12 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
                 </div>
               )}
               {!ratingChange && oppWheels && forFun && <p className="rating-change">🚲 Played for fun: your rating stays the same.</p>}
+              {newCards.length > 0 && (
+                <div className="new-cards" aria-label="New power cards">
+                  <b>🃏 New card{newCards.length > 1 ? 's' : ''}!</b>
+                  {newCards.map((id) => <CardTile key={id} c={cardById(id)!} small />)}
+                </div>
+              )}
               {ratingChange && (
                 <p className="rating-change">
                   ★ {ratingChange.before} → <b>{ratingChange.after}</b> ({ratingChange.after >= ratingChange.before ? '+' : ''}{ratingChange.after - ratingChange.before})
@@ -503,7 +522,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
               )}
               <div className="row center">
                 {isOnline ? (
-                  <button className="btn primary" onClick={() => online.rematch()} disabled={iVotedRematch}>
+                  <button className="btn primary" onClick={() => online.rematch(hand)} disabled={iVotedRematch}>
                     {iVotedRematch ? 'Waiting for them…' : theyVotedRematch ? 'They want a rematch! Go!' : 'Rematch'}
                   </button>
                 ) : (

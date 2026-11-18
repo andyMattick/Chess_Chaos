@@ -7,6 +7,7 @@ import { PATH, unlockedCount } from '../systems/coins';
 import { drawMode, setupParty } from '../systems/party';
 import type { GameConfig } from './GameScreen';
 import { useSave } from './store';
+import { HandPicker, useHand } from './Cards';
 
 /**
  * Party match setup against a bot: the mode comes off your mode deck, the
@@ -20,6 +21,7 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
   const bot = BOTS.find((b) => b.id === botId)!;
   const [humanSeat] = useState<'p1' | 'p2'>(() => (Math.random() < 0.5 ? 'p1' : 'p2'));
   const [peek, setPeek] = useState(false);
+  const hand = useHand();
 
   // Draw the mode once per visit (and remember the deck).
   const [draw] = useState(() => drawMode(p.modeDeck, undefined, Math.random));
@@ -38,7 +40,7 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
   const go = () => {
     updateProfile((x) => ({ ...x, modeDeck: draw.deck, partyMatches: x.partyMatches + 1 }));
     start({
-      kind: 'bot', botId, humanSeat, mode: draw.mode, party: setup,
+      kind: 'bot', botId, humanSeat, mode: draw.mode, party: { ...setup, cards: { [humanSeat]: hand } },
       names: humanSeat === 'p1' ? { p1: p.nickname, p2: bot.name } : { p1: bot.name, p2: p.nickname },
     });
   };
@@ -67,6 +69,7 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
           {peek && mission ? <><div className="reveal-emoji">🎯</div><h3>{mission.name}</h3><p>{mission.blurb}</p><small>Finish it after your move {setup.gate[humanSeat]} to win instantly!</small></> : <><div className="reveal-emoji">🤫</div><h3>Secret mission</h3><p>Hold to peek. Don't let anyone see!</p></>}
         </button>
       </div>
+      <HandPicker />
       <h3>Opponent</h3>
       <div className="clock-chips">
         {open.map((b) => <button key={b.id} className={`chip ${b.id === botId ? 'on' : ''}`} onClick={() => setBotId(b.id)}>{b.emoji} {b.name} ★{b.rating}</button>)}

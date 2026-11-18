@@ -1,6 +1,6 @@
 import { isPromotionSquare, lateral, rankOf, fileOf, seatOf, step } from './board';
-import { pieceType } from './pieces';
-import type { GameState, MoveAction, Piece, PlayerId, Seat } from './types';
+import { pieceType, type MovePattern } from './pieces';
+import type { GameState, MoveAction, Piece, PlayerId, Seat, Vec } from './types';
 
 /**
  * Move generation, attack detection and move application for any board shape
@@ -21,6 +21,80 @@ export function pieceAt(s: GameState, sq: number): Piece | undefined {
   return id >= 0 ? s.pieces[id] : undefined;
 }
 
+/** Turn a seat-relative vector ([0, 1] = forward) into a board vector. */
+function orient(s: GameState, owner: PlayerId, [x, y]: Vec): Vec {
+  const seat = seatOf(s, owner);
+  const [fx, fy] = seat.forward;
+  const [lx, ly] = lateral(seat);
+  return [x * lx + y * fx, x * ly + y * fy];
+}
+
+/** Patterns that need more than a plain line walk (card pieces). */
+function isFancy(m: MovePattern): boolean {
+  return m.kind === 'hop' || m.kind === 'cannon' || (m.kind === 'ride' && (!!m.pass || !!m.relative));
+}
+
+/**
+ * Squares a fancy pattern reaches. With `attack`, every square it threatens
+ * (whatever is on it); otherwise the moves it can make (to, capture?).
+ */
+function fancyTargets(s: GameState, p: Piece, m: MovePattern, attack: boolean): { to: number; capture: boolean }[] {
+  const b = s.board;
+  const out: { to: number; capture: boolean }[] = [];
+  const land = (sq: number) => {
+    const id = s.sq[sq];
+    if (id < 0) return 'empty';
+    return areEnemies(s, p.owner, s.pieces[id].owner) ? 'capture' : 'own';
+  };
+  if (m.kind === 'ride') {
+    for (const v of m.dirs) {
+      const [x, y] = m.relative ? orient(s, p.owner, v) : v;
+      let sq = p.at;
+      let passed = 0;
+      for (let n = 1; m.max === undefined || n <= m.max; n++) {
+        sq = step(b, sq, x, y);
+        if (sq < 0 || sq === p.at) break;
+        const l = land(sq);
+        if (attack) out.push({ to: sq, capture: true });
+        else if (l === 'empty') out.push({ to: sq, capture: false });
+        else if (l === 'capture' && !m.noCapture) out.push({ to: sq, capture: true });
+        if (l === 'empty') continue;
+        if (m.pass === 'own' && l === 'own') continue;
+        if (m.pass === 'one' && passed === 0) { passed++; continue; }
+        break;
+      }
+    }
+  } else if (m.kind === 'hop') {
+    for (const [x, y] of m.dirs) {
+      let sq = step(b, p.at, x, y);
+      while (sq >= 0 && s.sq[sq] < 0) sq = step(b, sq, x, y);
+      if (sq < 0) continue;
+      const to = step(b, sq, x, y);
+      if (to < 0) continue;
+      const l = land(to);
+      if (attack || l !== 'own') out.push({ to, capture: l === 'capture' || attack });
+    }
+  } else if (m.kind === 'cannon') {
+    for (const [x, y] of m.dirs) {
+      let sq = step(b, p.at, x, y);
+      while (sq >= 0 && s.sq[sq] < 0) {
+        if (!attack) out.push({ to: sq, capture: false });
+        sq = step(b, sq, x, y);
+      }
+      if (sq < 0) continue; // no screen
+      sq = step(b, sq, x, y);
+      while (sq >= 0) {
+        const l = land(sq);
+        if (attack) out.push({ to: sq, capture: true });
+        else if (l === 'capture') out.push({ to: sq, capture: true });
+        if (l !== 'empty') break;
+        sq = step(b, sq, x, y);
+      }
+    }
+  }
+  return out;
+}
+
 /** Does piece p attack square target (as a capture, ignoring whose piece is there)? */
 export function pieceAttacks(s: GameState, p: Piece, target: number): boolean {
   if (p.at < 0) return false;
@@ -30,6 +104,10 @@ export function pieceAttacks(s: GameState, p: Piece, target: number): boolean {
   const dr = rankOf(b, target) - rankOf(b, p.at);
   for (const m of t.moves) {
     if ('noCapture' in m && m.noCapture) continue;
+    if (isFancy(m)) {
+      if (fancyTargets(s, p, m, true).some((x) => x.to === target)) return true;
+      continue;
+    }
     if (m.kind === 'leap') {
       for (const [x, y] of m.offsets) if (step(b, p.at, x, y) === target) return true;
     } else if (m.kind === 'ride') {
@@ -101,6 +179,10 @@ export function pseudoMovesFor(s: GameState, p: Piece, out: MoveAction[] = []): 
   const b = s.board;
   const t = pieceType(p.type);
   for (const m of t.moves) {
+    if (isFancy(m)) {
+      for (const x of fancyTargets(s, p, m, false)) out.push({ t: 'move', piece: p.id, to: x.to });
+      continue;
+    }
     if (m.kind === 'leap') {
       for (const [x, y] of m.offsets) {
         const to = step(b, p.at, x, y);

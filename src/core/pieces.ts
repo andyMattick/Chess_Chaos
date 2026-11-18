@@ -6,8 +6,17 @@ import type { PieceTypeId, Vec } from './types';
  */
 export type MovePattern =
   | { kind: 'leap'; offsets: Vec[]; noCapture?: boolean }
-  | { kind: 'ride'; dirs: Vec[]; max?: number; noCapture?: boolean }
-  | { kind: 'pawn'; double: 'first' | 'always' | 'never' };
+  /**
+   * pass: 'own' rides through the mover's own pieces (Ghost bishop);
+   * 'one' may pass over one piece of any colour per line (Jumper rook).
+   * relative: dirs are in the seat's frame, [0, 1] = forward (Lance).
+   */
+  | { kind: 'ride'; dirs: Vec[]; max?: number; noCapture?: boolean; pass?: 'own' | 'one'; relative?: boolean }
+  | { kind: 'pawn'; double: 'first' | 'always' | 'never' }
+  /** Grasshopper: along a line to the first piece, landing just beyond it. */
+  | { kind: 'hop'; dirs: Vec[] }
+  /** Cannon: moves like a rider; captures only by jumping exactly one piece. */
+  | { kind: 'cannon'; dirs: Vec[] };
 
 export interface PieceType {
   id: PieceTypeId;
@@ -21,6 +30,8 @@ export interface PieceType {
   promotesTo?: PieceTypeId[];
   /** For variants made by modifiers: the normal piece it looks like. */
   base?: PieceTypeId;
+  /** Power card pieces: the badge drawn on them so both players can tell. */
+  card?: string;
 }
 
 const ORTH: Vec[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -46,6 +57,23 @@ export const PIECE_TYPES: Record<PieceTypeId, PieceType> = {
   'knight-long': { id: 'knight-long', base: 'knight', name: 'Long-jump knight', letter: 'N', value: 4, royal: false, moves: [{ kind: 'leap', offsets: [...KNIGHT, [1, 3], [3, 1], [3, -1], [1, -3], [-1, -3], [-3, -1], [-3, 1], [-1, 3]] }] },
   'queen-tired': { id: 'queen-tired', base: 'queen', name: 'Tired queen', letter: 'Q', value: 6.5, royal: false, moves: [{ kind: 'ride', dirs: [...ORTH, ...DIAG], max: 3 }] },
   'rook-file': { id: 'rook-file', base: 'rook', name: 'One-way rook', letter: 'R', value: 3.5, royal: false, moves: [{ kind: 'ride', dirs: [[0, 1], [0, -1]] }] },
+  // ---- Power card pieces (docs/03 Cards). Base = the art they wear; card = their badge. ----
+  chancellor: { id: 'chancellor', base: 'rook', card: '🦄', name: 'Chancellor', letter: 'C', value: 8, royal: false, moves: [{ kind: 'ride', dirs: ORTH }, { kind: 'leap', offsets: KNIGHT }] },
+  archbishop: { id: 'archbishop', base: 'bishop', card: '🧙', name: 'Archbishop', letter: 'A', value: 7, royal: false, moves: [{ kind: 'ride', dirs: DIAG }, { kind: 'leap', offsets: KNIGHT }] },
+  amazon: { id: 'amazon', base: 'queen', card: '⚔️', name: 'Amazon', letter: 'Z', value: 12, royal: false, moves: [{ kind: 'ride', dirs: [...ORTH, ...DIAG] }, { kind: 'leap', offsets: KNIGHT }] },
+  'super-pawn': { id: 'super-pawn', base: 'pawn', card: '💪', name: 'Super pawn', letter: 'S', value: 3, royal: false, moves: [{ kind: 'leap', offsets: [...ORTH, ...DIAG] }] },
+  'jumper-rook': { id: 'jumper-rook', base: 'rook', card: '🦘', name: 'Jumper rook', letter: 'J', value: 6, royal: false, moves: [{ kind: 'ride', dirs: ORTH, pass: 'one' }] },
+  'ghost-bishop': { id: 'ghost-bishop', base: 'bishop', card: '👻', name: 'Ghost bishop', letter: 'G', value: 4, royal: false, moves: [{ kind: 'ride', dirs: DIAG, pass: 'own' }] },
+  nightrider: { id: 'nightrider', base: 'knight', card: '🌙', name: 'Nightrider', letter: 'H', value: 5, royal: false, moves: [{ kind: 'ride', dirs: KNIGHT }] },
+  cannon: { id: 'cannon', base: 'rook', card: '💣', name: 'Cannon', letter: 'O', value: 4, royal: false, moves: [{ kind: 'cannon', dirs: ORTH }] },
+  camel: { id: 'camel', base: 'knight', card: '🐫', name: 'Camel', letter: 'L', value: 3, royal: false, moves: [{ kind: 'leap', offsets: [[1, 3], [3, 1], [3, -1], [1, -3], [-1, -3], [-3, -1], [-3, 1], [-1, 3]] }] },
+  grasshopper: { id: 'grasshopper', base: 'pawn', card: '🦗', name: 'Grasshopper', letter: 'W', value: 2, royal: false, moves: [{ kind: 'hop', dirs: [...ORTH, ...DIAG] }] },
+  'dragon-rook': { id: 'dragon-rook', base: 'rook', card: '🐉', name: 'Dragon rook', letter: 'D', value: 7, royal: false, moves: [{ kind: 'ride', dirs: ORTH }, { kind: 'leap', offsets: DIAG }] },
+  'dragon-bishop': { id: 'dragon-bishop', base: 'bishop', card: '🐲', name: 'Dragon bishop', letter: 'E', value: 5, royal: false, moves: [{ kind: 'ride', dirs: DIAG }, { kind: 'leap', offsets: ORTH }] },
+  lance: { id: 'lance', base: 'pawn', card: '🗡️', name: 'Lance', letter: 'T', value: 3, royal: false, moves: [{ kind: 'ride', dirs: [[0, 1]], relative: true }] },
+  guard: { id: 'guard', base: 'pawn', card: '🛡️', name: 'Guard', letter: 'U', value: 3, royal: false, moves: [{ kind: 'leap', offsets: [...ORTH, ...DIAG] }] },
+  /** CARD-10: a blocker. It never moves and cannot be captured (rules in core/cards.ts). */
+  wall: { id: 'wall', name: 'Wall', letter: 'X', value: 0, royal: false, moves: [] },
   'bishop-peace': { id: 'bishop-peace', base: 'bishop', name: 'Peaceful bishop', letter: 'B', value: 1.5, royal: false, moves: [{ kind: 'ride', dirs: DIAG, noCapture: true }] },
 };
 

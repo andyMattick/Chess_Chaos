@@ -150,30 +150,30 @@ Built so far: Classic, King of the hill, Hill wars (2 and 4 players), 3-way, 4-w
 
 | ID | Name | Status | Where |
 |---|---|---|---|
-| CARD-01 | Chancellor | Planned | Party match |
-| CARD-02 | Archbishop | Planned | Party match |
-| CARD-03 | Amazon | Planned | Party match |
-| CARD-04 | Super pawn | Planned | Party match |
-| CARD-05 | Jumper rook | Planned | Party match |
-| CARD-06 | Ghost bishop | Planned | Party match |
-| CARD-07 | Nightrider | Planned | Party match |
-| CARD-08 | Bodyguard | Planned | Party match |
-| CARD-09 | Cannon | Planned | Party match |
-| CARD-10 | Wall | Planned | Party match |
-| CARD-11 | Teleporter | Planned | Party match |
-| CARD-12 | Twin | Planned | Party match |
-| CARD-13 | Camel | Planned | Party match |
-| CARD-14 | Grasshopper | Planned | Party match |
-| CARD-15 | Dragon rook | Planned | Party match |
-| CARD-16 | Dragon bishop | Planned | Party match |
-| CARD-17 | Lance | Planned | Party match |
-| CARD-18 | Phoenix | Planned | Party match |
-| CARD-19 | Bomb pawn | Planned | Party match |
-| CARD-20 | Magnet | Planned | Party match |
-| CARD-21 | Battering ram | Planned | Party match |
-| CARD-22 | Medic | Planned | Party match |
-| CARD-23 | Decoy king | Planned | Party match |
-| CARD-24 | Guard | Planned | Party match |
+| CARD-01 | Chancellor | Built | Party match |
+| CARD-02 | Archbishop | Built | Party match |
+| CARD-03 | Amazon | Built | Party match |
+| CARD-04 | Super pawn | Built | Party match |
+| CARD-05 | Jumper rook | Built | Party match |
+| CARD-06 | Ghost bishop | Built | Party match |
+| CARD-07 | Nightrider | Built | Party match |
+| CARD-08 | Bodyguard | Built | Party match |
+| CARD-09 | Cannon | Built | Party match |
+| CARD-10 | Wall | Built | Party match |
+| CARD-11 | Teleporter | Built | Party match |
+| CARD-12 | Twin | Built | Party match |
+| CARD-13 | Camel | Built | Party match |
+| CARD-14 | Grasshopper | Built | Party match |
+| CARD-15 | Dragon rook | Built | Party match |
+| CARD-16 | Dragon bishop | Built | Party match |
+| CARD-17 | Lance | Built | Party match |
+| CARD-18 | Phoenix | Built | Party match |
+| CARD-19 | Bomb pawn | Built | Party match |
+| CARD-20 | Magnet | Built | Party match |
+| CARD-21 | Battering ram | Built | Party match |
+| CARD-22 | Medic | Built | Party match |
+| CARD-23 | Decoy king | Planned (needs hidden information) | Party match |
+| CARD-24 | Guard | Built | Party match |
 
 ## Hidden roles (assassins, saboteurs, last pawn…) (8)
 
