@@ -566,3 +566,49 @@ body[data-calm] .board-wrap.nudge::before { animation: none !important; }
 .budget-bar div { height: 100%; background: #ff9f43; }
 .promo.shop-pop { width: min(96%, 520px); padding: 0; background: none; border: none; box-shadow: none; }
 .invite-mode { font-weight: 700; }
+
+/* Home, compact: three big play buttons, then small tiles */
+.hero-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 14px 0 8px; }
+.hero-buttons .big { padding: 14px 16px 12px; }
+.home-section { margin: 14px 0 6px; font-family: var(--hand); font-size: 1.25rem; transform: rotate(-0.8deg); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.tile {
+  display: grid; gap: 2px; justify-items: start; text-align: left; font: inherit; color: var(--ink); padding: 8px 12px 10px;
+  border: 3px solid var(--ink); border-radius: var(--wonky2); background: color-mix(in srgb, var(--c) 28%, var(--card)); box-shadow: 3px 4px 0 var(--ink); cursor: pointer;
+}
+.tile:nth-child(odd) { transform: rotate(-1deg); }
+.tile:nth-child(even) { transform: rotate(0.8deg); }
+.tile:hover:not(:disabled) { transform: scale(1.04); }
+.tile:active:not(:disabled) { transform: translate(3px, 4px); box-shadow: 0 0 0 var(--ink); }
+.tile-emoji { font-size: 1.8rem; line-height: 1.1; }
+.tile-title { font-weight: 900; font-family: var(--hand); font-size: 1.15rem; line-height: 1.1; }
+.tile-sub { color: var(--muted); font-weight: 700; font-size: 0.82rem; }
+@media (max-width: 640px) {
+  .hero-buttons { grid-template-columns: 1fr; gap: 10px; }
+  .hero-buttons .big { grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 12px; align-items: center; padding: 10px 14px; }
+  .hero-buttons .big-emoji { grid-row: span 2; font-size: 2.2rem; }
+  .hero-buttons .big-title { font-size: 1.3rem; }
+  .tiles { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tile { padding: 6px 8px 8px; }
+  .tile-emoji { font-size: 1.5rem; }
+  .tile-title { font-size: 1rem; }
+  .tile-sub { display: none; }
+  .tagline { font-size: 1.1rem; margin: 6px 0; }
+}
+
+/* Tabs (Wardrobe, Play online) */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.tab { font: inherit; font-weight: 900; padding: 6px 14px; border: 3px solid var(--ink); border-radius: var(--wonky2) var(--wonky2) 6px 6px; background: #f3ecdc; color: var(--ink); cursor: pointer; }
+.tab.on { background: var(--yolk); transform: translateY(-2px) rotate(-1deg); box-shadow: 2px 3px 0 var(--ink); }
+.lobby-pane { border: 3px dashed var(--ink); border-radius: var(--wonky2); padding: 12px 14px; background: #fffaf0; display: grid; gap: 6px; }
+.game-blurb { font-weight: 700; background: #fff3cf; border-radius: 10px; padding: 6px 10px; margin: 4px 0; }
+.colour-row .btn { flex: 1 1 auto; }
+@media (max-width: 640px) {
+  .mode-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .mode-tile { padding: 8px 10px; }
+  .mode-tile .mode-emoji { font-size: 1.6rem; }
+  .mode-tile b { font-size: 1.05rem; }
+  .mode-tile small { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 0.78rem; }
+  .card-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .panel { padding-left: 14px; padding-right: 14px; }
+}

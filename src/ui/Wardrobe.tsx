@@ -19,6 +19,7 @@ const SIDES = [
 export function Wardrobe({ back }: { back: () => void }) {
   const save = useSave();
   const p = activeProfile(save);
+  const [tab, setTab] = useState<string>('p1');
   const [editing, setEditing] = useState<{ seat: string; type: string } | null>(null);
   const [buying, setBuying] = useState<{ kind: 'skin'; id: SkinId } | { kind: 'land'; id: LandscapeId } | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -58,7 +59,11 @@ export function Wardrobe({ back }: { back: () => void }) {
       </div>
       <p className="muted small">Win games, finish goals and find tricks to earn coins. Every game pays something.</p>
 
-      {SIDES.map(({ seat, label }) => (
+      <div className="tabs" role="tablist">
+        {SIDES.map(({ seat, label }) => <button key={seat} role="tab" aria-selected={tab === seat} className={`tab ${tab === seat ? 'on' : ''}`} onClick={() => setTab(seat)}>{label}</button>)}
+        <button role="tab" aria-selected={tab === 'land'} className={`tab ${tab === 'land' ? 'on' : ''}`} onClick={() => setTab('land')}>Landscape</button>
+      </div>
+      {SIDES.filter(({ seat }) => seat === tab).map(({ seat, label }) => (
         <section key={seat} className="army">
           <h3>{label}{seat === 'p1' && <span className="scribble">this is your army online</span>}</h3>
           <div className="skin-row">
@@ -108,13 +113,14 @@ export function Wardrobe({ back }: { back: () => void }) {
         </section>
       ))}
 
-      <label className="toggle">
-        <input type="checkbox" checked={skins.badges} onChange={(e) => setSkins({ ...skins, badges: e.target.checked })} />
-        Show little piece badges (helps you tell who's who)
-      </label>
+      {tab !== 'land' && (
+        <label className="toggle">
+          <input type="checkbox" checked={skins.badges} onChange={(e) => setSkins({ ...skins, badges: e.target.checked })} />
+          Show little piece badges (helps you tell who's who)
+        </label>
+      )}
 
-      <h3>Landscape</h3>
-      <div className="land-row">
+      {tab === 'land' && <div className="land-row">
         {LANDSCAPES.map((l) => {
           const have = ownsLand(l.id);
           return (
@@ -139,7 +145,7 @@ export function Wardrobe({ back }: { back: () => void }) {
             </button>
           );
         })}
-      </div>
+      </div>}
       <button className="btn" onClick={back}>← Home</button>
 
       {buying && (

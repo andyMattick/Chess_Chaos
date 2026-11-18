@@ -68,6 +68,7 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
   const net = useSyncExternalStore(online.subscribe, online.get, online.get);
   const p = activeProfile(save);
   const [code, setCode] = useState(initialCode ?? '');
+  const [pane, setPane] = useState<'start' | 'join'>(initialCode ? 'join' : 'start');
   const [clockIdx, setClockIdx] = useState(1);
   const [game, setGame] = useState<RoomGame>('standard');
   const seatsFor = ROOM_GAMES.find((g) => g.id === game)?.seats ?? 2;
@@ -140,21 +141,19 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
       <p className="muted">Play a friend on their own phone, tablet or computer.</p>
       {net.error && <p className="error-note">⚠️ {net.error}</p>}
       {net.status === 'connecting' && <p className="muted">Connecting…</p>}
-      <details className="settings">
-        <summary>🃏 Power cards for Party matches{hand.length ? ` (${hand.length} picked)` : ''}</summary>
-        <HandPicker />
-      </details>
-      <div className="online-split">
-        <section>
-          <h3>Start a room</h3>
-          <p className="muted">You get a 4-letter code to share.</p>
+      <div className="tabs" role="tablist">
+        <button role="tab" aria-selected={pane === 'start'} className={`tab ${pane === 'start' ? 'on' : ''}`} onClick={() => setPane('start')}>🆕 Start a room</button>
+        <button role="tab" aria-selected={pane === 'join'} className={`tab ${pane === 'join' ? 'on' : ''}`} onClick={() => setPane('join')}>🔑 Join with a code</button>
+      </div>
+      {pane === 'start' && (
+        <section className="lobby-pane">
           <p className="muted small">What are we playing?</p>
           <div className="clock-chips" role="radiogroup" aria-label="Game">
-            {ROOM_GAMES.filter((g) => !g.more).map((g) => (
+            {ROOM_GAMES.filter((g) => !g.more && g.seats === 2).map((g) => (
               <button key={g.id} role="radio" aria-checked={g.id === game} className={`chip ${g.id === game ? 'on' : ''}`} onClick={() => setGame(g.id)} title={g.blurb}>{g.label}</button>
             ))}
           </div>
-          <details className="more-modes" open={ROOM_GAMES.find((g) => g.id === game)?.more}>
+          <details className="more-modes" open={!!ROOM_GAMES.find((g) => g.id === game)?.more}>
             <summary>More modes ({ROOM_GAMES.filter((g) => g.more).length})</summary>
             <div className="clock-chips" role="radiogroup" aria-label="More game modes">
               {ROOM_GAMES.filter((g) => g.more).map((g) => (
@@ -162,14 +161,28 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
               ))}
             </div>
           </details>
-          <p className="muted small">{ROOM_GAMES.find((g) => g.id === game)?.blurb}</p>
+          <details className="more-modes" open={(ROOM_GAMES.find((g) => g.id === game)?.seats ?? 2) > 2}>
+            <summary>3 and 4 players ({ROOM_GAMES.filter((g) => g.seats > 2).length})</summary>
+            <div className="clock-chips" role="radiogroup" aria-label="Battles">
+              {ROOM_GAMES.filter((g) => g.seats > 2).map((g) => (
+                <button key={g.id} role="radio" aria-checked={g.id === game} className={`chip ${g.id === game ? 'on' : ''}`} onClick={() => setGame(g.id)} title={g.blurb}>{g.label}</button>
+              ))}
+            </div>
+          </details>
+          <p className="game-blurb"><b>{ROOM_GAMES.find((g) => g.id === game)?.label}</b>: {ROOM_GAMES.find((g) => g.id === game)?.blurb}</p>
+          {game === 'party' && (
+            <details className="settings">
+              <summary>🃏 Power cards for this Party match{hand.length ? ` (${hand.length} picked)` : ''}</summary>
+              <HandPicker />
+            </details>
+          )}
           <p className="muted small">How much time each?</p>
           <div className="clock-chips" role="radiogroup" aria-label="Clock">
             {CLOCK_CHOICES.map((c, i) => (
               <button key={c.label} role="radio" aria-checked={i === clockIdx} className={`chip ${i === clockIdx ? 'on' : ''}`} onClick={() => setClockIdx(i)}>{c.label}</button>
             ))}
           </div>
-          <div className="row">
+          <div className="row wrap colour-row">
             {seatsFor === 2 ? (
               <>
                 <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock, game, lookFor('p1'), false, hand)}>I'll be White</button>
@@ -181,16 +194,22 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
             )}
           </div>
         </section>
-        <section>
-          <h3>Join a room</h3>
+      )}
+      {pane === 'join' && (
+        <section className="lobby-pane">
+          <p className="muted small">Type the 4 letters your friend sent you.</p>
           <input
             className="code-input" aria-label="Room code" placeholder="ABCD" maxLength={4} value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))}
             onKeyDown={(e) => e.key === 'Enter' && code.length === 4 && online.join(code, name, rating, lookFor('p1'), false, hand)}
           />
           <button className="btn primary" disabled={code.length !== 4} onClick={() => online.join(code, name, rating, lookFor('p1'), false, hand)}>Join!</button>
+          <details className="settings">
+            <summary>🃏 Power cards, in case it's a Party match{hand.length ? ` (${hand.length} picked)` : ''}</summary>
+            <HandPicker />
+          </details>
         </section>
-      </div>
+      )}
       <button className="btn" onClick={exit}>← Home</button>
     </div>
   );

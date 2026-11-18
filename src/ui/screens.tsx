@@ -39,72 +39,50 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
         <ProfileChip onClick={() => go('profiles')} />
       </header>
       <p className="tagline">{p ? `Hi ${p.nickname}! What shall we play?` : 'Make a player to get started.'}</p>
-      <div className="big-buttons">
-        <button className="big" style={{ ['--c' as string]: '#ffc93c' }} onClick={() => go('train')} disabled={!p}>
-          <span className="big-emoji">🎓</span>
-          <span className="big-title">Train</span>
-          <span className="big-sub">Danger alerts, hints and goals</span>
-        </button>
+      <div className="hero-buttons">
         <button className="big" style={{ ['--c' as string]: '#5bd17a' }} onClick={() => go('bots')} disabled={!p}>
           <span className="big-emoji">🤖</span>
           <span className="big-title">Play the bots</span>
-          <span className="big-sub">A path of 18 bots. Beat one to open the next</span>
-        </button>
-        <button className="big" style={{ ['--c' as string]: '#ff5a3c' }} onClick={() => go('battle')} disabled={!p}>
-          <span className="big-emoji">⚔️</span>
-          <span className="big-title">Battle modes</span>
-          <span className="big-sub">3-way, 4-way, 2 vs 2, King of the hill, Hill wars</span>
+          <span className="big-sub">Beat one to open the next</span>
         </button>
         <button className="big" style={{ ['--c' as string]: '#4aa8ff' }} onClick={() => go('online')} disabled={!p}>
           <span className="big-emoji">🌐</span>
           <span className="big-title">Play online</span>
-          <span className="big-sub">Send a friend a 4-letter code</span>
-        </button>
-        <button className="big" style={{ ['--c' as string]: '#ff9f43' }} onClick={() => go('wardrobe')}>
-          <span className="big-emoji">🧌</span>
-          <span className="big-title">Wardrobe</span>
-          <span className="big-sub">Monsters, robots, ghosts… and lava boards</span>
-        </button>
-        <button className="big" style={{ ['--c' as string]: '#ffb13d' }} onClick={() => go('leaderboard')} disabled={!p}>
-          <span className="big-emoji">🏆</span>
-          <span className="big-title">Leaderboard</span>
-          <span className="big-sub">Everyone you've played, by rating</span>
-        </button>
-        <button className="big" style={{ ['--c' as string]: '#a77bff' }} onClick={() => go('history')} disabled={!p}>
-          <span className="big-emoji">📜</span>
-          <span className="big-title">My games</span>
-          <span className="big-sub">Replay any of your last 50 games</span>
+          <span className="big-sub">Send a friend a code</span>
         </button>
         <button className="big" style={{ ['--c' as string]: '#ff6fb5' }} onClick={() => go('party')} disabled={!p}>
           <span className="big-emoji">🎉</span>
           <span className="big-title">Party match</span>
-          <span className="big-sub">Surprise mode, secret mission, buffs, handicaps and power cards</span>
+          <span className="big-sub">Surprise mode, missions, cards</span>
         </button>
-        <button className="big" style={{ ['--c' as string]: '#36c5c5' }} onClick={() => go('modes')} disabled={!p}>
-          <span className="big-emoji">🎮</span>
-          <span className="big-title">Game modes</span>
-          <span className="big-sub">Atomic, Horde, Lava, Drop-in, Boss battle… 25 ways to play</span>
-        </button>
-        <button className="big" style={{ ['--c' as string]: '#c08cff' }} onClick={() => go('cards')} disabled={!p}>
-          <span className="big-emoji">🃏</span>
-          <span className="big-title">Power cards</span>
-          <span className="big-sub">{p ? `${Object.values(p.collection ?? {}).reduce((a, n) => a + n, 0)} cards. Pick your hand for Party matches` : 'Earn them by playing'}</span>
-        </button>
-        {save.settings.chesscomEnabled && (
-          <button className="big" style={{ ['--c' as string]: '#7fb069' }} onClick={() => go('chesscom')} disabled={!p}>
-            <span className="big-emoji">♟️</span>
-            <span className="big-title">Chess.com corner</span>
-            <span className="big-sub">Look up players, download their games</span>
-          </button>
-        )}
-        <button className="big" style={{ ['--c' as string]: '#ff7a59' }} onClick={() => go('puzzles')} disabled={!p}>
-          <span className="big-emoji">🧩</span>
-          <span className="big-title">Puzzles</span>
-          <span className="big-sub">{p && currentStreak({ ...EMPTY_PROGRESS, ...p.puzzles }) > 0 ? `🔥 ${currentStreak({ ...EMPTY_PROGRESS, ...p.puzzles })}-day streak! Keep it going` : 'Daily puzzle, random puzzles and warm-ups'}</span>
-        </button>
+      </div>
+      <h3 className="home-section">More ways to play</h3>
+      <div className="tiles">
+        <Tile emoji="🎮" title="Game modes" sub="25 ways to play" c="#36c5c5" onClick={() => go('modes')} disabled={!p} />
+        <Tile emoji="⚔️" title="Battles" sub="3 and 4 players" c="#ff5a3c" onClick={() => go('battle')} disabled={!p} />
+        <Tile emoji="🎓" title="Train" sub="Alerts and hints" c="#ffc93c" onClick={() => go('train')} disabled={!p} />
+        <Tile emoji="🧩" title="Puzzles" sub={p && currentStreak({ ...EMPTY_PROGRESS, ...p.puzzles }) > 0 ? `🔥 ${currentStreak({ ...EMPTY_PROGRESS, ...p.puzzles })}-day streak` : 'Daily, gauntlet'} c="#ff7a59" onClick={() => go('puzzles')} disabled={!p} />
+      </div>
+      <h3 className="home-section">My stuff</h3>
+      <div className="tiles">
+        <Tile emoji="🧌" title="Wardrobe" sub="Skins and boards" c="#ff9f43" onClick={() => go('wardrobe')} />
+        <Tile emoji="🃏" title="Power cards" sub={p ? `${Object.values(p.collection ?? {}).reduce((a, n) => a + n, 0)} cards` : 'Earn by playing'} c="#c08cff" onClick={() => go('cards')} disabled={!p} />
+        <Tile emoji="📜" title="My games" sub="Replay and analyse" c="#a77bff" onClick={() => go('history')} disabled={!p} />
+        <Tile emoji="🏆" title="Leaderboard" sub="Who's on top" c="#ffb13d" onClick={() => go('leaderboard')} disabled={!p} />
+        {save.settings.chesscomEnabled && <Tile emoji="♟️" title="Chess.com" sub="Players, nemesis bots" c="#7fb069" onClick={() => go('chesscom')} disabled={!p} />}
       </div>
       {p && <Settings />}
     </div>
+  );
+}
+
+function Tile({ emoji, title, sub, c, onClick, disabled }: { emoji: string; title: string; sub: string; c: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button className="tile" style={{ ['--c' as string]: c }} onClick={onClick} disabled={disabled}>
+      <span className="tile-emoji">{emoji}</span>
+      <span className="tile-title">{title}</span>
+      <span className="tile-sub">{sub}</span>
+    </button>
   );
 }
 
@@ -169,6 +147,7 @@ export function BotRoster({ start, back }: { start: (c: GameConfig) => void; bac
   const save = useSave();
   const p = activeProfile(save);
   const [chosen, setChosen] = useState<Bot | null>(null);
+  const [showAll, setShowAll] = useState(false);
   if (chosen) {
     const begin = (seat: 'p1' | 'p2' | 'random') => {
       const humanSeat = seat === 'random' ? (Math.random() < 0.5 ? 'p1' : 'p2') : seat;
@@ -202,7 +181,7 @@ export function BotRoster({ start, back }: { start: (c: GameConfig) => void; bac
       <h2>The Bot Path <span className="scribble">beat one to open the next</span></h2>
       <p className="muted">After its favourite opening, each bot plays with the game's own chess engine at its own strength. Your rating: ★ {p?.rating} · 🪙 first win against a bot pays 25 extra coins.</p>
       <div className="path">
-        {PATH.map((b, i) => {
+        {PATH.slice(0, showAll ? PATH.length : Math.min(PATH.length, unlocked + 2)).map((b, i) => {
           const r = p?.botRecords[b.id];
           const open = i < unlocked;
           return (
@@ -225,6 +204,9 @@ export function BotRoster({ start, back }: { start: (c: GameConfig) => void; bac
           );
         })}
       </div>
+      {!showAll && PATH.length > unlocked + 2 && (
+        <button className="btn small" onClick={() => setShowAll(true)}>🔒 {PATH.length - unlocked - 2} more bots further down the path…</button>
+      )}
       {(p?.nemeses?.length ?? 0) > 0 && (
         <section className="nemesis-list">
           <h3>😈 Your nemeses <span className="scribble">bots that play like real people</span></h3>
