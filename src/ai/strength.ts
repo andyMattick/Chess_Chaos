@@ -19,8 +19,11 @@ const TABLE: [number, Strength][] = [
   [400, { depth: 1, weakChance: 0.35, quiescence: false, timeMs: 400 }],
   [600, { depth: 2, weakChance: 0.25, quiescence: false, timeMs: 600 }],
   [800, { depth: 2, weakChance: 0.15, quiescence: true, timeMs: 700 }],
-  [1000, { depth: 3, weakChance: 0.1, quiescence: true, timeMs: 900 }],
-  [1200, { depth: 3, weakChance: 0.05, quiescence: true, timeMs: 1200 }],
+  [1000, { depth: 3, weakChance: 0.12, quiescence: true, timeMs: 900 }],
+  // ★1100 and ★1300 used to share the tier below, so the Bot Path did not get harder there (weekly check, 2026-11-18).
+  [1100, { depth: 3, weakChance: 0.07, quiescence: true, timeMs: 1050 }],
+  [1200, { depth: 3, weakChance: 0.04, quiescence: true, timeMs: 1200 }],
+  [1300, { depth: 4, weakChance: 0.06, quiescence: true, timeMs: 1400 }],
   [1400, { depth: 4, weakChance: 0.02, quiescence: true, timeMs: 1600 }],
 ];
 

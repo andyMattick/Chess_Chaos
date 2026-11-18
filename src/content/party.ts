@@ -86,6 +86,10 @@ export interface MissionDef {
 
 /** Turns the other player gets to undo a shown mission (owner rule, 2026-11-18). */
 export const MISSION_DEFENCE_TURNS = 2;
+/** The weaker player's mission is harder to stop: the stronger player gets only this many turns (owner, 2026-11-18). */
+export const MISSION_DEFENCE_TURNS_VS_UNDERDOG = 1;
+/** Rating gap from which the weaker player gets that advantage. */
+export const MISSION_UNDERDOG_GAP = 100;
 
 /** Game-ending secret missions (docs/02 s5). Easy ones are training goals; bonus ones come later. */
 export const MISSIONS: MissionDef[] = [

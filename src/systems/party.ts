@@ -1,4 +1,4 @@
-import { MISSION_DEFENCE_TURNS, MISSIONS, MODIFIERS, type ModifierDef } from '../content/party';
+import { MISSION_DEFENCE_TURNS, MISSION_DEFENCE_TURNS_VS_UNDERDOG, MISSION_UNDERDOG_GAP, MISSIONS, MODIFIERS, type ModifierDef } from '../content/party';
 import { legalActions, missionChallenges, play } from '../core/rules';
 import { IMPLEMENTED } from '../core/modifiers';
 import { movesMade } from '../core/modifiers';
@@ -160,7 +160,14 @@ export type PartySetup = NonNullable<GameRecord['setup']['party']>;
 
 export function setupParty(o: PartyOptions, rand: () => number): PartySetup {
   const gate = missionGate(o.players.p1.rating, o.players.p2.rating);
-  return { modifiers: pickModifiers(o, rand), missions: dealMissions(o, rand), gate: { p1: gate, p2: gate } };
+  return { modifiers: pickModifiers(o, rand), missions: dealMissions(o, rand), gate: { p1: gate, p2: gate }, defence: missionDefence(o.players.p1.rating, o.players.p2.rating) };
+}
+
+/** Turns to undo each player's shown mission: fewer against the weaker player's mission when the gap is big enough. */
+export function missionDefence(p1: number, p2: number): Record<'p1' | 'p2', number> {
+  const out = { p1: MISSION_DEFENCE_TURNS, p2: MISSION_DEFENCE_TURNS };
+  if (Math.abs(p1 - p2) >= MISSION_UNDERDOG_GAP) out[p1 < p2 ? 'p1' : 'p2'] = MISSION_DEFENCE_TURNS_VS_UNDERDOG;
+  return out;
 }
 
 /** Hide the other player's mission (online, and on screen). */
@@ -199,7 +206,7 @@ export function refereeMission(states: GameState[], actions: Action[], party: Pa
   if (made <= (party.gate[player] ?? 10)) return null;
   const ctx = { states, ply, move: a as MoveAction, player, movesMade: made };
   if (!missionDone(id, ctx)) return null;
-  return { t: 'mission', by: player, id, stage: 'reveal', target: missionTarget(id, ctx), turns: MISSION_DEFENCE_TURNS };
+  return { t: 'mission', by: player, id, stage: 'reveal', target: missionTarget(id, ctx), turns: party.defence?.[player] ?? MISSION_DEFENCE_TURNS };
 }
 
 /** Run the referee until it has nothing more to add. Returns the new states and actions. */

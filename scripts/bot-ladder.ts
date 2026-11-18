@@ -4,7 +4,7 @@
  * has the stronger bot scoring well over half. Used by the weekly check to spot
  * bots getting stronger or weaker after engine changes.
  *
- *   bun scripts/bot-ladder.ts [gamesPerPair=6] > ladder.json
+ *   bun scripts/bot-ladder.ts [gamesPerPair=6] [onlyHigherBots=Caro,Indy] > ladder.json
  *
  * Fixed seeds, so the same code gives the same numbers week to week.
  */
@@ -15,6 +15,7 @@ import { PATH } from '../src/systems/coins';
 import type { Bot } from '../src/content/bots';
 
 const GAMES = Number(process.argv[2] ?? 6);
+const ONLY = process.argv[3]?.split(',');
 const CAP = 240;
 
 function seeded(seed: number) {
@@ -41,6 +42,7 @@ function game(lo: Bot, hi: Bot, seed: number): { score: number; plies: number } 
 const pairs: Record<string, unknown>[] = [];
 for (let i = 0; i + 1 < PATH.length; i++) {
   const lo = PATH[i], hi = PATH[i + 1];
+  if (ONLY && !ONLY.includes(hi.name)) continue;
   let score = 0, plies = 0;
   const t0 = Date.now();
   for (let g = 0; g < GAMES; g++) {

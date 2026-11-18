@@ -88,7 +88,7 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
   // "Missions are live" announcement.
   const live_ = party ? missionsLive(live, party, me) : false;
   useEffect(() => {
-    if (party && live_ && !announced.current) { announced.current = true; say(`🎯 Secret missions are LIVE! Do yours, then keep it safe for ${MISSION_DEFENCE_TURNS} turns to win.`); }
+    if (party && live_ && !announced.current) { announced.current = true; say(`🎯 Secret missions are LIVE! Do yours, then keep it safe for ${party.defence?.[me] ?? MISSION_DEFENCE_TURNS} ${(party.defence?.[me] ?? MISSION_DEFENCE_TURNS) === 1 ? 'turn' : 'turns'} to win.`); }
   }, [live_, party]);
 
   // Secret missions shown and stopped (owner rule: the other player gets a few turns to undo it).

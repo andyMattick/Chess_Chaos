@@ -70,7 +70,7 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
           {modRow(theirs)}
         </div>
         <button className={`reveal-card mission-card big ${peek ? 'open' : ''}`} onPointerDown={() => setPeek(true)} onPointerUp={() => setPeek(false)} onPointerLeave={() => setPeek(false)} aria-label="Hold to see your secret mission">
-          {peek && mission ? <><div className="reveal-emoji">🎯</div><h3>{mission.name}</h3><p>{mission.blurb}</p><small>Do it after your move {setup.gate[humanSeat]}. Then everyone sees it, and the other player gets {MISSION_DEFENCE_TURNS} turns to undo it. If it still stands, you win!</small></> : <><div className="reveal-emoji">🤫</div><h3>Secret mission</h3><p>Hold to peek. Don't let anyone see!</p></>}
+          {peek && mission ? <><div className="reveal-emoji">🎯</div><h3>{mission.name}</h3><p>{mission.blurb}</p><small>Do it after your move {setup.gate[humanSeat]}. Then everyone sees it, and the other player gets {turnsText(setup.defence?.[humanSeat] ?? MISSION_DEFENCE_TURNS)} to undo it. If it still stands, you win!</small></> : <><div className="reveal-emoji">🤫</div><h3>Secret mission</h3><p>Hold to peek. Don't let anyone see!</p></>}
         </button>
       </div>
       <HandPicker />
@@ -95,4 +95,8 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
       </div>
     </div>
   );
+}
+
+function turnsText(n: number): string {
+  return n === 1 ? 'just 1 turn' : `${n} turns`;
 }
