@@ -126,7 +126,7 @@ function PathGame({ id, levels, goal, back }: { id: string; levels: PathLevel[];
     const n = pathStep(s, m);
     const rest = left.filter((g) => g !== sq);
     setS(n); setLeft(rest); setMoves(moves + 1);
-    if (rest.length < left.length) sfx.capture();
+    if (rest.length < left.length) sfx.capture(false);
     if (!rest.length) {
       const got = pathStars(moves + 1, par);
       setDone(got);
@@ -178,7 +178,7 @@ function Sprint({ back }: { back: () => void }) {
   const s = useMemo(() => fromFEN(p.fen), [p]);
   const taps = useTaps(over || end === null ? null : s, (m, all) => {
     const ok = all.some((x) => isMate(p.fen, x)) || isMate(p.fen, m);
-    if (ok) { setScore((n) => n + 1); sfx.capture(); setFlash('✅ Checkmate!'); } else setFlash(`❌ Not mate. It was ${p.answers[0]}.`);
+    if (ok) { setScore((n) => n + 1); sfx.capture(false); setFlash('✅ Checkmate!'); } else setFlash(`❌ Not mate. It was ${p.answers[0]}.`);
     setTimeout(() => setFlash(null), 900);
     setI((n) => n + 1);
   });
@@ -207,7 +207,7 @@ function useRounds<T>(list: T[]) {
   const [score, setScore] = useState(0);
   const [answer, setAnswer] = useState<{ ok: boolean; text: string } | null>(null);
   return { item: order[i], i, score, answer, done: i >= order.length,
-    mark(ok: boolean, text: string) { setAnswer({ ok, text }); if (ok) { setScore((n) => n + 1); sfx.capture(); } },
+    mark(ok: boolean, text: string) { setAnswer({ ok, text }); if (ok) { setScore((n) => n + 1); sfx.capture(false); } },
     next() { setAnswer(null); setI((n) => n + 1); },
   };
 }
