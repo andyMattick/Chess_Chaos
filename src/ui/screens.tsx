@@ -127,6 +127,11 @@ export function Profiles({ done }: { done: () => void }) {
           <button className="btn primary" onClick={() => { update(() => lost); done(); }}>Bring it back</button>
         </div>
       )}
+      {!save.profiles.length && !lost && isHomeScreenApp() && (
+        <p className="rescue-card">
+          📱 <b>Played before in Safari or another browser?</b> The home-screen app keeps its own save. Open the game there, tap ⚙️ Settings → 💾 Back up my progress, save the file, then come back here and tap 📂 Load a backup.
+        </p>
+      )}
       <h2>Who is playing?</h2>
       <div className="profile-grid">
         {save.profiles.map((p) => (
@@ -150,6 +155,13 @@ export function Profiles({ done }: { done: () => void }) {
       {save.profiles.length > 0 ? <button className="btn" onClick={done}>← Back</button> : <BackupButtons onlyLoad />}
     </div>
   );
+}
+
+/** Opened from an icon on the home screen (it has its own storage on iPhone). */
+function isHomeScreenApp(): boolean {
+  try {
+    return window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  } catch { return false; }
 }
 
 /** Backup without accounts: a small file you keep (or send to yourself), and load on any device. */
