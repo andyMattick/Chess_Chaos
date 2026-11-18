@@ -1,6 +1,7 @@
 import { RoomServer, type Conn } from '../src/net/room';
 import type { ServerMsg } from '../src/net/protocol';
 import { legalActions, parseSAN, replay } from '../src/core';
+import { UNDERDOG_BONUS_MODES } from '../src/content/party';
 
 function client(id: string) {
   const inbox: ServerMsg[] = [];
@@ -266,7 +267,8 @@ describe('online party rooms', () => {
     // Extras are recommended, then voted on.
     const vote = a.last('room')!.extrasVote!;
     expect(vote.status).toBe('pending');
-    expect(vote.modifiers.p1!.length).toBe(2); // 600-point gap: major + minor buff
+    // 600-point gap: major + minor buff (one more Minor in the lopsided modes, docs/12).
+    expect(vote.modifiers.p1!.length).toBe(2 + (UNDERDOG_BONUS_MODES[a.last('room')!.record.setup.mode] ? 1 : 0));
     expect(vote.modifiers.p2!.length).toBe(1); // and a major handicap
     expect(pa.modifiers).toEqual({});
     const first = legalActions(replay(a.last('room')!.record).at(-1)!)[0];
@@ -275,7 +277,7 @@ describe('online party rooms', () => {
     server.handle(a.conn, { t: 'extras-vote', yes: true });
     server.handle(b.conn, { t: 'extras-vote', yes: true });
     expect(a.last('room')!.extrasVote!.status).toBe('on');
-    expect(a.last('room')!.record.setup.party!.modifiers.p1!.length).toBe(2);
+    expect(a.last('room')!.record.setup.party!.modifiers.p1!.length).toBe(vote.modifiers.p1!.length);
   });
   it('one "no" vote means no extras', () => {
     const server = new RoomServer(() => 0);
