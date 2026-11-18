@@ -6,6 +6,7 @@ import { landscapeById } from './landscapes';
 import { OnlineLobby, roomFromUrl } from './OnlineLobby';
 import { BotRoster, History, Home, Profiles } from './screens';
 import { Wardrobe } from './Wardrobe';
+import { TrainSetup } from './TrainSetup';
 import { useSave } from './store';
 
 type Screen =
@@ -15,6 +16,7 @@ type Screen =
   | { name: 'history' }
   | { name: 'online'; code?: string | null }
   | { name: 'wardrobe' }
+  | { name: 'train' }
   | { name: 'game'; config: GameConfig; key: number; review?: GameRecord };
 
 export function App() {
@@ -41,6 +43,7 @@ export function App() {
       {screen.name === 'profiles' && <Profiles done={() => (linkCode ? setScreen({ name: 'online', code: linkCode }) : home())} />}
       {screen.name === 'online' && <OnlineLobby back={home} initialCode={screen.code} />}
       {screen.name === 'wardrobe' && <Wardrobe back={home} />}
+      {screen.name === 'train' && <TrainSetup start={startGame} back={home} />}
       {screen.name === 'bots' && <BotRoster start={startGame} back={home} />}
       {screen.name === 'history' && (
         <History

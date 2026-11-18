@@ -15,10 +15,17 @@ import { updateRating } from '../systems/rating';
 import { Board } from './Board';
 import { Character } from './skins';
 import { useSave } from './store';
+import { requestReview } from '../ai/client';
+import type { ReviewResult } from '../systems/review';
+import { mergeMiss } from '../systems/review';
+import { sameMove } from '../core/rules';
+import { useTraining, type TrainingConfig } from './training';
 
 export interface GameConfig {
   /** 'local' is only used to replay saved games. */
   kind: 'local' | 'bot' | 'online';
+  /** Training game: one alert and open goals (docs/02 s2). */
+  training?: TrainingConfig;
   botId?: string;
   /** In bot games, the seat the human plays. Online, the server decides. */
   humanSeat: PlayerId;
@@ -89,7 +96,15 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   }, [rec, states]);
 
   const isHumanTurn = !live.result && !reviewRecord && live.turn === me;
-  const legal = useMemo(() => (isHumanTurn && !reviewing ? legalActions(live) : []), [live, isHumanTurn, reviewing]);
+  // "One fix" retry: replay the position before the mistake and try again.
+  const [review, setReview] = useState<ReviewResult | null | 'loading'>(null);
+  const [retry, setRetry] = useState<{ tries: number; solved: boolean; reveal: boolean } | null>(null);
+  const fix = review && review !== 'loading' ? review.fix : null;
+  const retrying = !!retry && !!fix && view === fix.ply;
+  const legal = useMemo(
+    () => (retrying && !retry!.solved && !retry!.reveal ? legalActions(states[fix!.ply]) : isHumanTurn && !reviewing ? legalActions(live) : []),
+    [live, isHumanTurn, reviewing, retrying, retry, fix, states],
+  );
   const targets = selected === null ? [] : legal.filter((m) => m.piece === shown.sq[selected]);
 
   const lastMove = useMemo(() => {
@@ -99,21 +114,41 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     return { from: states[idx - 1].pieces[a.piece].at, to: a.to };
   }, [rec, states, view]);
 
+  const moveActions = useMemo(() => rec.actions.filter((a): a is MoveAction => a.t === 'move'), [rec]);
+  const training = useTraining({
+    cfg: config.training, live, states, actions: moveActions, me,
+    isMyTurn: isHumanTurn && !reviewing, selected, commit: (m) => commit(m),
+  });
+
   function commit(m: MoveAction) {
-    push(m);
     setSelected(null);
     setPromo(null);
+    if (retrying && fix) {
+      const good = fix.goodMoves.some((g) => sameMove(g, m));
+      if (good) setRetry({ ...retry!, solved: true });
+      else setRetry({ ...retry!, tries: retry!.tries + 1, reveal: retry!.tries + 1 >= 2 });
+      return;
+    }
+    if (!training.beforeCommit(m)) return;
+    push(m);
+    training.afterCommit(m);
   }
 
   function onSquare(sq: number) {
-    if (reviewing || !isHumanTurn) return;
+    if (retrying) {
+      if (retry!.solved || retry!.reveal) return;
+    } else {
+      if (reviewing || !isHumanTurn) return;
+      if (training.interceptSquare(sq) || training.locked) return;
+    }
+    const pos = retrying ? states[fix!.ply] : live;
     if (selected !== null) {
       const moves = targets.filter((m) => m.to === sq);
       if (moves.length > 1 && moves.some((m) => m.promo)) { setPromo(moves); return; }
       if (moves.length >= 1) { commit(moves[0]); return; }
     }
-    const id = live.sq[sq];
-    if (id >= 0 && live.pieces[id].owner === live.turn && legal.some((m) => m.piece === id)) setSelected(sq);
+    const id = pos.sq[sq];
+    if (id >= 0 && pos.pieces[id].owner === pos.turn && legal.some((m) => m.piece === id)) setSelected(sq);
     else setSelected(null);
   }
 
@@ -171,8 +206,26 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           p = { ...p, botRecords: { ...p.botRecords, [bot.id]: { w: r0.w + (score === 1 ? 1 : 0), l: r0.l + (score === 0 ? 1 : 0), d: r0.d + (score === 0.5 ? 1 : 0) } } };
         }
       }
+      if (config.training) {
+        p = { ...p, lastAlert: config.training.alertId, badges: { ...p.badges, 'goal-getter': (p.badges['goal-getter'] ?? 0) + training.goalsDone.length } };
+      }
       return addGame(upsertProfile(d, p), p.id, finalRec);
     });
+    // Post-game review for games against bots (FB-01, FB-02, FB-07).
+    if (bot && rec.actions.length >= 4) {
+      setReview('loading');
+      requestReview(finalRec, me).then((r) => {
+        setReview(r);
+        if (!r) return;
+        update((d) => {
+          const p = activeProfile(d);
+          if (!p) return d;
+          const badges = { ...p.badges };
+          for (const [k, n] of Object.entries(r.badges)) badges[k] = (badges[k] ?? 0) + n;
+          return upsertProfile(d, { ...p, missMap: mergeMiss(p.missMap, r.miss), badges });
+        });
+      });
+    }
   }, [live.result]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function undo() {
@@ -229,19 +282,29 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           colour={bot && top === botSeat ? bot.colour : undefined}
           note={isOnline && opp && top !== me ? (opp.botControlled ? '🤖 a bot took over' : !opp.connected ? '📡 reconnecting…' : null) : null}
         />
+        <div className="banner-slot">
+            {training.banner && !reviewing && !live.result && <div className={`banner ${training.banner.tone ?? ''}`}>{training.banner.text}</div>}
+            {retrying && fix && (
+              <div className={`banner ${retry!.solved ? '' : 'blue'}`}>
+                {retry!.solved ? '🎉 Yes! That\'s much better.' : retry!.reveal ? `The better move was ${fix.bestSan}. See the glow!` : retry!.tries ? 'Not quite. One more try!' : '🔧 Find a better move than ' + fix.san}
+              </div>
+            )}
+        </div>
         <div className="board-wrap">
           <Board
             state={shown}
             bottom={bottom}
-            selected={reviewing ? null : selected}
-            targets={reviewing ? [] : targets}
+            selected={reviewing && !retrying ? null : selected}
+            targets={reviewing && !retrying ? [] : targets}
             lastMove={lastMove}
             showCoordinates={save.settings.showCoordinates}
             landscape={save.settings.landscape}
             skins={save.settings.skins}
-            interactive={!reviewing && isHumanTurn}
+            interactive={(!reviewing && isHumanTurn) || retrying}
             onSquare={onSquare}
+            overlays={retrying && retry!.reveal && fix ? revealOverlay(states[fix.ply], fix.goodMoves[0]) : training.overlays}
           />
+          {training.modal}
           {promo && (
             <div className="promo" role="dialog" aria-label="Choose a piece">
               <p>Your pawn made it! Turn it into…</p>
@@ -260,6 +323,25 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
               <div className="result-emoji">{won ? '🏆' : live.result!.winners.length ? '💥' : '🤝'}</div>
               <h2>{won ? 'YOU WON!' : live.result!.winners.length ? 'Ooof. Good fight!' : 'A draw!'}</h2>
               <p>{status}</p>
+              {review === 'loading' && <p className="muted thinking-dots">Looking over your game…</p>}
+              {review && review !== 'loading' && (
+                <div className="review">
+                  {review.win && (
+                    <div className="moment win">
+                      <b>⭐ Your best moment: {review.win.san}</b>
+                      <div>{review.win.text}</div>
+                      <button className="btn small" onClick={() => { setRetry(null); setView(review.win!.ply + 1); }}>Show me</button>
+                    </div>
+                  )}
+                  {review.fix && (
+                    <div className="moment fix">
+                      <b>🔧 One thing to fix: {review.fix.san}</b>
+                      <div>{review.fix.text}</div>
+                      <button className="btn small" onClick={() => { setRetry({ tries: 0, solved: false, reveal: false }); setView(review.fix!.ply); }}>Try it again</button>
+                    </div>
+                  )}
+                </div>
+              )}
               {ratingChange && (
                 <p className="rating-change">
                   ★ {ratingChange.before} → <b>{ratingChange.after}</b> ({ratingChange.after >= ratingChange.before ? '+' : ''}{ratingChange.after - ratingChange.before})
@@ -278,6 +360,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
               </div>
             </div>
           )}
+          {training.toast && <div className="toast">{training.toast}</div>}
         </div>
         <PlayerBar
           name={names[bottom]} rating={bot && bottom === botSeat ? bot.rating : net.seats[bottom]?.rating} avatar={avatar(bottom)}
@@ -288,6 +371,8 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
 
       <aside className="game-side">
         {isOnline && <div className="room-code">Room <b>{net.code}</b></div>}
+        {!reviewRecord && training.panel}
+        {retrying && <button className="btn small" onClick={() => { setRetry(null); setView(null); }}>← Back to results</button>}
         <div className={`status ${shown.result ? 'over' : ''}`} aria-live="polite">{status}</div>
         {reviewing ? (
           <div className="review-controls">
@@ -324,6 +409,11 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
       </aside>
     </div>
   );
+}
+
+function revealOverlay(s: GameState, m?: MoveAction) {
+  if (!m) return undefined;
+  return { glow: new Set([s.pieces[m.piece].at, m.to]) };
 }
 
 function MoveCell({ san, idx, view, onPick }: { san?: string; idx: number; view: number | null; onPick: (n: number) => void }) {

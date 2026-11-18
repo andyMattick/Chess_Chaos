@@ -1,5 +1,7 @@
-import type { GameState, MoveAction } from '../core/types';
-import type { AIRequest, AIResponse } from './worker';
+import type { GameRecord } from '../core/record';
+import type { GameState, MoveAction, PlayerId } from '../core/types';
+import type { ReviewResult } from '../systems/review';
+import type { AIRequest, AIResponse, RankedMoveOut } from './worker';
 
 /**
  * Runs the AI in a Web Worker so the board never freezes. If a worker cannot
@@ -7,7 +9,7 @@ import type { AIRequest, AIResponse } from './worker';
  */
 let worker: Worker | null | undefined;
 let nextId = 1;
-const pending = new Map<number, (r: AIResponse) => void>();
+const pending = new Map<number, (r: AIResponse | null) => void>();
 
 function getWorker(): Worker | null {
   if (worker !== undefined) return worker;
@@ -18,11 +20,10 @@ function getWorker(): Worker | null {
       pending.delete(e.data.id);
     };
     worker.onerror = () => {
-      // Worker failed to load: answer everything pending on the main thread.
       worker = null;
-      const waiting = [...pending.entries()];
+      const waiting = [...pending.values()];
       pending.clear();
-      waiting.forEach(([, resolve]) => resolve({ id: -1, move: null, error: 'worker-failed' }));
+      waiting.forEach((resolve) => resolve(null));
     };
   } catch {
     worker = null;
@@ -30,7 +31,18 @@ function getWorker(): Worker | null {
   return worker;
 }
 
-async function inline(req: AIRequest): Promise<AIResponse> {
+type Req = AIRequest extends infer R ? (R extends AIRequest ? Omit<R, 'id'> : never) : never;
+
+async function run(body: Req): Promise<AIResponse> {
+  const req = { ...body, id: nextId++ } as AIRequest;
+  const w = getWorker();
+  if (w) {
+    const res = await new Promise<AIResponse | null>((resolve) => {
+      pending.set(req.id, resolve);
+      w.postMessage(req);
+    });
+    if (res) return res;
+  }
   await new Promise((r) => setTimeout(r, 30));
   const { handle } = await import('./worker');
   return handle(req);
@@ -38,20 +50,19 @@ async function inline(req: AIRequest): Promise<AIResponse> {
 
 export async function requestMove(state: GameState, rating: number, botId?: string, minDelayMs = 450): Promise<MoveAction | null> {
   const started = Date.now();
-  const req: AIRequest = { id: nextId++, state, rating, botId };
-  const w = getWorker();
-  let res: AIResponse;
-  if (w) {
-    res = await new Promise<AIResponse>((resolve) => {
-      pending.set(req.id, resolve);
-      w.postMessage(req);
-    });
-    if (res.error === 'worker-failed') res = await inline(req);
-  } else {
-    res = await inline(req);
-  }
+  const res = await run({ kind: 'move', state, rating, botId });
   const wait = minDelayMs - (Date.now() - started);
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   if (res.error) console.warn('AI error', res.error);
-  return res.move;
+  return res.kind === 'move' ? res.move : null;
+}
+
+export async function requestRanking(state: GameState, depth = 2): Promise<RankedMoveOut[]> {
+  const res = await run({ kind: 'rank', state, depth });
+  return res.kind === 'rank' ? res.ranked : [];
+}
+
+export async function requestReview(record: GameRecord, player: PlayerId): Promise<ReviewResult | null> {
+  const res = await run({ kind: 'review', record, player });
+  return res.kind === 'review' ? res.review : null;
 }

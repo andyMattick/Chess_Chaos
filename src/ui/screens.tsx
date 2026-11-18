@@ -19,7 +19,7 @@ export function ProfileChip({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe') => void }) {
+export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train') => void }) {
   const save = useSave();
   const p = activeProfile(save);
   return (
@@ -35,6 +35,11 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
       </header>
       <p className="tagline">{p ? `Hi ${p.nickname}! What shall we play?` : 'Make a player to get started.'}</p>
       <div className="big-buttons">
+        <button className="big" style={{ ['--c' as string]: '#ffc93c' }} onClick={() => go('train')} disabled={!p}>
+          <span className="big-emoji">🎓</span>
+          <span className="big-title">Train</span>
+          <span className="big-sub">Danger alerts, hints and goals</span>
+        </button>
         <button className="big" style={{ ['--c' as string]: '#5bd17a' }} onClick={() => go('bots')} disabled={!p}>
           <span className="big-emoji">🤖</span>
           <span className="big-title">Play the bots</span>
@@ -54,11 +59,6 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
           <span className="big-emoji">📜</span>
           <span className="big-title">My games</span>
           <span className="big-sub">Replay any of your last 50 games</span>
-        </button>
-        <button className="big soon" style={{ ['--c' as string]: '#ffc93c' }} disabled>
-          <span className="big-emoji">🎓</span>
-          <span className="big-title">Train</span>
-          <span className="big-sub">Coming next: threat alerts and hints</span>
         </button>
         <button className="big soon" style={{ ['--c' as string]: '#ff6fb5' }} disabled>
           <span className="big-emoji">🎉</span>

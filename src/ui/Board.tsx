@@ -11,6 +11,21 @@ import { Character } from './skins';
  * flow. Works for any width, height and blocked squares (docs/04 section 9).
  * Squares get a hand-drawn wobble from an SVG filter; pieces stay crisp.
  */
+/** Extra drawing on top of the board, used by training alerts and hints. */
+export interface BoardOverlays {
+  /** Square tints (danger squares). */
+  tint?: Map<number, string>;
+  /** Squares with a pulsing glow ring (best piece / best square). */
+  glow?: Set<number>;
+  /** Pieces on these squares wobble (hanging alarm). */
+  wobble?: Set<number>;
+  /** Attackers vs defenders chips (count the fight). */
+  counts?: Map<number, { att: number; def: number }>;
+  arrows?: { from: number; to: number; label?: string; color?: string }[];
+  /** Colour per destination square for the selected piece (hot and cold). */
+  targetColors?: Map<number, string>;
+}
+
 export interface BoardProps {
   state: GameState;
   /** Seat shown at the bottom. */
@@ -23,12 +38,13 @@ export interface BoardProps {
   skins: SkinChoice;
   interactive: boolean;
   onSquare: (sq: number) => void;
+  overlays?: BoardOverlays;
 }
 
 const SIZE = 100;
 const PAD = 26;
 
-export function Board({ state, bottom, selected, targets, lastMove, showCoordinates, landscape, skins, interactive, onSquare }: BoardProps) {
+export function Board({ state, bottom, selected, targets, lastMove, showCoordinates, landscape, skins, interactive, onSquare, overlays }: BoardProps) {
   const b = state.board;
   const land = landscapeById(landscape);
   const flip = bottom === 'p2';
@@ -69,6 +85,7 @@ export function Board({ state, bottom, selected, targets, lastMove, showCoordina
     const { x, y } = pos(sq);
     let fill: string | null = null;
     if (checked.has(sq)) fill = 'rgba(255,40,40,0.55)';
+    else if (overlays?.tint?.has(sq) && selected !== sq) fill = overlays.tint.get(sq)!;
     else if (selected === sq) fill = 'rgba(80,170,255,0.55)';
     else if (lastMove && (lastMove.from === sq || lastMove.to === sq)) fill = land.last;
     marks.push(
@@ -113,8 +130,9 @@ export function Board({ state, bottom, selected, targets, lastMove, showCoordina
         {live.map((p) => {
           const { x, y } = pos(p.at);
           const sel = selected === p.at;
+          const wob = overlays?.wobble?.has(p.at);
           return (
-            <g key={p.id} className={`piece ${sel ? 'lifted' : ''}`} style={{ transform: `translate(${x}px, ${y}px)` }} data-piece={p.type} data-owner={p.owner}>
+            <g key={p.id} className={`piece ${sel ? 'lifted' : ''} ${wob ? 'wobbly' : ''}`} style={{ transform: `translate(${x}px, ${y}px)` }} data-piece={p.type} data-owner={p.owner}>
               <g className="bob">
                 <Character skin={skinFor(skins, p.owner, p.type)} type={p.type} owner={p.owner} seed={p.id + 1} badge={skins.badges && skinFor(skins, p.owner, p.type) !== 'classic'} />
               </g>
@@ -125,6 +143,8 @@ export function Board({ state, bottom, selected, targets, lastMove, showCoordina
       <g pointerEvents="none">
         {[...targetSquares.entries()].map(([sq, capture]) => {
           const { x, y } = pos(sq);
+          const hot = overlays?.targetColors?.get(sq);
+          if (hot) return <circle key={`t${sq}`} cx={x + 50} cy={y + 50} r={capture ? 40 : 18} className="target-hot" fill={capture ? 'none' : hot} stroke={hot} />;
           return capture ? (
             <path key={`t${sq}`} d={`M${x + 8} ${y + 8} l14 0 M${x + 8} ${y + 8} l0 14 M${x + 92} ${y + 8} l-14 0 M${x + 92} ${y + 8} l0 14 M${x + 8} ${y + 92} l14 0 M${x + 8} ${y + 92} l0 -14 M${x + 92} ${y + 92} l-14 0 M${x + 92} ${y + 92} l0 -14`} className="target-ring" />
           ) : (
@@ -132,6 +152,55 @@ export function Board({ state, bottom, selected, targets, lastMove, showCoordina
           );
         })}
       </g>
+      {overlays && <OverlayLayer overlays={overlays} pos={pos} />}
     </svg>
+  );
+}
+
+function OverlayLayer({ overlays, pos }: { overlays: BoardOverlays; pos: (sq: number) => { x: number; y: number } }) {
+  const centre = (sq: number) => {
+    const { x, y } = pos(sq);
+    return { x: x + 50, y: y + 50 };
+  };
+  return (
+    <g pointerEvents="none">
+      <defs>
+        <marker id="arrowhead" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto">
+          <path d="M0 0 L4 2 L0 4 z" fill="#ff4f9a" />
+        </marker>
+      </defs>
+      {[...(overlays.glow ?? [])].map((sq) => {
+        const { x, y } = pos(sq);
+        return <rect key={`g${sq}`} x={x + 5} y={y + 5} width={90} height={90} rx={18} className="glow-ring" />;
+      })}
+      {(overlays.arrows ?? []).map((a, i) => {
+        const f = centre(a.from), t = centre(a.to);
+        const dx = t.x - f.x, dy = t.y - f.y, len = Math.hypot(dx, dy) || 1;
+        const ex = t.x - (dx / len) * 24, ey = t.y - (dy / len) * 24;
+        // A little bend so it looks hand-drawn.
+        const mx = (f.x + ex) / 2 - (dy / len) * 14, my = (f.y + ey) / 2 + (dx / len) * 14;
+        return (
+          <g key={`a${i}`}>
+            <path d={`M${f.x} ${f.y} Q${mx} ${my} ${ex} ${ey}`} fill="none" stroke="#ff4f9a" strokeWidth={11} strokeLinecap="round" markerEnd="url(#arrowhead)" opacity={0.85} />
+            {a.label && (
+              <g transform={`translate(${mx} ${my})`}>
+                <circle r={17} fill="#fffdf6" stroke="#241f33" strokeWidth={4} />
+                <text y={8} textAnchor="middle" fontSize={22} fontWeight={900} fill="#241f33">{a.label}</text>
+              </g>
+            )}
+          </g>
+        );
+      })}
+      {[...(overlays.counts ?? [])].map(([sq, c]) => {
+        const { x, y } = pos(sq);
+        const bad = c.att > c.def;
+        return (
+          <g key={`c${sq}`} transform={`translate(${x + 4} ${y + 4})`}>
+            <rect width={58} height={24} rx={10} fill={bad ? '#ff5a3c' : '#fffdf6'} stroke="#241f33" strokeWidth={3} />
+            <text x={29} y={18} textAnchor="middle" fontSize={16} fontWeight={900} fill={bad ? '#fff' : '#241f33'}>⚔{c.att} 🛡{c.def}</text>
+          </g>
+        );
+      })}
+    </g>
   );
 }
