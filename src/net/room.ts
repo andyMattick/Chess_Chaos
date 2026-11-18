@@ -287,6 +287,13 @@ export class Room {
         this.broadcast();
         return;
       }
+      case 'rating': {
+        // Only after a game ends, so nobody changes their rating mid-game.
+        if (!this.state.result || typeof msg.rating !== 'number') return;
+        this.seats[seat]!.rating = Math.max(100, Math.min(3000, Math.round(msg.rating) || 600));
+        this.broadcast();
+        return;
+      }
       case 'rematch': {
         if (!this.state.result) return;
         this.rematchVotes.add(seat);

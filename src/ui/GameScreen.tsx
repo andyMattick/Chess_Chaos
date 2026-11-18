@@ -12,7 +12,7 @@ import { newSeed } from '../core/rng';
 import type { Action, GameState, MoveAction, PlayerId } from '../core/types';
 import { online, roomSkins, timeLeft } from '../net/client';
 import { EMOTES } from '../net/protocol';
-import { lookOf, activeProfile, addGame, noteOpponent, update, upsertProfile } from '../storage/storage';
+import { lookOf, activeProfile, addGame, noteOpponent, refreshOpponentRating, update, upsertProfile } from '../storage/storage';
 import { updateRating } from '../systems/rating';
 import { coinsFor, type CoinAward } from '../systems/coins';
 import { Board } from './Board';
@@ -277,6 +277,13 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     }
   }, [isOnline, live.result, rec.actions.length]);
 
+  // Their new rating arrives after the game: update the leaderboard entry.
+  const oppSeat = isOnline ? net.seats[other(me)] : undefined;
+  useEffect(() => {
+    if (!isOnline || !live.result || !oppSeat || oppSeat.botControlled) return;
+    refreshOpponentRating(`online:${oppSeat.name.toLowerCase()}`, oppSeat.rating);
+  }, [isOnline, !!live.result, oppSeat?.rating]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Game over: rating, records, saved game.
   useEffect(() => {
     if (!live.result || finishedRef.current) return;
@@ -320,6 +327,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
       if (trainingCfg) {
         p = { ...p, lastAlert: trainingCfg.alertId, badges: { ...p.badges, 'goal-getter': (p.badges['goal-getter'] ?? 0) + training.goalsDone.length } };
       }
+      if (isOnline) online.shareRating(p.rating);
       return addGame(upsertProfile(d, p), p.id, finalRec);
     });
     // Post-game review for games against bots (FB-01, FB-02, FB-07).

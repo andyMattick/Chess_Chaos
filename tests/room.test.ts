@@ -315,3 +315,18 @@ describe('room modes and training wheels', () => {
     expect(a.last('room')!.seats.p1!.wheels).toBe(false);
   });
 });
+
+describe('ratings after a game', () => {
+  it('accepts a new rating only after the game ends, and shares it', () => {
+    const server = new RoomServer(() => 0);
+    const a = client('a'), b = client('b');
+    server.handle(a.conn, { t: 'create', name: 'Ava', rating: 600, colour: 'p1' });
+    server.handle(b.conn, { t: 'join', code: a.last('joined')!.code, name: 'Ben', rating: 700 });
+    server.handle(a.conn, { t: 'rating', rating: 2500 });
+    expect(b.last('room')!.seats.p1!.rating).toBe(600);
+    server.handle(a.conn, { t: 'action', action: { t: 'resign', by: 'p1' } });
+    expect(b.last('room')!.record.actions.length).toBe(1);
+    server.handle(a.conn, { t: 'rating', rating: 588 });
+    expect(b.last('room')!.seats.p1!.rating).toBe(588);
+  });
+});

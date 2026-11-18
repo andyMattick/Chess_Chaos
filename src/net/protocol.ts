@@ -90,6 +90,8 @@ export type ClientMsg =
   | { t: 'action'; action: Action }
   | { t: 'emote'; id: EmoteId }
   | { t: 'wheels'; on: boolean }
+  /** After a game: my new rating, so everyone's leaderboard shows it. */
+  | { t: 'rating'; rating: number }
   | { t: 'rematch' }
   | { t: 'leave' };
 

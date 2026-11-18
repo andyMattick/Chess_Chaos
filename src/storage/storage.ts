@@ -164,6 +164,14 @@ export function noteOpponent(p: Profile, o: { key: string; name: string; kind: '
   return { ...p, opponents: { ...(p.opponents ?? {}), [o.key]: next } };
 }
 
+/** An online opponent's rating changed (they finished a game): keep the leaderboard current. */
+export function refreshOpponentRating(key: string, rating: number) {
+  updateProfile((p) => {
+    const o = p.opponents?.[key];
+    return o && o.rating !== rating ? { ...p, opponents: { ...p.opponents, [key]: { ...o, rating } } } : p;
+  });
+}
+
 /** Change the active player's profile in one step. */
 export function updateProfile(fn: (p: Profile) => Profile) {
   update((d) => {

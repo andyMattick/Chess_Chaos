@@ -142,6 +142,8 @@ class OnlineSession {
 
   /** Training wheels on or off for my seat (before the first move). */
   setWheels(on: boolean) { this.send({ t: 'wheels', on }); }
+  /** Share my rating after a game ends. */
+  shareRating(rating: number) { this.send({ t: 'rating', rating }); }
   act(action: Action) { this.send({ t: 'action', action }); }
   emote(id: EmoteId) { this.send({ t: 'emote', id }); }
   rematch() { this.send({ t: 'rematch' }); }

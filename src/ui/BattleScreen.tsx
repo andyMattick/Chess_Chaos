@@ -10,7 +10,7 @@ import type { Action, MoveAction, PlayerId } from '../core/types';
 import type { BattleKind } from '../core/variants';
 import { online, roomSkins, timeLeft } from '../net/client';
 import { EMOTES } from '../net/protocol';
-import { activeProfile, addGame, lookOf, noteOpponent, update, upsertProfile } from '../storage/storage';
+import { activeProfile, addGame, lookOf, noteOpponent, refreshOpponentRating, update, upsertProfile } from '../storage/storage';
 import { coinsFor, type CoinAward } from '../systems/coins';
 import { updateRating } from '../systems/rating';
 import { Board } from './Board';
@@ -181,9 +181,20 @@ export function BattleScreen({ local, onExit, onAgain }: { local?: LocalBattle; 
         }
       }
       p = { ...p, rating, coins: p.coins + coins.total, gamesPlayed: p.gamesPlayed + 1, ratingHistory: [...p.ratingHistory, { at: Date.now(), rating }].slice(-200) };
+      if (isOnline) online.shareRating(rating);
       return addGame(upsertProfile(d, p), p.id, { ...rec, meta: { ...rec.meta, players: names, result: live.result } });
     });
   }, [live.result]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Other players' new ratings arrive after the game: keep the leaderboard current.
+  const ratingKey = isOnline ? seatIds.map((k) => `${k}${net.seats[k]?.rating}`).join() : '';
+  useEffect(() => {
+    if (!isOnline || !live.result) return;
+    for (const k of seatIds) {
+      const s = net.seats[k];
+      if (k !== me && s && !s.botControlled) refreshOpponentRating(`online:${s.name.toLowerCase()}`, s.rating);
+    }
+  }, [isOnline, !!live.result, ratingKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hill = live.mode === 'battle-hill' ? hillData(live) : null;
   const myStatus = live.seats.find((x) => x.id === me)?.status;
