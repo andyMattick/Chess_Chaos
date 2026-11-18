@@ -200,3 +200,43 @@ describe('survival levels', () => {
     }
   });
 });
+
+import { cardChessOf, hasTriple } from '../src/core/modes2';
+import { baseType } from '../src/core/pieces';
+describe('card chess', () => {
+  it('deals 3 cards each from a deck that matches the army', () => {
+    const s = start('card-chess');
+    const cc = cardChessOf(s);
+    expect(cc.hands.p1.length).toBe(3);
+    expect(cc.hands.p1.length + cc.decks.p1.length).toBe(16);
+    expect(cc.decks.p1.concat(cc.hands.p1).filter((c) => c === 'pawn').length).toBe(8);
+  });
+  it('you may only move pieces shown on your cards, then you draw back to 3', () => {
+    let s = start('card-chess');
+    const hand = cardChessOf(s).hands.p1;
+    for (const m of legalActions(s)) expect(hand.includes(baseType(s.pieces[m.piece].type)) || legalActions(s).length === 20).toBe(true);
+    s = play(s, legalActions(s)[0]);
+    expect(cardChessOf(s).hands.p1.length).toBe(3);
+    expect(cardChessOf(s).decks.p1.length).toBe(12);
+  });
+  it('discarding uses your turn', () => {
+    let s = start('card-chess');
+    const before = cardChessOf(s).decks.p1.length;
+    s = play(s, { t: 'buff', by: 'p1', id: 'DRAW', target: 0 });
+    expect(s.turn).toBe('p2');
+    expect(cardChessOf(s).hands.p1.length).toBe(3);
+    expect(cardChessOf(s).decks.p1.length).toBe(before - 1);
+  });
+  it('three of a kind gives two moves', () => {
+    let s = start('card-chess');
+    s = { ...s, modeData: { ...s.modeData, cc: { ...cardChessOf(s), hands: { ...cardChessOf(s).hands, p1: ['pawn', 'pawn', 'pawn'] } } } };
+    expect(hasTriple(cardChessOf(s).hands.p1)).toBe('pawn');
+    s = go(s, 'e4');
+    expect(s.turn).toBe('p1');
+    expect(cardChessOf(s).hands.p1).toEqual(['pawn', 'pawn']);
+    s = go(s, 'd4');
+    expect(s.turn).toBe('p2');
+    expect(cardChessOf(s).hands.p1.length).toBe(3);
+    fuzz(start('card-chess'), 120);
+  });
+});

@@ -67,7 +67,7 @@ export interface ClockState {
 }
 
 /** What kind of game a room plays. */
-export type RoomGame = 'standard' | 'party' | 'koth' | 'hill-wars' | 'atomic' | 'giveaway' | 'racing-kings' | 'wrap' | 'lava' | 'mini' | 'horde' | 'monster' | 'shrinking' | 'progressive' | 'drop-in' | 'boss' | 'mystery-army' | 'hidden-queen' | 'draft' | 'three-check' | 'capture-race' | 'random-piece' | 'truce' | 'capture-the-flag' | 'shuffle' | 'battle-3' | 'battle-4' | 'battle-teams' | 'battle-hill-4';
+export type RoomGame = 'standard' | 'party' | 'koth' | 'hill-wars' | 'atomic' | 'giveaway' | 'racing-kings' | 'wrap' | 'lava' | 'mini' | 'horde' | 'monster' | 'shrinking' | 'progressive' | 'drop-in' | 'boss' | 'mystery-army' | 'hidden-queen' | 'draft' | 'card-chess' | 'three-check' | 'capture-race' | 'random-piece' | 'truce' | 'capture-the-flag' | 'shuffle' | 'battle-3' | 'battle-4' | 'battle-teams' | 'battle-hill-4';
 
 export const ROOM_GAMES: { id: RoomGame; label: string; seats: number; blurb: string; more?: boolean }[] = [
   { id: 'standard', label: '♟️ Classic', seats: 2, blurb: 'Normal chess, 1 vs 1.' },
@@ -94,6 +94,7 @@ export const ROOM_GAMES: { id: RoomGame; label: string; seats: number; blurb: st
   { id: 'boss', label: '👹 Boss battle', seats: 2, more: true, blurb: 'The higher-rated player is a king and a 3-life Boss. The other gets the full army.' },
   { id: 'mystery-army', label: '🎲 Mystery army', seats: 2, more: true, blurb: 'Both get the same surprise 39-point army.' },
   { id: 'hidden-queen', label: '🕵️ Hidden queen', seats: 2, more: true, blurb: 'Secretly pick a pawn that can move like a queen.' },
+  { id: 'card-chess', label: '🎴 Card chess', seats: 2, more: true, blurb: 'Hold 3 cards; move a piece that matches one, or throw one away. Three of a kind = two moves.' },
   { id: 'draft', label: '🛒 Draft', seats: 2, more: true, blurb: 'Spend 30 points to build your army, then fight.' },
   { id: 'battle-3', label: '⚔️ 3-way battle', seats: 3, blurb: 'Three armies, one winner. Capture kings to knock players out.' },
   { id: 'battle-4', label: '⚔️ 4-way battle', seats: 4, blurb: 'Four armies, every one for themselves.' },

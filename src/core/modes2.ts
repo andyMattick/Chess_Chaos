@@ -550,3 +550,92 @@ export const MODE_MODULES_2: Record<string, RuleModule[]> = {
   survival: [survival],
 };
 
+
+// ---------- Card chess (owner's mode): draw 3, move a piece that matches a card ----------
+
+/** Card chess state: each player's hand (piece kinds) and draw pile. Hands are public. */
+export interface CardChess { hands: Record<string, string[]>; decks: Record<string, string[]>; bonus: boolean }
+export const CC_HAND = 3;
+const CARD_KINDS = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'];
+
+export function cardChessOf(s: GameState): CardChess {
+  return data<CardChess>(s, 'cc', { hands: {}, decks: {}, bonus: false });
+}
+
+/** A fresh deck with one card per piece you still have (8 pawns → 8 pawn cards), shuffled from the seed. */
+function newDeck(s: GameState, p: PlayerId, salt: number): string[] {
+  const cards = s.pieces.filter((x) => x.at >= 0 && x.owner === p).map((x) => baseType(x.type)).filter((t) => CARD_KINDS.includes(t));
+  for (let i = cards.length - 1; i > 0; i--) {
+    const j = roll(s, i + 1, salt * 31 + i);
+    [cards[i], cards[j]] = [cards[j], cards[i]];
+  }
+  return cards;
+}
+
+function drawUp(s: GameState, cc: CardChess, p: PlayerId): CardChess {
+  const hand = [...(cc.hands[p] ?? [])];
+  let deck = [...(cc.decks[p] ?? [])];
+  let salt = 1;
+  while (hand.length < CC_HAND) {
+    if (!deck.length) deck = newDeck(s, p, salt++ + hand.length * 7 + (p === 'p1' ? 0 : 50));
+    if (!deck.length) break;
+    hand.push(deck.shift()!);
+  }
+  return { ...cc, hands: { ...cc.hands, [p]: hand }, decks: { ...cc.decks, [p]: deck } };
+}
+
+/** Three of the same card: your move with that kind earns a second move straight away. */
+export function hasTriple(hand: string[]): string | null {
+  for (const k of CARD_KINDS) if (hand.filter((c) => c === k).length >= 3) return k;
+  return null;
+}
+
+/** Moves your cards allow (any move when in check, or when no card can move). */
+export function cardMoves(s: GameState, moves: MoveAction[], p: PlayerId): MoveAction[] {
+  if (inCheck(s, p)) return moves;
+  const hand = new Set(cardChessOf(s).hands[p] ?? []);
+  const ok = moves.filter((m) => hand.has(baseType(s.pieces[m.piece].type)));
+  return ok.length ? ok : moves;
+}
+
+function cardChess(P: PlayerId): RuleModule {
+  return {
+    id: `DRAW@${P}`,
+    filterMoves: (s, moves) => (s.turn === P ? cardMoves(s, moves, P) : moves),
+    // Discard one card instead of moving (it uses your turn), then draw back up to 3.
+    applyBuff: (s, a) => {
+      const cc = cardChessOf(s);
+      const hand = [...(cc.hands[P] ?? [])];
+      const i = a.target ?? -1;
+      if (i < 0 || i >= hand.length) throw new Error('Pick a card to throw away');
+      if (inCheck(s, P)) throw new Error('You are in check: you must move');
+      hand.splice(i, 1);
+      const next = drawUp(s, { ...cc, hands: { ...cc.hands, [P]: hand }, bonus: false }, P);
+      const n = setData(s, 'cc', next);
+      return { ...n, ply: s.ply + 1, turn: other(s, P), enPassant: null, halfmoveClock: s.halfmoveClock + 1 };
+    },
+    afterMove: (s, prev) => {
+      const l = s.last;
+      if (!l || l.by !== P || s.ply === prev.ply || prev.turn !== P) return s;
+      const cc = cardChessOf(prev);
+      const hand = [...(cc.hands[P] ?? [])];
+      const kind = baseType(prev.pieces[l.piece].type);
+      const triple = hasTriple(hand);
+      const i = hand.indexOf(kind);
+      if (i >= 0) hand.splice(i, 1);
+      // Three of a kind, played: move again before drawing (once per turn, and not out of a check you just gave).
+      if (triple === kind && !cc.bonus && !s.result && !inCheck(s, other(s, P))) {
+        return setData({ ...s, turn: P, enPassant: null }, 'cc', { ...cc, hands: { ...cc.hands, [P]: hand }, bonus: true });
+      }
+      return setData(s, 'cc', drawUp(s, { ...cc, hands: { ...cc.hands, [P]: hand }, bonus: false }, P));
+    },
+  };
+}
+
+MODE_MODULES_2['card-chess'] = [cardChess('p1'), cardChess('p2')];
+MODE_SETUP_2['card-chess'] = (s) => {
+  let cc: CardChess = { hands: {}, decks: {}, bonus: false };
+  cc = drawUp(s, cc, 'p1');
+  cc = drawUp(s, cc, 'p2');
+  return setData(s, 'cc', cc);
+};

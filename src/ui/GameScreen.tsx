@@ -6,9 +6,10 @@ import { skinFor } from '../content/cosmetics';
 import { pieceType } from '../core/pieces';
 import { newRecord, replay, type GameRecord } from '../core/record';
 import { flagSquare, hillData, MODE_INFO, rolledType } from '../core/modes';
-import { type ModeExtra, bossLives, hiddenQueens, lavaNow, progressOf, reserveOf, ringSquares, shrinkIn } from '../core/modes2';
+import { type ModeExtra, bossLives, cardChessOf, hiddenQueens, lavaNow, progressOf, reserveOf, ringSquares, shrinkIn } from '../core/modes2';
 import { pieceType as typeInfo } from '../core/pieces';
-import { legalActions } from '../core/rules';
+import { legalActions, play } from '../core/rules';
+import { inCheck } from '../core/movegen';
 import { toSAN } from '../core/san';
 import { newSeed } from '../core/rng';
 import type { Action, GameState, MoveAction, PlayerId } from '../core/types';
@@ -655,6 +656,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             {pickingQueen ? 'Tap one of your pawns… (tap here to cancel)' : '👑 Pick your secret queen'}
           </button>
         )}
+        {live.mode === 'card-chess' && <CardHands s={shown} me={me} names={names} myTurn={isHumanTurn && !reviewing} onDiscard={(i) => { const a: Action = { t: 'buff', by: me, id: 'DRAW', target: i }; try { play(live, a); push(a); } catch { /* not allowed now (in check) */ } }} skins={skinsNow} />}
         {live.mode === 'drop-in' && (
           <div className="reserve">
             {(['p1', 'p2'] as PlayerId[]).map((k) => {
@@ -851,6 +853,33 @@ function ModeStatus({ s, names, showBlurb }: { s: GameState; names: Record<strin
     <div className="hill-goal">
       {showBlurb && <div>{info.emoji} <b>{info.name}</b>: {info.blurb}</div>}
       {line}
+    </div>
+  );
+}
+
+/** Card chess: your 3 cards (tap 🗑️ to throw one away instead of moving), and theirs. */
+function CardHands({ s, me, names, myTurn, onDiscard, skins }: { s: GameState; me: PlayerId; names: Record<string, string>; myTurn: boolean; onDiscard: (i: number) => void; skins: import('../content/cosmetics').SkinChoice }) {
+  const cc = cardChessOf(s);
+  const them = me === 'p1' ? 'p2' : 'p1';
+  const row = (p: PlayerId, mine: boolean) => (
+    <div className={`cc-hand ${mine ? 'mine' : ''}`}>
+      {(cc.hands[p] ?? []).map((k, i) => (
+        <div key={i} className="cc-card" style={{ ['--t' as string]: `${(i - 1) * 6}deg` }}>
+          <svg viewBox="0 0 100 100"><Character skin={skinFor(skins, p, k)} type={k} owner={p} /></svg>
+          <span>{k}</span>
+          {mine && myTurn && !s.result && !inCheck(s, me) && <button className="cc-discard" onClick={() => onDiscard(i)} title="Throw this card away (uses your turn)" aria-label={`Throw away the ${k} card`}>🗑️</button>}
+        </div>
+      ))}
+      <small className="muted">deck {cc.decks[p]?.length ?? 0}</small>
+    </div>
+  );
+  return (
+    <div className="cc-panel">
+      <b>🎴 Your cards</b>{cc.bonus && s.turn === me && <span className="cc-bonus"> Three of a kind: move again!</span>}
+      {row(me, true)}
+      <small>Move a piece that matches a card, or 🗑️ throw one away (that's your turn). In check, any move is fine.</small>
+      <b className="muted small">{names[them]}'s cards</b>
+      {row(them, false)}
     </div>
   );
 }

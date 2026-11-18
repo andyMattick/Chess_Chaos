@@ -56,8 +56,11 @@ describe('earning cards', () => {
 
   it('collection: earn adds, playing burns', () => {
     let c = updateCollection({}, ['CARD-04', 'CARD-07'], []);
-    expect(handOptions(c)).toEqual(['CARD-04', 'CARD-07']);
+    expect(handOptions(c)).toEqual([]); // one copy is not enough
+    c = updateCollection(c, ['CARD-04'], []);
+    c = updateCollection(c, ['CARD-04'], []);
+    expect(handOptions(c)).toEqual(['CARD-04']); // three of a kind
     c = updateCollection(c, [], ['CARD-04']);
-    expect(c).toEqual({ 'CARD-07': 1 });
+    expect(c).toEqual({ 'CARD-07': 1 }); // playing it uses all three
   });
 });

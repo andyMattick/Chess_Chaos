@@ -632,3 +632,19 @@ body[data-calm] .board-wrap.nudge::before { animation: none !important; }
 .goal-list-live .goal { margin: 0; padding: 4px 10px; font-size: 0.95rem; }
 .goal-list-live .goal.now { background: #fff3b8; }
 .result-goals { text-align: left; margin: 6px 0; }
+
+/* Card chess */
+.cc-panel { display: grid; gap: 4px; border: 3px solid var(--ink); border-radius: var(--wonky2); padding: 8px 10px; background: #f1e6ff; }
+.cc-hand { display: flex; align-items: flex-end; gap: 6px; flex-wrap: wrap; }
+.cc-card { position: relative; width: 62px; height: 84px; border: 3px solid var(--ink); border-radius: 10px; background: #fffdf6; display: grid; justify-items: center; align-content: start; transform: rotate(var(--t)); box-shadow: 2px 3px 0 var(--ink); }
+.cc-card svg { width: 52px; height: 52px; }
+.cc-card span { font-size: 0.7rem; font-weight: 900; text-transform: capitalize; }
+.cc-hand:not(.mine) .cc-card { width: 44px; height: 60px; }
+.cc-hand:not(.mine) .cc-card svg { width: 36px; height: 36px; }
+.cc-discard { position: absolute; top: -10px; right: -10px; width: 26px; height: 26px; padding: 0; border: 2px solid var(--ink); border-radius: 50%; background: #fff; font-size: 0.8rem; cursor: pointer; }
+.cc-bonus { color: #d6246e; font-weight: 900; }
+.power-card .pc-count.ready { color: #2fb36b; }
+.cc-card { height: 92px; padding-top: 2px; }
+.cc-card svg { width: 50px; height: 50px; }
+.cc-card span { margin-top: 2px; }
+.cc-hand:not(.mine) .cc-card { height: 66px; }

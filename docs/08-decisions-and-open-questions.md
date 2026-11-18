@@ -154,3 +154,8 @@ Implementing agent: add dated entries below when you resolve an ambiguity or rec
 
 - On the Game modes screen each Party mode has ▲ ▼: **Never** (0), **Sometimes** (1, the default), **Often** (2), **Favourite** (3). The number is how many copies of that mode go in the player's mode deck; Classic starts at 3. Changing a rank starts a fresh deck so it counts straight away. If everything is "Never", every mode comes back once.
 - **Online Party matches** use both players' ranks equally: each mode's chance is the average of the two ranks, so a mode both players mark "Never" never comes up. A bot that takes a seat counts as neutral.
+
+### 2026-11-17: Card chess and the 3-of-a-kind power card rule (owner requests)
+
+- **Card chess (new, MODE-32):** each player holds 3 cards drawn from their own deck, which has one card per piece they have (8 pawn cards, 2 knight cards… and a queen card more after a promotion). Move a piece that matches a card (the card is used), or throw one card away instead of moving; then draw back up to 3. When the deck runs out, a new one is made from the pieces still on the board. **Three of the same card:** moving that kind gives a second move straight away (not after giving check). In check, any move is allowed; if no card can move at all, any move is allowed. Both hands are shown to both players. In Game modes, Play online and the Party deck.
+- **Power cards in Party matches now need 3 of the same card** (owner choice between fewer cards and a 3-copy rule). The hand picker only offers cards you have 3 of, and playing one uses all 3. Earn rates are unchanged.

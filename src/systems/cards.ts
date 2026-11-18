@@ -132,18 +132,21 @@ export function cardsEarned(i: EarnInput, progress: Record<string, number>): Ear
   return { cards: [...out].filter((id) => !CARDS.find((c) => c.id === id)?.notYet), progress: prog };
 }
 
-/** Add earned cards to a collection, and burn the ones played. */
+/** Owner rule: you need 3 copies of a card to bring it into a Party match, and playing it uses all 3. */
+export const COPIES_TO_PLAY = 3;
+
+/** Add earned cards to a collection, and burn the ones played (3 copies each). */
 export function updateCollection(collection: Record<string, number>, earned: string[], played: string[]): Record<string, number> {
   const c = { ...collection };
-  for (const id of played) c[id] = Math.max(0, (c[id] ?? 0) - 1);
+  for (const id of played) c[id] = Math.max(0, (c[id] ?? 0) - COPIES_TO_PLAY);
   for (const id of earned) c[id] = (c[id] ?? 0) + 1;
   for (const k of Object.keys(c)) if (!c[k]) delete c[k];
   return c;
 }
 
-/** Cards you can put in a hand: ones you own, no duplicates, playable in this build. */
+/** Cards you can put in a hand: ones you have 3 of, no duplicates, playable in this build. */
 export function handOptions(collection: Record<string, number>): string[] {
-  return CARDS.filter((c) => !c.notYet && (collection[c.id] ?? 0) > 0).map((c) => c.id);
+  return CARDS.filter((c) => !c.notYet && (collection[c.id] ?? 0) >= COPIES_TO_PLAY).map((c) => c.id);
 }
 
 /** The hand to bring: the cards picked, minus any no longer owned. */

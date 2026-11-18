@@ -1,6 +1,6 @@
 import { CARDS, HAND_SIZE, cardById, type CardDef } from '../content/cards';
 import { activeProfile, updateProfile } from '../storage/storage';
-import { currentHand, handOptions } from '../systems/cards';
+import { COPIES_TO_PLAY, currentHand, handOptions } from '../systems/cards';
 import { useSave } from './store';
 
 /**
@@ -18,7 +18,7 @@ export function CardTile({ c, count, on, onClick, children, small }: { c: CardDe
       {!small && <span className="pc-kind">{c.kind} · {c.rarity}{c.usesMove ? ' · uses your move' : ' · free action'}</span>}
       {!small && <span className="pc-blurb">{c.blurb}</span>}
       {!small && !owned && <span className="pc-earn">🔓 {c.earn}</span>}
-      {count !== undefined && count > 0 && <span className="pc-count">×{count}</span>}
+      {count !== undefined && count > 0 && <span className={`pc-count ${count >= COPIES_TO_PLAY ? 'ready' : ''}`}>{count >= COPIES_TO_PLAY ? `×${count}` : `${count}/${COPIES_TO_PLAY}`}</span>}
       {children}
     </Tag>
   );
@@ -32,7 +32,7 @@ export function CardsScreen({ back }: { back: () => void }) {
   return (
     <div className="panel wide taped">
       <h2>My power cards <span className="scribble">{owned} of {CARDS.length} found</span></h2>
-      <p className="muted">Take up to {HAND_SIZE} into a Party match. Each card works once, then it burns. Earn more by playing!</p>
+      <p className="muted">Collect <b>3 of the same card</b> to bring it into a Party match (up to {HAND_SIZE} different ones). Playing it uses all 3. Earn more by playing!</p>
       <HandPicker />
       <div className="card-grid">
         {CARDS.map((c) => <CardTile key={c.id} c={c} count={p.collection[c.id] ?? 0} />)}
@@ -54,7 +54,13 @@ export function HandPicker() {
     updateProfile((x) => ({ ...x, partyHand: next }));
   };
   if (!options.length) {
-    return <p className="hand-empty">🃏 No power cards yet. Play games to earn them (players under 800 get a free one every 3 games).</p>;
+    const closest = Object.entries(p.collection ?? {}).sort((a, b) => b[1] - a[1])[0];
+    return (
+      <p className="hand-empty">
+        🃏 No card ready yet: you need 3 of the same card to bring it into a Party match.
+        {closest ? ` Closest: ${cardById(closest[0])?.emoji} ${cardById(closest[0])?.name} (${closest[1]}/${COPIES_TO_PLAY}).` : ' Play games to earn cards.'}
+      </p>
+    );
   }
   return (
     <div className="hand-picker">
