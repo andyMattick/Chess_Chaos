@@ -381,3 +381,7 @@ body[data-land='space'] .player-bar:not(.active) .prating, body[data-land='volca
 .path-info { display: grid; text-align: left; background: none; border: none; padding: 0; }
 .path-info b { font-family: var(--hand); font-size: 1.2rem; }
 .path-dash { width: 3px; height: 18px; border-left: 4px dashed rgba(36, 31, 51, 0.35); transform: rotate(-20deg); }
+
+.cc-input { letter-spacing: normal; text-transform: none; font-size: 1.2rem; text-align: left; flex: 1; min-width: 180px; margin: 0; }
+.cc-card { display: flex; gap: 14px; align-items: center; border: 3px solid var(--ink); border-radius: var(--wonky2); padding: 12px; margin: 12px 0; background: #eaffd6; transform: rotate(-0.8deg); box-shadow: 4px 5px 0 var(--ink); }
+.cc-rating { font-weight: 700; }

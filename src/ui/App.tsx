@@ -7,6 +7,7 @@ import { OnlineLobby, roomFromUrl } from './OnlineLobby';
 import { BotRoster, History, Home, Profiles } from './screens';
 import { Wardrobe } from './Wardrobe';
 import { TrainSetup } from './TrainSetup';
+import { ChessCom } from './ChessCom';
 import { useSave } from './store';
 
 type Screen =
@@ -17,6 +18,7 @@ type Screen =
   | { name: 'online'; code?: string | null }
   | { name: 'wardrobe' }
   | { name: 'train' }
+  | { name: 'chesscom' }
   | { name: 'game'; config: GameConfig; key: number; review?: GameRecord };
 
 export function App() {
@@ -25,6 +27,7 @@ export function App() {
   const [screen, setScreen] = useState<Screen>(() => (!activeProfile(save) ? { name: 'profiles' } : linkCode ? { name: 'online', code: linkCode } : { name: 'home' }));
   const home = () => setScreen({ name: 'home' });
   const startGame = (config: GameConfig) => setScreen({ name: 'game', config, key: Date.now() });
+  const openRecord = (rec: GameRecord) => setScreen({ name: 'game', key: Date.now(), review: rec, config: { kind: 'local', humanSeat: 'p1', names: rec.meta.players } });
 
   // While playing, the whole page becomes the board's landscape.
   const inGame = screen.name === 'game' || screen.name === 'online';
@@ -44,11 +47,12 @@ export function App() {
       {screen.name === 'online' && <OnlineLobby back={home} initialCode={screen.code} />}
       {screen.name === 'wardrobe' && <Wardrobe back={home} />}
       {screen.name === 'train' && <TrainSetup start={startGame} back={home} />}
+      {screen.name === 'chesscom' && <ChessCom back={home} open={openRecord} />}
       {screen.name === 'bots' && <BotRoster start={startGame} back={home} />}
       {screen.name === 'history' && (
         <History
           back={home}
-          open={(rec) => setScreen({ name: 'game', key: Date.now(), review: rec, config: { kind: 'local', humanSeat: 'p1', names: rec.meta.players } })}
+          open={openRecord}
         />
       )}
       {screen.name === 'game' && (

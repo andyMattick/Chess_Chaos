@@ -144,3 +144,15 @@ describe('room server', () => {
     expect(a.last('room')!.clock).toBeNull();
   });
 });
+
+import { relayPath } from '../src/net/chesscomRelay';
+describe('chess.com relay', () => {
+  it('only forwards documented read-only paths', () => {
+    expect(relayPath('/chesscom/player/hikaru')).toBe('/player/hikaru');
+    expect(relayPath('/chesscom/player/Hikaru/games/2026/10')).toBe('/player/hikaru/games/2026/10');
+    expect(relayPath('/chesscom/puzzle')).toBe('/puzzle');
+    expect(relayPath('/chesscom/player/x/../../admin')).toBeNull();
+    expect(relayPath('/chesscom/club/abc')).toBeNull();
+    expect(relayPath('/other')).toBeNull();
+  });
+});

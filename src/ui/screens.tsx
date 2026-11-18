@@ -21,7 +21,7 @@ export function ProfileChip({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train') => void }) {
+export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train' | 'chesscom') => void }) {
   const save = useSave();
   const p = activeProfile(save);
   return (
@@ -67,6 +67,13 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
           <span className="big-title">Party match</span>
           <span className="big-sub">Coming soon: modes, missions and cards</span>
         </button>
+        {save.settings.chesscomEnabled && (
+          <button className="big" style={{ ['--c' as string]: '#7fb069' }} onClick={() => go('chesscom')} disabled={!p}>
+            <span className="big-emoji">♟️</span>
+            <span className="big-title">Chess.com corner</span>
+            <span className="big-sub">Look up players, download their games</span>
+          </button>
+        )}
         <button className="big soon" style={{ ['--c' as string]: '#ff7a59' }} disabled>
           <span className="big-emoji">🧩</span>
           <span className="big-title">Puzzles</span>
@@ -86,6 +93,7 @@ function Settings() {
     <details className="settings">
       <summary>⚙️ Settings</summary>
       <label><input type="checkbox" checked={s.sound} onChange={(e) => set({ sound: e.target.checked })} /> Sound effects</label>
+      <label><input type="checkbox" checked={s.chesscomEnabled} onChange={(e) => set({ chesscomEnabled: e.target.checked })} /> Show the Chess.com corner (parents can switch this off)</label>
       <label><input type="checkbox" checked={s.showCoordinates} onChange={(e) => set({ showCoordinates: e.target.checked })} /> Show board letters and numbers</label>
     </details>
   );

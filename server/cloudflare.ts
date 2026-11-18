@@ -6,6 +6,7 @@
  * Then set VITE_ROOM_SERVER=wss://<your-worker>.workers.dev/ws for the web build.
  */
 import { RoomServer, parseClientMsg, type Conn } from '../src/net/room';
+import { relay, relayPath } from '../src/net/chesscomRelay';
 
 interface Env {
   LOBBY: DurableObjectNamespace;
@@ -18,6 +19,17 @@ export default {
       // All rooms live in one Durable Object so room codes are global.
       const stub = env.LOBBY.get(env.LOBBY.idFromName('lobby'));
       return stub.fetch(req);
+    }
+    const rest = relayPath(url.pathname);
+    if (rest) {
+      // Cache Chess.com answers at the edge so we stay polite to their API.
+      const cache = (caches as unknown as { default: Cache }).default;
+      const key = new Request(`https://relay.cache${rest}`);
+      const hit = await cache.match(key);
+      if (hit) return hit;
+      const res = await relay(rest);
+      if (res.ok) await cache.put(key, res.clone());
+      return res;
     }
     return new Response('Chess Chaos room server', { headers: { 'access-control-allow-origin': '*' } });
   },
