@@ -14,6 +14,8 @@ import { COLOURWAYS, parseSkin, type BaseSkinId, type Palette, type SkinId } fro
 import { setSkinById } from '../content/collections';
 import { artReady, useArt } from './skinArt';
 import { SET_BODIES, SET_HAT_TOP, SET_PALETTES } from './setSkins';
+import { RICH_BODIES } from './richSkins';
+import { OVER, UNDER, shadedPalette } from './skinDetails';
 export { DEFAULT_SKINS, skinFor, type SkinChoice, type SkinId } from '../content/cosmetics';
 
 type Drawn = Exclude<BaseSkinId, 'classic'>;
@@ -86,7 +88,7 @@ export function Character({ skin: skinId, type, owner, seed = 0, badge = false }
     const def = setSkinById(skinId);
     if (def && artReady(parsed.set, side)) return <ArtPiece slug={parsed.set} side={side} type={type} owner={owner} badge={badge} />;
     const body = SET_BODIES[parsed.set];
-    if (body) return <Drawn2 body={body} pal={SET_PALETTES[parsed.set][side]} top={SET_HAT_TOP[parsed.set] ?? 34} type={type} owner={owner} seed={seed} badge={badge} />;
+    if (body) return <Drawn2 slug={parsed.set} body={body} pal={SET_PALETTES[parsed.set][side]} top={SET_HAT_TOP[parsed.set] ?? 34} type={type} owner={owner} seed={seed} badge={badge} />;
     skin = def?.fallback.base ?? 'gremlin';
     cw = def?.fallback.colourway;
     sparkle = true;
@@ -98,6 +100,7 @@ export function Character({ skin: skinId, type, owner, seed = 0, badge = false }
     return <PieceGlyph type={type} light={owner === 'p1'} tint={tint} />;
   }
   const pal = cw ? COLOURWAYS.find((c) => c.id === cw)![side] : PALETTES[skin][side];
+  const shaded = shadedPalette(pal);
   // Third and fourth armies: same character, shifted colours.
   const hue = owner === 'p3' ? 150 : owner === 'p4' ? 200 : 0;
   const s = SCALE[type] ?? 0.85;
@@ -112,7 +115,10 @@ export function Character({ skin: skinId, type, owner, seed = 0, badge = false }
       )}
       <ellipse cx={50} cy={93} rx={26 * s} ry={4} fill="rgba(0,0,0,0.22)" />
       <g transform={`translate(50 94) rotate(${tilt}) scale(${s}) translate(-50 -94)`} filter={hue > 0 ? `url(#hue-${owner})` : undefined}>
-        {BODIES[skin](pal, type, seed)}
+        {UNDER[skin]?.(pal, type, seed)}
+        {shaded.defs}
+        {BODIES[skin](shaded.pal, type, seed)}
+        {OVER[skin]?.(pal, type, seed)}
         <Hat type={type} top={hatTop(skin)} pal={pal} />
       </g>
       {sparkle && <text x={14} y={30} fontSize={18}>✨</text>}
@@ -403,7 +409,10 @@ function ArtPiece({ slug, side, type, owner, badge }: { slug: string; side: 'p1'
 }
 
 /** A collection skin drawn in code (ui/setSkins.tsx), with its piece hat. */
-function Drawn2({ body, pal, top, type, owner, seed, badge }: { body: (pal: Palette, type: string, seed: number) => ReactElement; pal: Palette; top: number; type: string; owner: string; seed: number; badge: boolean }) {
+function Drawn2({ slug, body, pal, top, type, owner, seed, badge }: { slug: string; body: (pal: Palette, type: string, seed: number) => ReactElement; pal: Palette; top: number; type: string; owner: string; seed: number; badge: boolean }) {
+  // The storybook redraws shade themselves; the others get the shared shading and details.
+  const rich = !!RICH_BODIES[slug];
+  const shaded = shadedPalette(pal);
   const hue = owner === 'p3' ? 150 : owner === 'p4' ? 200 : 0;
   const s = SCALE[type] ?? 0.85;
   const tilt = jitter(seed, 1) * 9;
@@ -412,7 +421,10 @@ function Drawn2({ body, pal, top, type, owner, seed, badge }: { body: (pal: Pale
       {hue > 0 && <defs><filter id={`hue-set-${owner}`}><feColorMatrix type="hueRotate" values={String(hue)} /></filter></defs>}
       <ellipse cx={50} cy={93} rx={26 * s} ry={4} fill="rgba(0,0,0,0.22)" />
       <g transform={`translate(50 94) rotate(${tilt}) scale(${s}) translate(-50 -94)`} filter={hue > 0 ? `url(#hue-set-${owner})` : undefined}>
-        {body(pal, type, seed)}
+        {!rich && UNDER[slug]?.(pal, type, seed)}
+        {!rich && shaded.defs}
+        {body(rich ? pal : shaded.pal, type, seed)}
+        {!rich && OVER[slug]?.(pal, type, seed)}
         <Hat type={type} top={top} pal={pal} />
       </g>
       {badge && (
