@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { online, roomServerUrl } from '../net/client';
+import { CLOCK_CHOICES } from '../net/protocol';
 import { activeProfile } from '../storage/storage';
 import { GameScreen } from './GameScreen';
 import { useSave } from './store';
@@ -57,6 +58,8 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
   const net = useSyncExternalStore(online.subscribe, online.get, online.get);
   const p = activeProfile(save);
   const [code, setCode] = useState(initialCode ?? '');
+  const [clockIdx, setClockIdx] = useState(1);
+  const clock = CLOCK_CHOICES[clockIdx].setting;
   const name = p?.nickname ?? 'Player';
   const rating = p?.rating ?? 600;
 
@@ -110,10 +113,16 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
         <section>
           <h3>Start a room</h3>
           <p className="muted">You get a 4-letter code to share.</p>
+          <p className="muted small">How much time each?</p>
+          <div className="clock-chips" role="radiogroup" aria-label="Clock">
+            {CLOCK_CHOICES.map((c, i) => (
+              <button key={c.label} role="radio" aria-checked={i === clockIdx} className={`chip ${i === clockIdx ? 'on' : ''}`} onClick={() => setClockIdx(i)}>{c.label}</button>
+            ))}
+          </div>
           <div className="row">
-            <button className="btn primary" onClick={() => online.create(name, rating, 'p1')}>I'll be White</button>
-            <button className="btn primary dark" onClick={() => online.create(name, rating, 'p2')}>I'll be Black</button>
-            <button className="btn" onClick={() => online.create(name, rating, 'random')}>🎲 Whatever</button>
+            <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock)}>I'll be White</button>
+            <button className="btn primary dark" onClick={() => online.create(name, rating, 'p2', clock)}>I'll be Black</button>
+            <button className="btn" onClick={() => online.create(name, rating, 'random', clock)}>🎲 Whatever</button>
           </div>
         </section>
         <section>

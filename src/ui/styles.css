@@ -305,3 +305,42 @@ body[data-land='space'] .player-bar:not(.active) .prating, body[data-land='volca
 .alert-reveal { display: flex; gap: 14px; align-items: center; background: #fff1b8; border: 3px solid var(--ink); border-radius: var(--wonky2); padding: 12px; margin: 8px 0 14px; transform: rotate(-1deg); box-shadow: 4px 5px 0 var(--ink); }
 .alert-emoji { font-size: 3.6rem; animation: spin-in 0.6s ease-out; }
 .goal-list { margin: 0 0 14px; padding-left: 22px; display: grid; gap: 4px; font-weight: 700; }
+
+/* Clocks */
+.clock-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.chip { border: 2.5px solid var(--ink); border-radius: var(--wonky2); background: white; padding: 4px 10px; font-weight: 800; }
+.chip.on { background: var(--yolk); transform: rotate(-2deg) scale(1.05); box-shadow: 2px 3px 0 var(--ink); }
+.clock {
+  order: 4; margin-left: 8px; font-family: var(--hand); font-size: 1.5rem; font-weight: 900; min-width: 78px; text-align: center;
+  background: #fff; border: 3px solid var(--ink); border-radius: 12px; padding: 0 8px; font-variant-numeric: tabular-nums; opacity: 0.6;
+}
+.clock.running { opacity: 1; background: var(--yolk); box-shadow: 2px 3px 0 var(--ink); }
+.clock.low.running { background: #ff8a6b; animation: pulse 0.8s ease-in-out infinite; }
+.clock.panic.running { background: #ff3b3b; color: #fff; animation: shake-x 0.25s linear infinite; }
+@keyframes pulse { 50% { transform: scale(1.08); } }
+@keyframes shake-x { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-3px) rotate(-2deg); } 75% { transform: translateX(3px) rotate(2deg); } }
+
+/* ===== Chaos effects ===== */
+.fx-text { font-family: 'Bangers', var(--hand); font-weight: 900; fill: #fffdf6; stroke: #241f33; stroke-width: 7px; paint-order: stroke fill; letter-spacing: 1px; }
+.fx-text.light { fill: #fff; stroke-width: 5px; }
+.fx-burst { animation: burst 0.9s cubic-bezier(0.2, 1.6, 0.4, 1) forwards; transform-box: fill-box; transform-origin: center; }
+@keyframes burst { 0% { transform: scale(0) rotate(-30deg); opacity: 1; } 40% { transform: scale(1.15) rotate(8deg); } 75% { opacity: 1; } 100% { transform: scale(1) rotate(0); opacity: 0; } }
+.fx-debris { animation: debris 0.9s ease-out forwards; }
+@keyframes debris { 0% { transform: translate(0, 0) scale(0.4) rotate(0); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) scale(1.2) rotate(240deg); opacity: 0; } }
+.fx-word { animation: word 1.3s cubic-bezier(0.3, 1.8, 0.5, 1) forwards; }
+@keyframes word { 0% { transform: scale(0) rotate(var(--r)); opacity: 0; } 25% { transform: scale(1.3) rotate(var(--r)); opacity: 1; } 70% { transform: scale(1) rotate(var(--r)) translateY(-10px); opacity: 1; } 100% { transform: scale(1) rotate(var(--r)) translateY(-40px); opacity: 0; } }
+.fx-stamp { animation: stamp 1.4s cubic-bezier(0.3, 1.8, 0.5, 1) forwards; }
+@keyframes stamp { 0% { transform: scale(3) rotate(var(--r)); opacity: 0; } 20% { transform: scale(1) rotate(var(--r)); opacity: 1; } 80% { opacity: 1; } 100% { transform: scale(1) rotate(var(--r)); opacity: 0; } }
+.fx-ring { animation: ring 0.5s ease-out 3; transform-box: fill-box; transform-origin: center; }
+@keyframes ring { 0% { transform: scale(0.6); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+.fx-swirl { stroke-dasharray: 400; stroke-dashoffset: 400; animation: swirl 1s ease-out forwards; }
+@keyframes swirl { 60% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+.fx-confetti { animation: confetti 2.6s ease-in forwards; transform-box: fill-box; transform-origin: center; }
+@keyframes confetti { 0% { transform: translateY(0) rotate(0); } 100% { transform: translateY(var(--fall)) rotate(var(--spin)); } }
+.fx-mate { animation: mate 3s cubic-bezier(0.3, 1.6, 0.5, 1) forwards; }
+@keyframes mate { 0% { transform: scale(0) rotate(-40deg); } 18% { transform: scale(1.15) rotate(6deg); } 30% { transform: scale(1) rotate(-3deg); } 85% { opacity: 1; } 100% { transform: scale(1) rotate(-3deg); opacity: 0; } }
+.board-wrap.shake { animation: shake 0.35s linear; }
+.board-wrap.shake-big { animation: shake-big 0.6s linear; }
+@keyframes shake { 0%, 100% { transform: translate(0); } 20% { transform: translate(-6px, 3px) rotate(-0.6deg); } 40% { transform: translate(5px, -4px) rotate(0.5deg); } 60% { transform: translate(-4px, 2px); } 80% { transform: translate(3px, -1px); } }
+@keyframes shake-big { 0%, 100% { transform: translate(0); } 10% { transform: translate(-14px, 6px) rotate(-1.6deg); } 25% { transform: translate(12px, -8px) rotate(1.4deg); } 40% { transform: translate(-10px, 5px) rotate(-1deg); } 55% { transform: translate(8px, -4px) rotate(0.8deg); } 70% { transform: translate(-5px, 2px); } 85% { transform: translate(3px, -1px); } }
+@media (prefers-reduced-motion: reduce) { .board-wrap.shake, .board-wrap.shake-big, .fx-confetti, .fx-debris { animation: none !important; } }

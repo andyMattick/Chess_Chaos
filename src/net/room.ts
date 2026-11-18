@@ -2,7 +2,7 @@ import { chooseMove } from '../ai/strength';
 import { newRecord, replay, type GameRecord } from '../core/record';
 import { play } from '../core/rules';
 import type { Action, GameState, PlayerId } from '../core/types';
-import { cleanName, EMOTES, type ClientMsg, type SeatInfo, type ServerMsg } from './protocol';
+import { cleanName, EMOTES, type ClientMsg, type ClockSetting, type ClockState, type SeatInfo, type ServerMsg } from './protocol';
 
 /**
  * Transport-agnostic room server. Adapters (Bun for local dev, Cloudflare
@@ -35,10 +35,43 @@ export class Room {
   rematchVotes = new Set<PlayerId>();
   emptySince: number | null = null;
   private lastEmote = new Map<string, number>();
+  /** Chess clock (online games). Time left is stored as of `turnStart`. */
+  clockSetting: ClockSetting | null = null;
+  left: Partial<Record<PlayerId, number>> = {};
+  turnStart: number | null = null;
 
-  constructor(public code: string, private now: () => number, seed: number) {
+  constructor(public code: string, private now: () => number, seed: number, clock: ClockSetting | null = null) {
     this.record = newRecord(seed, {});
     this.state = replay(this.record)[0];
+    this.setClock(clock);
+  }
+
+  private setClock(c: ClockSetting | null) {
+    if (c) {
+      const minutes = Math.min(60, Math.max(1, Math.round(c.minutes)));
+      const increment = Math.min(30, Math.max(0, Math.round(c.increment)));
+      this.clockSetting = { minutes, increment };
+      this.left = { p1: minutes * 60_000, p2: minutes * 60_000 };
+    } else {
+      this.clockSetting = null;
+      this.left = {};
+    }
+    this.turnStart = null;
+  }
+
+  /** Whose clock is ticking: nobody until the first move is made, or once the game ends. */
+  private runningSeat(): PlayerId | null {
+    if (!this.clockSetting || this.state.result || !this.seats.p1 || !this.seats.p2) return null;
+    if (this.record.actions.length === 0) return null;
+    return this.state.turn;
+  }
+
+  clockSnapshot(): ClockState | null {
+    if (!this.clockSetting) return null;
+    const running = this.runningSeat();
+    const left = { ...this.left };
+    if (running && this.turnStart !== null) left[running] = Math.max(0, (left[running] ?? 0) - (this.now() - this.turnStart));
+    return { left, running, increment: this.clockSetting.increment };
   }
 
   seatOf(conn: Conn): PlayerId | undefined {
@@ -83,9 +116,14 @@ export class Room {
     this.broadcast();
   }
 
-  /** Called on a timer: hand absent players' seats to a bot, run bot moves. */
+  /** Called on a timer: flag fallen clocks, hand absent players' seats to a bot, run bot moves. */
   tick() {
     let changed = false;
+    const snap = this.clockSnapshot();
+    if (snap?.running && (snap.left[snap.running] ?? 1) <= 0) {
+      this.apply({ t: 'timeout', by: snap.running });
+      changed = true;
+    }
     for (const s of Object.values(this.seats)) {
       if (s && !s.connected && !s.botControlled && s.leftAt !== null && this.now() - s.leftAt >= SEAT_HOLD_MS) {
         s.botControlled = true;
@@ -109,9 +147,16 @@ export class Room {
   }
 
   private apply(a: Action) {
+    if (this.clockSetting && a.t === 'move') {
+      const running = this.runningSeat();
+      if (running && this.turnStart !== null) {
+        this.left[running] = Math.max(0, (this.left[running] ?? 0) - (this.now() - this.turnStart) + this.clockSetting.increment * 1000);
+      }
+    }
     this.state = play(this.state, a);
     this.record = { ...this.record, actions: [...this.record.actions, a] };
     if (this.state.result) this.record.meta.result = this.state.result;
+    this.turnStart = this.now();
   }
 
   handle(conn: Conn, msg: ClientMsg) {
@@ -126,6 +171,13 @@ export class Room {
           this.apply({ t: 'resign', by: seat });
         } else if (a.t === 'move') {
           if (this.state.turn !== seat) return conn.send({ t: 'error', message: 'Not your turn.' });
+          // A move that arrives after the flag fell does not count.
+          const snap = this.clockSnapshot();
+          if (snap?.running === seat && (snap.left[seat] ?? 1) <= 0) {
+            this.apply({ t: 'timeout', by: seat });
+            this.broadcast();
+            return;
+          }
           try {
             this.apply(a);
           } catch {
@@ -168,6 +220,7 @@ export class Room {
     this.seats = { p1: p2, p2: p1 };
     this.record = newRecord((Math.random() * 0xffffffff) | 0, { p1: p2?.name ?? '', p2: p1?.name ?? '' });
     this.state = replay(this.record)[0];
+    this.setClock(this.clockSetting);
     this.rematchVotes.clear();
     for (const k of ['p1', 'p2'] as PlayerId[]) {
       const s = this.seats[k];
@@ -182,7 +235,7 @@ export class Room {
       seats[k] = { name, rating, connected, botControlled };
     }
     // Standard chess has no hidden information. Hidden modes will filter per seat here.
-    const msg: ServerMsg = { t: 'room', code: this.code, record: this.record, seats, rematchVotes: [...this.rematchVotes] };
+    const msg: ServerMsg = { t: 'room', code: this.code, record: this.record, seats, rematchVotes: [...this.rematchVotes], clock: this.clockSnapshot() };
     for (const s of Object.values(this.seats)) s?.conn?.send(msg);
   }
 }
@@ -204,7 +257,7 @@ export class RoomServer {
   handle(conn: Conn, msg: ClientMsg) {
     if (msg.t === 'create') {
       this.leaveCurrent(conn);
-      const room = new Room(this.newCode(), this.now, (Math.random() * 0xffffffff) | 0);
+      const room = new Room(this.newCode(), this.now, (Math.random() * 0xffffffff) | 0, msg.clock ?? null);
       this.rooms.set(room.code, room);
       this.connRoom.set(conn.id, room);
       const seat: PlayerId = msg.colour === 'random' ? (Math.random() < 0.5 ? 'p1' : 'p2') : msg.colour === 'p2' ? 'p2' : 'p1';

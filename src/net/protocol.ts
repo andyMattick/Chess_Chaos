@@ -26,8 +26,25 @@ export interface SeatInfo {
   botControlled: boolean;
 }
 
+/** Minutes per player plus seconds added after each move. null = no clock. */
+export interface ClockSetting { minutes: number; increment: number }
+
+export const CLOCK_CHOICES: { label: string; setting: ClockSetting | null }[] = [
+  { label: '⚡ 3 min', setting: { minutes: 3, increment: 2 } },
+  { label: '⏱ 5 min', setting: { minutes: 5, increment: 3 } },
+  { label: '🐢 10 min', setting: { minutes: 10, increment: 5 } },
+  { label: '😌 No clock', setting: null },
+];
+
+export interface ClockState {
+  /** Milliseconds left per seat at the moment the message was sent. */
+  left: Partial<Record<PlayerId, number>>;
+  running: PlayerId | null;
+  increment: number;
+}
+
 export type ClientMsg =
-  | { t: 'create'; name: string; rating: number; colour: 'p1' | 'p2' | 'random' }
+  | { t: 'create'; name: string; rating: number; colour: 'p1' | 'p2' | 'random'; clock?: ClockSetting | null }
   | { t: 'join'; code: string; name: string; rating: number }
   | { t: 'rejoin'; code: string; token: string }
   | { t: 'action'; action: Action }
@@ -37,7 +54,7 @@ export type ClientMsg =
 
 export type ServerMsg =
   | { t: 'joined'; code: string; seat: PlayerId; token: string }
-  | { t: 'room'; code: string; record: GameRecord; seats: Partial<Record<PlayerId, SeatInfo>>; rematchVotes: PlayerId[] }
+  | { t: 'room'; code: string; record: GameRecord; seats: Partial<Record<PlayerId, SeatInfo>>; rematchVotes: PlayerId[]; clock: ClockState | null }
   | { t: 'emote'; from: PlayerId; id: EmoteId }
   | { t: 'error'; message: string };
 

@@ -8,7 +8,7 @@ import { legalActions } from '../core/rules';
 import { toSAN } from '../core/san';
 import { newSeed } from '../core/rng';
 import type { Action, GameState, MoveAction, PlayerId } from '../core/types';
-import { online } from '../net/client';
+import { online, timeLeft } from '../net/client';
 import { EMOTES } from '../net/protocol';
 import { activeProfile, addGame, update, upsertProfile } from '../storage/storage';
 import { updateRating } from '../systems/rating';
@@ -20,6 +20,8 @@ import type { ReviewResult } from '../systems/review';
 import { mergeMiss } from '../systems/review';
 import { sameMove } from '../core/rules';
 import { useTraining, type TrainingConfig } from './training';
+import { moveEvents, shakeFor, type MoveEvents } from './effects';
+import { setSoundEnabled, sfx } from './sound';
 
 export interface GameConfig {
   /** 'local' is only used to replay saved games. */
@@ -48,6 +50,7 @@ const REASON_TEXT: Record<string, string> = {
   'draw-50': 'Draw: 50 moves with no capture or pawn move.',
   'draw-material': 'Draw: nobody can checkmate with what is left.',
   'draw-agreed': 'Draw agreed.',
+  time: 'on time! (the other clock ran out)',
 };
 
 function pick<T>(list: readonly T[]): T {
@@ -113,6 +116,36 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     if (!a || a.t !== 'move') return null;
     return { from: states[idx - 1].pieces[a.piece].at, to: a.to };
   }, [rec, states, view]);
+
+  // Chaos: effects and sounds for each new move (not while replaying).
+  const [fx, setFx] = useState<MoveEvents | null>(null);
+  const lastFxPly = useRef(states.length - 1);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    setSoundEnabled(save.settings.sound);
+    const n = states.length - 1;
+    if (reviewRecord || n <= lastFxPly.current) { lastFxPly.current = n; return; }
+    lastFxPly.current = n;
+    const ev = moveEvents(states[n - 1], live, rec.actions[n - 1], n);
+    if (!ev) return;
+    setFx(ev);
+    // Restart the shake animation without remounting the board (pieces keep sliding).
+    const el = wrapRef.current;
+    const cls = shakeFor(ev);
+    if (el && cls) {
+      el.classList.remove('shake', 'shake-big');
+      void el.offsetWidth;
+      el.classList.add(cls);
+    }
+    if (ev.mate) sfx.mate();
+    else if (ev.capture) sfx.capture(ev.capture.big);
+    else if (ev.promo) sfx.promote();
+    else if (ev.castle) sfx.castle();
+    else sfx.move();
+    if (ev.check) sfx.check();
+    const t = setTimeout(() => setFx((f) => (f?.ply === ev.ply ? null : f)), ev.mate ? 3200 : 1500);
+    return () => clearTimeout(t);
+  }, [states.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const moveActions = useMemo(() => rec.actions.filter((a): a is MoveAction => a.t === 'move'), [rec]);
   const training = useTraining({
@@ -280,6 +313,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           name={names[top]} rating={bot && top === botSeat ? bot.rating : net.seats[top]?.rating} avatar={avatar(top)}
           active={shown.turn === top && !shown.result} captured={captured(bottom)} speech={speech?.seat === top ? speech.text : null}
           colour={bot && top === botSeat ? bot.colour : undefined}
+          clockMs={isOnline && !reviewing ? timeLeft(net, top) : null} clockRunning={net.clock?.running === top}
           note={isOnline && opp && top !== me ? (opp.botControlled ? '🤖 a bot took over' : !opp.connected ? '📡 reconnecting…' : null) : null}
         />
         <div className="banner-slot">
@@ -290,7 +324,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
               </div>
             )}
         </div>
-        <div className="board-wrap">
+        <div className="board-wrap" ref={wrapRef}>
           <Board
             state={shown}
             bottom={bottom}
@@ -302,6 +336,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             skins={save.settings.skins}
             interactive={(!reviewing && isHumanTurn) || retrying}
             onSquare={onSquare}
+            fx={view === null ? fx : null}
             overlays={retrying && retry!.reveal && fix ? revealOverlay(states[fix.ply], fix.goodMoves[0]) : training.overlays}
           />
           {training.modal}
@@ -366,6 +401,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           name={names[bottom]} rating={bot && bottom === botSeat ? bot.rating : net.seats[bottom]?.rating} avatar={avatar(bottom)}
           active={shown.turn === bottom && !shown.result} captured={captured(top)} speech={speech?.seat === bottom ? speech.text : null}
           colour={bot && bottom === botSeat ? bot.colour : undefined}
+          clockMs={isOnline && !reviewing ? timeLeft(net, bottom) : null} clockRunning={net.clock?.running === bottom}
         />
       </div>
 
@@ -411,6 +447,12 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   );
 }
 
+function formatClock(ms: number): string {
+  const s = Math.ceil(ms / 1000);
+  if (ms < 10_000) return (ms / 1000).toFixed(1);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
 function revealOverlay(s: GameState, m?: MoveAction) {
   if (!m) return undefined;
   return { glow: new Set([s.pieces[m.piece].at, m.to]) };
@@ -425,11 +467,19 @@ function MoveCell({ san, idx, view, onPick }: { san?: string; idx: number; view:
   );
 }
 
-function PlayerBar({ name, rating, avatar, active, captured, speech, colour, note }: {
+function PlayerBar({ name, rating, avatar, active, captured, speech, colour, note, clockMs, clockRunning }: {
   name: string; rating?: number; avatar: ReactNode; active: boolean; captured: GameState['pieces'];
-  speech: string | null; colour?: string; note?: string | null;
+  speech: string | null; colour?: string; note?: string | null; clockMs?: number | null; clockRunning?: boolean;
 }) {
   const save = useSave();
+  // Re-render a few times a second while this clock is running.
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!clockRunning || clockMs === null || clockMs === undefined) return;
+    const t = setInterval(() => tick((n) => n + 1), 250);
+    return () => clearInterval(t);
+  }, [clockRunning, clockMs]);
+  const ms = clockMs ?? null;
   return (
     <div className={`player-bar ${active ? 'active' : ''}`}>
       <div className="avatar" style={{ background: colour ?? '#fff' }}>{avatar}</div>
@@ -439,6 +489,11 @@ function PlayerBar({ name, rating, avatar, active, captured, speech, colour, not
         {note && <span className="pnote">{note}</span>}
       </div>
       {speech && <div className="speech">{speech}</div>}
+      {ms !== null && (
+        <div className={`clock ${clockRunning ? 'running' : ''} ${ms < 20_000 ? 'low' : ''} ${ms < 10_000 ? 'panic' : ''}`} aria-label="Time left">
+          {formatClock(ms)}
+        </div>
+      )}
       <div className="captured" aria-label="Captured pieces">
         {captured.map((p) => (
           <svg key={p.id} viewBox="0 0 100 100"><Character skin={skinFor(save.settings.skins, p.owner, p.type)} type={p.type} owner={p.owner} seed={p.id + 1} /></svg>

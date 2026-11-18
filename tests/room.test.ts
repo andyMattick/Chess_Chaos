@@ -9,11 +9,11 @@ function client(id: string) {
   return { conn, inbox, last };
 }
 
-function setup() {
+function setup(clock: { minutes: number; increment: number } | null = null) {
   let now = 0;
   const server = new RoomServer(() => now);
   const a = client('a'), b = client('b');
-  server.handle(a.conn, { t: 'create', name: 'Ava', rating: 600, colour: 'p1' });
+  server.handle(a.conn, { t: 'create', name: 'Ava', rating: 600, colour: 'p1', clock });
   const code = a.last('joined')!.code;
   server.handle(b.conn, { t: 'join', code, name: 'Ben', rating: 700 });
   return { server, a, b, code, advance: (ms: number) => { now += ms; } };
@@ -113,5 +113,34 @@ describe('room server', () => {
     server.close(a.conn); server.close(b.conn);
     advance(11 * 60_000); server.tick();
     expect(server.rooms.has(code)).toBe(false);
+  });
+
+  it('runs a chess clock with increment and flags a player who runs out', () => {
+    const { server, a, b, advance } = setup({ minutes: 1, increment: 2 });
+    expect(a.last('room')!.clock!.running).toBeNull(); // waits for the first move
+    move(server, a, 'e4');
+    expect(a.last('room')!.clock!.running).toBe('p2');
+    advance(10_000);
+    move(server, b, 'e5');
+    const c = a.last('room')!.clock!;
+    expect(c.left.p2).toBe(52_000); // 60s - 10s + 2s
+    expect(c.running).toBe('p1');
+    advance(61_000);
+    server.tick();
+    expect(b.last('room')!.record.meta.result).toEqual({ reason: 'time', winners: ['p2'] });
+  });
+
+  it('ignores a move that arrives after the flag fell', () => {
+    const { server, a, b, advance } = setup({ minutes: 1, increment: 0 });
+    move(server, a, 'e4');
+    advance(70_000);
+    move(server, b, 'e5');
+    expect(a.last('room')!.record.meta.result?.reason).toBe('time');
+    expect(a.last('room')!.record.actions.at(-1)).toEqual({ t: 'timeout', by: 'p2' });
+  });
+
+  it('games without a clock have none', () => {
+    const { a } = setup();
+    expect(a.last('room')!.clock).toBeNull();
   });
 });

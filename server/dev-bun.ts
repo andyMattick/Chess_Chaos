@@ -5,7 +5,7 @@
 import { RoomServer, parseClientMsg, type Conn } from '../src/net/room';
 
 const rooms = new RoomServer();
-setInterval(() => rooms.tick(), 2000);
+setInterval(() => rooms.tick(), 500);
 
 type Data = { conn: Conn };
 let n = 0;

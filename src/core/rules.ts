@@ -79,6 +79,13 @@ export function play(s: GameState, action: Action): GameState {
   if (action.t === 'resign') {
     return { ...s, result: { reason: 'resign', winners: otherSeats(s, action.by) } };
   }
+  if (action.t === 'timeout') {
+    // Out of time loses, unless the other side could never checkmate anyway.
+    const others = otherSeats(s, action.by);
+    const canMate = s.pieces.some((p) => p.at >= 0 && others.includes(p.owner) && p.type !== 'king' && !(p.type === 'knight' || p.type === 'bishop'))
+      || s.pieces.filter((p) => p.at >= 0 && others.includes(p.owner) && p.type !== 'king').length >= 2;
+    return { ...s, result: { reason: 'time', winners: canMate ? others : [] } };
+  }
   if (action.t === 'draw-agreed') {
     return { ...s, result: { reason: 'draw-agreed', winners: [] } };
   }

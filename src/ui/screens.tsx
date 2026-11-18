@@ -83,6 +83,7 @@ function Settings() {
   return (
     <details className="settings">
       <summary>⚙️ Settings</summary>
+      <label><input type="checkbox" checked={s.sound} onChange={(e) => set({ sound: e.target.checked })} /> Sound effects</label>
       <label><input type="checkbox" checked={s.showCoordinates} onChange={(e) => set({ showCoordinates: e.target.checked })} /> Show board letters and numbers</label>
     </details>
   );

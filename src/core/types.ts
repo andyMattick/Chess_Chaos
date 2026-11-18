@@ -95,4 +95,6 @@ export interface MoveAction {
 export type Action =
   | MoveAction
   | { t: 'resign'; by: PlayerId }
+  /** A player's clock ran out (online games). */
+  | { t: 'timeout'; by: PlayerId }
   | { t: 'draw-agreed' };

@@ -5,6 +5,7 @@ import type { GameState, MoveAction } from '../core/types';
 import { skinFor, type SkinChoice } from '../content/cosmetics';
 import { landscapeById, squareDoodle } from './landscapes';
 import { Character } from './skins';
+import { FxLayer, type MoveEvents } from './effects';
 
 /**
  * SVG board. Renders from GameState plus overlays; knows nothing about game
@@ -39,12 +40,14 @@ export interface BoardProps {
   interactive: boolean;
   onSquare: (sq: number) => void;
   overlays?: BoardOverlays;
+  /** Comic effects for the move just played. */
+  fx?: MoveEvents | null;
 }
 
 const SIZE = 100;
 const PAD = 26;
 
-export function Board({ state, bottom, selected, targets, lastMove, showCoordinates, landscape, skins, interactive, onSquare, overlays }: BoardProps) {
+export function Board({ state, bottom, selected, targets, lastMove, showCoordinates, landscape, skins, interactive, onSquare, overlays, fx }: BoardProps) {
   const b = state.board;
   const land = landscapeById(landscape);
   const flip = bottom === 'p2';
@@ -130,7 +133,7 @@ export function Board({ state, bottom, selected, targets, lastMove, showCoordina
         {live.map((p) => {
           const { x, y } = pos(p.at);
           const sel = selected === p.at;
-          const wob = overlays?.wobble?.has(p.at);
+          const wob = overlays?.wobble?.has(p.at) || (checked.has(p.at) && !!fx);
           return (
             <g key={p.id} className={`piece ${sel ? 'lifted' : ''} ${wob ? 'wobbly' : ''}`} style={{ transform: `translate(${x}px, ${y}px)` }} data-piece={p.type} data-owner={p.owner}>
               <g className="bob">
@@ -153,6 +156,7 @@ export function Board({ state, bottom, selected, targets, lastMove, showCoordina
         })}
       </g>
       {overlays && <OverlayLayer overlays={overlays} pos={pos} />}
+      {fx && <FxLayer key={fx.ply} ev={fx} pos={pos} width={W} height={H} />}
     </svg>
   );
 }

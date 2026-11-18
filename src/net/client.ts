@@ -1,6 +1,6 @@
 import type { GameRecord } from '../core/record';
 import type { Action, PlayerId } from '../core/types';
-import type { ClientMsg, EmoteId, SeatInfo, ServerMsg } from './protocol';
+import type { ClientMsg, ClockSetting, ClockState, EmoteId, SeatInfo, ServerMsg } from './protocol';
 
 /**
  * Browser side of online play. Keeps one WebSocket, reconnects with the seat
@@ -17,6 +17,9 @@ export interface OnlineSnapshot {
   rematchVotes: PlayerId[];
   error: string | null;
   lastEmote: { from: PlayerId; id: EmoteId; at: number } | null;
+  clock: ClockState | null;
+  /** Local time when `clock` arrived, to count down between messages. */
+  clockAt: number;
 }
 
 const SESSION_KEY = 'chess-chaos:online';
@@ -29,7 +32,7 @@ export function roomServerUrl(): string | null {
 }
 
 class OnlineSession {
-  snap: OnlineSnapshot = { status: 'idle', code: null, seat: null, record: null, seats: {}, rematchVotes: [], error: null, lastEmote: null };
+  snap: OnlineSnapshot = { status: 'idle', code: null, seat: null, record: null, seats: {}, rematchVotes: [], error: null, lastEmote: null, clock: null, clockAt: 0 };
   private ws: WebSocket | null = null;
   private listeners = new Set<() => void>();
   private queue: ClientMsg[] = [];
@@ -82,7 +85,7 @@ class OnlineSession {
         this.set({ code: m.code, seat: m.seat, error: null });
         break;
       case 'room':
-        this.set({ code: m.code, record: m.record, seats: m.seats, rematchVotes: m.rematchVotes });
+        this.set({ code: m.code, record: m.record, seats: m.seats, rematchVotes: m.rematchVotes, clock: m.clock ?? null, clockAt: Date.now() });
         break;
       case 'emote':
         this.set({ lastEmote: { from: m.from, id: m.id, at: Date.now() } });
@@ -110,10 +113,10 @@ class OnlineSession {
     try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
   }
 
-  create(name: string, rating: number, colour: 'p1' | 'p2' | 'random') {
+  create(name: string, rating: number, colour: 'p1' | 'p2' | 'random', clock: ClockSetting | null = null) {
     this.forget();
-    this.set({ record: null, code: null, seat: null, seats: {}, error: null });
-    this.send({ t: 'create', name, rating, colour });
+    this.set({ record: null, code: null, seat: null, seats: {}, error: null, clock: null });
+    this.send({ t: 'create', name, rating, colour, clock });
   }
 
   join(code: string, name: string, rating: number) {
@@ -136,8 +139,16 @@ class OnlineSession {
     this.wantOpen = false;
     this.ws?.close();
     this.ws = null;
-    this.set({ status: 'idle', code: null, seat: null, record: null, seats: {}, rematchVotes: [], error: null });
+    this.set({ status: 'idle', code: null, seat: null, record: null, seats: {}, rematchVotes: [], error: null, clock: null });
   }
 }
 
 export const online = new OnlineSession();
+
+/** Milliseconds left for a seat right now, counting down locally between server updates. */
+export function timeLeft(snap: OnlineSnapshot, seat: PlayerId, now = Date.now()): number | null {
+  const c = snap.clock;
+  if (!c || c.left[seat] === undefined) return null;
+  const base = c.left[seat]!;
+  return c.running === seat ? Math.max(0, base - (now - snap.clockAt)) : base;
+}

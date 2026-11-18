@@ -41,7 +41,7 @@ export class Lobby {
     const close = () => this.rooms.close(conn);
     server.addEventListener('close', close);
     server.addEventListener('error', close);
-    if (!this.timer) this.timer = setInterval(() => this.rooms.tick(), 2000);
+    if (!this.timer) this.timer = setInterval(() => this.rooms.tick(), 500);
     return new Response(null, { status: 101, webSocket: client });
   }
 }

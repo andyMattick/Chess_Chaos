@@ -112,6 +112,12 @@ describe('standard rules', () => {
     expect(s.result).toEqual({ reason: 'resign', winners: ['p2'] });
   });
 
+  it('timeout loses, unless the opponent cannot mate', () => {
+    expect(play(standardStart(), { t: 'timeout', by: 'p1' }).result).toEqual({ reason: 'time', winners: ['p2'] });
+    const bare = fromFEN('4k3/8/8/8/8/8/PPPP4/4K3 w - - 0 1');
+    expect(play(bare, { t: 'timeout', by: 'p1' }).result).toEqual({ reason: 'time', winners: [] });
+  });
+
   it('rejects illegal moves', () => {
     const s = standardStart();
     expect(() => play(s, { t: 'move', piece: s.sq[12], to: 36 + 8 })).toThrow();
