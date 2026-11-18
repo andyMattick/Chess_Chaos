@@ -27,12 +27,12 @@ Built so far: Classic, King of the hill, Hill wars (2 and 4 players), 3-way, 4-w
 | ID | Name | Status | Where |
 |---|---|---|---|
 | MODE-00 | Standard | Built | Bots, online, Train |
-| MODE-01 | Random piece | Planned | Party match (not built yet) |
+| MODE-01 | Random piece | Built | Party match |
 | MODE-02 | King of the hill | Built | Battle modes (vs bot), Play online |
-| MODE-03 | Three-check | Planned | Party match (not built yet) |
+| MODE-03 | Three-check | Built | Party match |
 | MODE-04 | Horde | Planned | Party match (not built yet) |
-| MODE-05 | Shuffle start | Planned | Party match (not built yet) |
-| MODE-06 | Capture race | Planned | Party match (not built yet) |
+| MODE-05 | Shuffle start | Built | Party match |
+| MODE-06 | Capture race | Built | Party match |
 | MODE-07 | Draft | Planned | Party match (not built yet) |
 | MODE-08 | Boss battle | Planned | Party match (not built yet) |
 | MODE-09 | Shrinking board | Planned | Party match (not built yet) |
@@ -46,9 +46,9 @@ Built so far: Classic, King of the hill, Hill wars (2 and 4 players), 3-way, 4-w
 | MODE-17 | Progressive | Planned | Party match (not built yet) |
 | MODE-18 | Wrap-around | Planned | Party match (not built yet) |
 | MODE-19 | Hidden queen | Planned | Party match (not built yet) |
-| MODE-20 | Capture the flag | Planned | Party match (not built yet) |
+| MODE-20 | Capture the flag | Built | Party match |
 | MODE-21 | Lava squares | Planned | Party match (not built yet) |
-| MODE-22 | Truce | Planned | Party match (not built yet) |
+| MODE-22 | Truce | Built | Party match |
 | MODE-23 | Mini board | Planned | Party match (not built yet) |
 | MODE-24 | Monster | Planned | Party match (not built yet) |
 | MODE-25 | Mystery army | Planned | Party match (not built yet) |
@@ -63,57 +63,57 @@ Built so far: Classic, King of the hill, Hill wars (2 and 4 players), 3-way, 4-w
 
 | ID | Name | Status | Where |
 |---|---|---|---|
-| BUFF-01 | Double step | Planned | Party match |
-| BUFF-02 | Shield | Planned | Party match |
-| BUFF-03 | Take-back | Planned | Party match |
+| BUFF-01 | Double step | Built | Party match (vs bot and online) |
+| BUFF-02 | Shield | Built | Party match (vs bot and online) |
+| BUFF-03 | Take-back | Built | Party match (vs bot and online) |
 | BUFF-04 | Scout | Planned | Party match |
-| BUFF-05 | Pawn sprint | Planned | Party match |
-| BUFF-06 | Second wind | Planned | Party match |
-| BUFF-07 | Long jump | Planned | Party match |
-| BUFF-08 | Early crown | Planned | Party match |
+| BUFF-05 | Pawn sprint | Built | Party match (vs bot and online) |
+| BUFF-06 | Second wind | Built | Party match (vs bot and online) |
+| BUFF-07 | Long jump | Built | Party match (vs bot and online) |
+| BUFF-08 | Early crown | Built | Party match (vs bot and online) |
 | BUFF-09 | Safe king | Planned | Party match |
-| BUFF-10 | Backpedal | Planned | Party match |
-| BUFF-11 | Swap | Planned | Party match |
-| BUFF-12 | Bonus hint | Planned | Party match |
+| BUFF-10 | Backpedal | Built | Party match (vs bot and online) |
+| BUFF-11 | Swap | Built | Party match (vs bot and online) |
+| BUFF-12 | Bonus hint | Built | Party match (vs bot and online) |
 | BUFF-13 | Rally | Planned | Party match |
-| BUFF-14 | Reinforcements | Planned | Party match |
-| BUFF-15 | Freeze ray | Planned | Party match |
-| BUFF-16 | Royal dash | Planned | Party match |
-| BUFF-17 | Sidestep | Planned | Party match |
-| BUFF-18 | Knight's blessing | Planned | Party match |
-| BUFF-19 | X-ray | Planned | Party match |
-| BUFF-20 | Recall | Planned | Party match |
-| BUFF-21 | Home guard | Planned | Party match |
+| BUFF-14 | Reinforcements | Built | Party match (vs bot and online) |
+| BUFF-15 | Freeze ray | Built | Party match (vs bot and online) |
+| BUFF-16 | Royal dash | Built | Party match (vs bot and online) |
+| BUFF-17 | Sidestep | Built | Party match (vs bot and online) |
+| BUFF-18 | Knight's blessing | Built | Party match (vs bot and online) |
+| BUFF-19 | X-ray | Built | Party match (vs bot and online) |
+| BUFF-20 | Recall | Built | Party match (vs bot and online) |
+| BUFF-21 | Home guard | Built | Party match (vs bot and online) |
 | BUFF-22 | Time bank | Planned | Party match |
 | BUFF-23 | Peek | Planned | Party match |
-| BUFF-24 | Safety net | Planned | Party match |
+| BUFF-24 | Safety net | Built | Party match (vs bot and online) |
 
 ## Handicaps (negative modifiers) (24)
 
 | ID | Name | Status | Where |
 |---|---|---|---|
 | HCAP-01 | Fog | Planned | Party match |
-| HCAP-02 | Frozen piece | Planned | Party match |
-| HCAP-03 | Tired queen | Planned | Party match |
-| HCAP-04 | Butterfingers | Planned | Party match |
-| HCAP-05 | Slow pawns | Planned | Party match |
-| HCAP-06 | No castling | Planned | Party match |
-| HCAP-07 | Short clock | Planned | Party match |
+| HCAP-02 | Frozen piece | Built | Party match (vs bot and online) |
+| HCAP-03 | Tired queen | Built | Party match (vs bot and online) |
+| HCAP-04 | Butterfingers | Built | Party match (vs bot and online) |
+| HCAP-05 | Slow pawns | Built | Party match (vs bot and online) |
+| HCAP-06 | No castling | Built | Party match (vs bot and online) |
+| HCAP-07 | Short clock | Built | Party match (vs bot and online) |
 | HCAP-08 | Blind spot | Planned | Party match |
-| HCAP-09 | Heavy rooks | Planned | Party match |
+| HCAP-09 | Heavy rooks | Built | Party match (vs bot and online) |
 | HCAP-10 | Tax | Planned | Party match |
-| HCAP-11 | Mirror | Planned | Party match |
-| HCAP-12 | Homesick king | Planned | Party match |
-| HCAP-13 | Forced capture | Planned | Party match |
-| HCAP-14 | Missing pawn | Planned | Party match |
+| HCAP-11 | Mirror | Built | Party match (vs bot and online) |
+| HCAP-12 | Homesick king | Built | Party match (vs bot and online) |
+| HCAP-13 | Forced capture | Built | Party match (vs bot and online) |
+| HCAP-14 | Missing pawn | Built | Party match (vs bot and online) |
 | HCAP-15 | Sleepy start | Planned | Party match |
-| HCAP-16 | Silent board | Planned | Party match |
-| HCAP-17 | Rusty crown | Planned | Party match |
-| HCAP-18 | Slippery board | Planned | Party match |
-| HCAP-19 | One-way rooks | Planned | Party match |
-| HCAP-20 | Peaceful bishops | Planned | Party match |
+| HCAP-16 | Silent board | Built | Party match (vs bot and online) |
+| HCAP-17 | Rusty crown | Built | Party match (vs bot and online) |
+| HCAP-18 | Slippery board | Built | Party match (vs bot and online) |
+| HCAP-19 | One-way rooks | Built | Party match (vs bot and online) |
+| HCAP-20 | Peaceful bishops | Built | Party match (vs bot and online) |
 | HCAP-21 | Costume party | Planned | Party match |
-| HCAP-22 | Restless king | Planned | Party match |
+| HCAP-22 | Restless king | Built | Party match (vs bot and online) |
 | HCAP-23 | Toll road | Planned | Party match |
 | HCAP-24 | No take-backs | Planned | Party match |
 
@@ -124,26 +124,26 @@ Built so far: Classic, King of the hill, Hill wars (2 and 4 players), 3-way, 4-w
 | MISSION-01 | Castle before move 8 | Partly | Built as a Train mode goal; not yet a secret mission |
 | MISSION-02 | Capture with a knight | Partly | Built as a Train mode goal; not yet a secret mission |
 | MISSION-03 | Win without losing your queen | Planned | Party match |
-| MISSION-04 | Promote a pawn | Planned | Party match |
-| MISSION-05 | Deliver a fork | Partly | The fork detector is built (used for alerts, badges, coins); not yet a secret mission |
-| MISSION-06 | Pin a piece to the king | Partly | The pin detector is built (used for alerts, badges, coins); not yet a secret mission |
-| MISSION-07 | Rook on the seventh | Planned | Party match |
+| MISSION-04 | Promote a pawn | Built | Party match secret mission |
+| MISSION-05 | Deliver a fork | Built | Party match secret mission |
+| MISSION-06 | Pin a piece to the king | Built | Party match secret mission |
+| MISSION-07 | Rook on the seventh | Built | Party match secret mission |
 | MISSION-08 | Nothing left hanging | Partly | Built as a Train mode goal; not yet a secret mission |
 | MISSION-09 | Mate with a minor piece | Planned | Party match |
-| MISSION-10 | Own the centre | Planned | Party match |
-| MISSION-11 | Trade queens while ahead | Planned | Party match |
-| MISSION-12 | Check three times | Planned | Party match |
+| MISSION-10 | Own the centre | Built | Party match secret mission |
+| MISSION-11 | Trade queens while ahead | Built | Party match secret mission |
+| MISSION-12 | Check three times | Built | Party match secret mission |
 | MISSION-13 | Develop the minors | Partly | Built as a Train mode goal; not yet a secret mission |
-| MISSION-14 | Discovered attack | Partly | The sneak-attack detector is built (used for alerts, badges, coins); not yet a secret mission |
-| MISSION-15 | Land a skewer | Partly | The skewer detector is built (used for alerts, badges, coins); not yet a secret mission |
-| MISSION-16 | En passant | Planned | Party match |
-| MISSION-17 | Passed pawn | Planned | Party match |
-| MISSION-18 | Double their pawns | Planned | Party match |
-| MISSION-19 | Keep the bishop pair | Planned | Party match |
+| MISSION-14 | Discovered attack | Built | Party match secret mission |
+| MISSION-15 | Land a skewer | Built | Party match secret mission |
+| MISSION-16 | En passant | Built | Party match secret mission |
+| MISSION-17 | Passed pawn | Built | Party match secret mission |
+| MISSION-18 | Double their pawns | Built | Party match secret mission |
+| MISSION-19 | Keep the bishop pair | Built | Party match secret mission |
 | MISSION-20 | Back-rank mate | Planned | Party match |
-| MISSION-21 | Knight outpost | Planned | Party match |
+| MISSION-21 | Knight outpost | Built | Party match secret mission |
 | MISSION-22 | Connect the rooks | Partly | Built as a Train mode goal; not yet a secret mission |
-| MISSION-23 | Stack the rooks | Planned | Party match |
+| MISSION-23 | Stack the rooks | Built | Party match secret mission |
 | MISSION-24 | Sacrifice and win | Planned | Party match |
 
 ## Power-up cards (24)

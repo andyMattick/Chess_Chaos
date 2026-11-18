@@ -21,7 +21,7 @@ export function ProfileChip({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train' | 'chesscom' | 'battle' | 'leaderboard') => void }) {
+export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train' | 'chesscom' | 'battle' | 'leaderboard' | 'party') => void }) {
   const save = useSave();
   const p = activeProfile(save);
   return (
@@ -72,10 +72,10 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
           <span className="big-title">My games</span>
           <span className="big-sub">Replay any of your last 50 games</span>
         </button>
-        <button className="big soon" style={{ ['--c' as string]: '#ff6fb5' }} disabled>
+        <button className="big" style={{ ['--c' as string]: '#ff6fb5' }} onClick={() => go('party')} disabled={!p}>
           <span className="big-emoji">🎉</span>
           <span className="big-title">Party match</span>
-          <span className="big-sub">Coming soon: modes, missions and cards</span>
+          <span className="big-sub">Surprise mode, secret mission, buffs and handicaps</span>
         </button>
         {save.settings.chesscomEnabled && (
           <button className="big" style={{ ['--c' as string]: '#7fb069' }} onClick={() => go('chesscom')} disabled={!p}>

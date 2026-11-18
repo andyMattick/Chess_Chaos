@@ -240,3 +240,42 @@ describe('room extras', () => {
     expect(a.last('room')!.gamesPlayed).toBe(2);
   });
 });
+
+describe('online party rooms', () => {
+  it('deals a mode, modifiers and missions when both are seated, and hides the other mission', () => {
+    const server = new RoomServer(() => 0);
+    const a = client('a'), b = client('b');
+    server.handle(a.conn, { t: 'create', name: 'Ava', rating: 400, colour: 'p1', game: 'party' });
+    expect(a.last('room')!.record.setup.party).toBeUndefined();
+    server.handle(b.conn, { t: 'join', code: a.last('joined')!.code, name: 'Ben', rating: 1000 });
+    const pa = a.last('room')!.record.setup.party!;
+    const pb = b.last('room')!.record.setup.party!;
+    expect(pa.missions.p1).not.toBe('?');
+    expect(pa.missions.p2).toBe('?');
+    expect(pb.missions.p1).toBe('?');
+    expect(pb.missions.p2).not.toBe('?');
+    expect(pa.modifiers.p1!.length).toBe(2); // 600-point gap: major + minor buff
+    expect(pa.modifiers.p2!.length).toBe(1); // and a major handicap
+  });
+  it('reveals both missions when the game ends', () => {
+    const server = new RoomServer(() => 0);
+    const a = client('a'), b = client('b');
+    server.handle(a.conn, { t: 'create', name: 'Ava', rating: 600, colour: 'p1', game: 'party' });
+    server.handle(b.conn, { t: 'join', code: a.last('joined')!.code, name: 'Ben', rating: 600 });
+    server.handle(b.conn, { t: 'action', action: { t: 'resign', by: 'p2' } });
+    const m = a.last('room')!.record.setup.party!.missions;
+    expect(m.p1).not.toBe('?');
+    expect(m.p2).not.toBe('?');
+  });
+});
+
+describe('online buffs', () => {
+  it('a buff from the wrong player is refused', () => {
+    const server = new RoomServer(() => 0);
+    const a = client('a'), b = client('b');
+    server.handle(a.conn, { t: 'create', name: 'Ava', rating: 600, colour: 'p1', game: 'party' });
+    server.handle(b.conn, { t: 'join', code: a.last('joined')!.code, name: 'Ben', rating: 600 });
+    server.handle(b.conn, { t: 'action', action: { t: 'buff', by: 'p2', id: 'BUFF-21' } });
+    expect(b.last('error')!.message).toMatch(/own turn/);
+  });
+});

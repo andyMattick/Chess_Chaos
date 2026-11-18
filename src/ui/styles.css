@@ -436,3 +436,29 @@ body[data-land='space'] .player-bar:not(.active) .prating, body[data-land='volca
   background: var(--tomato); color: white; border: 3px solid var(--ink); border-radius: 12px; padding: 4px 12px; font-weight: 900; animation: pop 0.3s ease-out;
 }
 @keyframes nudge { 0%, 100% { transform: rotate(0); } 15% { transform: rotate(-2.5deg) scale(1.02); } 30% { transform: rotate(2.5deg); } 45% { transform: rotate(-2deg); } 60% { transform: rotate(1.5deg); } 75% { transform: rotate(-1deg); } }
+
+/* Party */
+.reveal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin: 12px 0 16px; }
+.reveal-card { border: 3.5px solid var(--ink); border-radius: var(--wonky); background: #fff8e6; padding: 14px; box-shadow: 5px 6px 0 var(--ink); text-align: left; animation: slam 0.45s ease-out backwards; }
+.reveal-card:nth-child(1) { transform: rotate(-2deg); background: #ffe0ef; }
+.reveal-card:nth-child(2) { transform: rotate(1deg); animation-delay: 0.15s; }
+.reveal-card:nth-child(3) { transform: rotate(-1deg); animation-delay: 0.3s; }
+.reveal-emoji { font-size: 3rem; }
+.mod { display: flex; gap: 8px; align-items: center; padding: 4px 0; }
+.mod small { display: block; color: var(--muted); font-weight: 600; font-size: 0.82rem; }
+.mod-emoji { font-size: 1.6rem; flex: none; }
+.mod.buff b { color: #1f8a3c; }
+.mod.handicap b { color: #c2410c; }
+.mods h4 { margin: 6px 0 2px; font-family: var(--hand); }
+.party-panel { display: grid; gap: 8px; }
+.party-mode { background: #ffe0ef; border: 2.5px solid var(--ink); border-radius: var(--wonky2); padding: 6px 10px; font-weight: 700; }
+.party-mode small { display: block; color: var(--muted); font-weight: 600; }
+.mission-card { display: grid; text-align: center; gap: 2px; padding: 10px; border: 3px dashed var(--ink); border-radius: var(--wonky2); background: var(--ink); color: #fff; user-select: none; touch-action: none; }
+.mission-card small { color: #d8d3ee; font-weight: 700; }
+.mission-card.open { background: var(--yolk); color: var(--ink); border-style: solid; }
+.mission-card.open small { color: var(--ink); }
+.mission-card.live:not(.open) { animation: pulse 1.4s ease-in-out infinite; background: #5a2a8a; }
+.mission-card.big { min-height: 180px; place-content: center; }
+.mission-reveal { display: grid; gap: 4px; text-align: left; margin: 6px 0; font-weight: 700; }
+.mission-reveal .won { background: var(--lime); border-radius: 8px; padding: 2px 6px; }
+.mission-reveal small { color: var(--muted); font-weight: 600; }

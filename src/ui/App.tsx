@@ -9,6 +9,7 @@ import { Wardrobe } from './Wardrobe';
 import { TrainSetup } from './TrainSetup';
 import { ChessCom } from './ChessCom';
 import { Leaderboard } from './Leaderboard';
+import { PartySetup } from './PartySetup';
 import { BattleSetup } from './BattleSetup';
 import { BattleScreen, type LocalBattle } from './BattleScreen';
 import { useSave } from './store';
@@ -23,6 +24,7 @@ type Screen =
   | { name: 'train' }
   | { name: 'chesscom' }
   | { name: 'leaderboard' }
+  | { name: 'party' }
   | { name: 'battle' }
   | { name: 'battle-game'; local: LocalBattle; key: number }
   | { name: 'game'; config: GameConfig; key: number; review?: GameRecord };
@@ -55,6 +57,7 @@ export function App() {
       {screen.name === 'train' && <TrainSetup start={startGame} back={home} />}
       {screen.name === 'chesscom' && <ChessCom back={home} open={openRecord} />}
       {screen.name === 'leaderboard' && <Leaderboard back={home} />}
+      {screen.name === 'party' && <PartySetup start={startGame} back={home} />}
       {screen.name === 'battle' && <BattleSetup back={home} startDuel={startGame} startBattle={(local) => setScreen({ name: 'battle-game', local, key: Date.now() })} />}
       {screen.name === 'battle-game' && (
         <BattleScreen key={screen.key} local={screen.local} onExit={home} onAgain={() => setScreen({ name: 'battle-game', local: screen.local, key: Date.now() })} />

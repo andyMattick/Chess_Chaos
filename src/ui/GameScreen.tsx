@@ -22,6 +22,9 @@ import type { ReviewResult } from '../systems/review';
 import { mergeMiss } from '../systems/review';
 import { sameMove } from '../core/rules';
 import { useTraining, type TrainingConfig } from './training';
+import { usePartyLayer } from './partyLayer';
+import { refereeMission, type PartySetup } from '../systems/party';
+import { missionById } from '../content/party';
 import { moveEvents, shakeFor, type MoveEvents } from './effects';
 import { setSoundEnabled, sfx } from './sound';
 import { useYourTurn } from './yourTurn';
@@ -31,6 +34,8 @@ export interface GameConfig {
   kind: 'local' | 'bot' | 'online';
   /** Game mode for new games (koth, hill-wars…). Default classic. */
   mode?: string;
+  /** Party match setup (modifiers and missions) for a new local game. */
+  party?: PartySetup;
   /** Training game: one alert and open goals (docs/02 s2). */
   training?: TrainingConfig;
   botId?: string;
@@ -56,6 +61,7 @@ const REASON_TEXT: Record<string, string> = {
   'draw-material': 'Draw: nobody can checkmate with what is left.',
   'draw-agreed': 'Draw agreed.',
   time: 'on time! (the other clock ran out)',
+  mission: 'by finishing a SECRET MISSION! 🎯',
   'mode-win': 'by taking the hill! ⛰️',
 };
 
@@ -75,7 +81,12 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   const me: PlayerId = isOnline ? net.seat ?? 'p1' : config.humanSeat;
   const botSeat: PlayerId | null = config.kind === 'bot' ? other(config.humanSeat) : null;
 
-  const [localRec, setLocalRec] = useState<GameRecord>(() => reviewRecord ?? newRecord(newSeed(), config.names, undefined, config.mode ?? 'standard'));
+  const [localRec, setLocalRec] = useState<GameRecord>(() => {
+    if (reviewRecord) return reviewRecord;
+    const r = newRecord(newSeed(), config.names, undefined, config.mode ?? 'standard');
+    if (config.party) r.setup = { ...r.setup, party: config.party };
+    return r;
+  });
   const rec = isOnline && net.record ? net.record : localRec;
   const names: Record<string, string> = isOnline
     ? { p1: net.seats.p1?.name ?? '…', p2: net.seats.p2?.name ?? '…' }
@@ -165,9 +176,23 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     isMyTurn: isHumanTurn && !reviewing, selected, commit: (m) => commit(m),
   });
 
+  const partySetup = rec.setup.party;
+  const party = usePartyLayer({
+    party: partySetup, live, me, myTurn: isHumanTurn && !reviewing, names, push, selected,
+    takeBack: botSeat ? () => undo() : undefined,
+  });
+
+  // Party referee (bot games on this device; online the server referees).
+  useEffect(() => {
+    if (isOnline || !partySetup || live.result || reviewRecord) return;
+    const done = refereeMission(states, rec.actions, partySetup);
+    if (done) setLocalRec((r) => ({ ...r, actions: [...r.actions, done] }));
+  }, [rec.actions.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   function commit(m: MoveAction) {
     setSelected(null);
     setPromo(null);
+    if (!retrying && !party.beforeCommit(m)) return;
     if (retrying && fix) {
       const good = fix.goodMoves.some((g) => sameMove(g, m));
       if (good) setRetry({ ...retry!, solved: true });
@@ -184,7 +209,10 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
       if (retry!.solved || retry!.reveal) return;
     } else {
       if (reviewing || !isHumanTurn) return;
+      if (party.interceptSquare(sq)) return;
       if (training.interceptSquare(sq) || training.locked) return;
+      // Butterfingers: once you touch a piece, you must move it.
+      if (party.lockSelection && selected !== null && !targets.some((m) => m.to === sq)) return;
     }
     const pos = retrying ? states[fix!.ply] : live;
     if (selected !== null) {
@@ -254,7 +282,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
       }
       if (oppRating !== undefined && rec.actions.length >= 2) {
         const score = won ? 1 : drawn ? 0.5 : 0;
-        const rating = updateRating(p.rating, oppRating, score, p.gamesPlayed);
+        const rating = updateRating(p.rating, oppRating, score, p.gamesPlayed, live.result!.reason === 'mission' ? 0.5 : 1);
         setRatingChange({ before: p.rating, after: rating });
         p = { ...p, rating, gamesPlayed: p.gamesPlayed + 1, ratingHistory: [...p.ratingHistory, { at: Date.now(), rating }].slice(-200) };
         if (bot) {
@@ -357,6 +385,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           note={isOnline && opp && top !== me ? (opp.botControlled ? '🤖 a bot took over' : !opp.connected ? '📡 reconnecting…' : null) : null}
         />
         <div className="banner-slot">
+            {party.banner && !live.result && <div className="banner pink">{party.banner}</div>}
             {training.banner && !reviewing && !live.result && <div className={`banner ${training.banner.tone ?? ''}`}>{training.banner.text}</div>}
             {retrying && fix && (
               <div className={`banner ${retry!.solved ? '' : 'blue'}`}>
@@ -369,17 +398,18 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             state={shown}
             bottom={bottom}
             selected={reviewing && !retrying ? null : selected}
-            targets={reviewing && !retrying ? [] : targets}
-            lastMove={lastMove}
+            targets={(reviewing && !retrying) || party.hideHints ? [] : targets}
+            lastMove={party.hideHints && isHumanTurn ? null : lastMove}
             showCoordinates={save.settings.showCoordinates}
             landscape={lookOf(save).landscape}
             skins={skinsNow}
             interactive={(!reviewing && isHumanTurn) || retrying}
             onSquare={onSquare}
             fx={view === null ? fx : null}
-            overlays={retrying && retry!.reveal && fix ? revealOverlay(states[fix.ply], fix.goodMoves[0]) : training.overlays}
+            overlays={retrying && retry!.reveal && fix ? revealOverlay(states[fix.ply], fix.goodMoves[0]) : training.overlays ?? party.overlays}
           />
           {training.modal}
+          {party.modal}
           {promo && (
             <div className="promo" role="dialog" aria-label="Choose a piece">
               <p>Your pawn made it! Turn it into…</p>
@@ -398,6 +428,16 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
               <div className="result-emoji">{won ? '🏆' : live.result!.winners.length ? '💥' : '🤝'}</div>
               <h2>{won ? 'YOU WON!' : live.result!.winners.length ? 'Ooof. Good fight!' : 'A draw!'}</h2>
               <p>{status}</p>
+              {partySetup && (
+                <div className="mission-reveal">
+                  {(Object.keys(partySetup.missions) as PlayerId[]).map((k) => {
+                    const id = live.result?.reason === 'mission' && live.result.winners.includes(k) ? (live.modeData?.missionWin as string) : partySetup.missions[k];
+                    const m = id && id !== '?' ? missionById(id) : undefined;
+                    const won = live.result?.reason === 'mission' && live.result.winners.includes(k);
+                    return <div key={k} className={won ? 'won' : ''}>🎯 {names[k]}: <b>{m ? m.name : 'secret'}</b>{won ? ' ✅ done!' : ''}{m && <small> {m.blurb}</small>}</div>;
+                  })}
+                </div>
+              )}
               {review === 'loading' && <p className="muted thinking-dots">Looking over your game…</p>}
               {review && review !== 'loading' && (
                 <div className="review">
@@ -442,6 +482,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             </div>
           )}
           {training.toast && <div className="toast">{training.toast}</div>}
+          {party.toast && <div className="toast">{party.toast}</div>}
         </div>
         <PlayerBar
           name={names[bottom]} rating={bot && bottom === botSeat ? bot.rating : net.seats[bottom]?.rating} avatar={avatar(bottom)}
@@ -465,6 +506,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           </div>
         )}
         {!reviewRecord && training.panel}
+        {!reviewRecord && party.panel}
         {live.mode === 'koth' && <div className="hill-goal">⛰️ King of the hill: get your king to a yellow square to win!</div>}
         {live.mode === 'hill-wars' && (() => {
           const h = hillData(shown);

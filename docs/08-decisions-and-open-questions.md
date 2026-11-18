@@ -82,3 +82,11 @@ Implementing agent: add dated entries below when you resolve an ambiguity or rec
 - **Cosmetics.** Piece skins per army with per-piece overrides, and seven board landscapes, chosen in the Wardrobe. All art is drawn in code. Characters wear the hat of their piece type and can show a small classic badge, so the board stays readable for learners. Skins and landscapes are good candidates for unlockable rewards later (badges, missions), in place of or alongside power cards.
 - **Look.** Deliberately scrappy: wonky borders, tape, tilted cards, a wobble filter on the board. Fonts come from Bunny Fonts (no visitor logging); self-host them before a paid release.
 
+### 2026-11-17: Party match
+
+- **Built:** mode deck (Classic ×3, King of the hill, Three-check, Capture race, Dice chess, Truce, Capture the flag, Shuffle start, Hill wars), rating-gap modifiers (36 of 48 buffs/handicaps), 15 game-ending secret missions with the move-10 gate (8 under 800), half rating for mission wins, mission reveal at the end. Works against bots and online (room game "Party match"; the server deals and referees, each player only receives their own mission).
+- **Simplified missions:** Fork, Pin, Skewer and Sneak attack complete when the tactic is played; "wins material within 2 moves" is not checked. Double their pawns counts any new enemy doubled pawns, not only ones forced by a capture.
+- **Missions are refereed outside the core:** a completed mission is recorded as a `mission` action, so replays stay exact and the core never needs to see hidden missions.
+- **Bots** get only always-on modifiers and do not chase their mission yet (they still win by checkmate or the mode). Online, the mode is drawn at random by the server rather than from a player's own deck.
+- **Not yet playable:** BUFF-04 Scout, 09 Safe king, 13 Rally, 22 Time bank, 23 Peek; HCAP-01 Fog, 08 Blind spot, 10 Tax, 15 Sleepy start, 21 Costume party, 23 Toll road, 24 No take-backs. Bonus missions (03, 09, 20, 24).
+

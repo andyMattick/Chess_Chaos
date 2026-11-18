@@ -61,10 +61,11 @@ export interface ClockState {
 }
 
 /** What kind of game a room plays. */
-export type RoomGame = 'standard' | 'koth' | 'hill-wars' | 'battle-3' | 'battle-4' | 'battle-teams' | 'battle-hill-4';
+export type RoomGame = 'standard' | 'party' | 'koth' | 'hill-wars' | 'battle-3' | 'battle-4' | 'battle-teams' | 'battle-hill-4';
 
 export const ROOM_GAMES: { id: RoomGame; label: string; seats: number; blurb: string }[] = [
   { id: 'standard', label: '♟️ Classic', seats: 2, blurb: 'Normal chess, 1 vs 1.' },
+  { id: 'party', label: '🎉 Party match', seats: 2, blurb: 'Surprise mode, secret missions, and buffs or handicaps from your ratings.' },
   { id: 'koth', label: '⛰️ King of the hill', seats: 2, blurb: 'Get your king to the middle 4 squares to win.' },
   { id: 'hill-wars', label: '🚩 Hill wars', seats: 2, blurb: 'Hold the middle squares to score. First to 20.' },
   { id: 'battle-3', label: '⚔️ 3-way battle', seats: 3, blurb: 'Three armies, one winner. Capture kings to knock players out.' },

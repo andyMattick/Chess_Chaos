@@ -1,6 +1,7 @@
 import { chooseMove } from '../ai/strength';
 import { newBattleRecord, newRecord, replay, type GameRecord } from '../core/record';
 import { BOTS } from '../content/bots';
+import { PARTY_DECK, redactParty, refereeMission, setupParty } from '../systems/party';
 import { play } from '../core/rules';
 import type { Action, GameState, PlayerId } from '../core/types';
 import { cleanLook, cleanName, EMOTES, ROOM_GAMES, type ArmyLook, type ClientMsg, type ClockSetting, type ClockState, type RoomGame, type SeatInfo, type ServerMsg } from './protocol';
@@ -33,6 +34,8 @@ export class Room {
   seats: Partial<Record<PlayerId, Seat>> = {};
   record: GameRecord;
   state: GameState;
+  /** Every position so far (the referee needs the history for missions). */
+  states: GameState[] = [];
   rematchVotes = new Set<PlayerId>();
   emptySince: number | null = null;
   private lastEmote = new Map<string, number>();
@@ -53,7 +56,21 @@ export class Room {
     this.seatIds = (['p1', 'p2', 'p3', 'p4'] as PlayerId[]).slice(0, n);
     this.record = this.freshRecord(seed, {});
     this.state = replay(this.record)[0];
+    this.states = [this.state];
     this.setClock(clock);
+  }
+
+  /** Party rooms: once everyone is seated, draw the mode and deal modifiers and missions. */
+  private maybeStartParty() {
+    if (this.game !== 'party' || !this.allSeated() || this.record.setup.party || this.record.actions.length) return;
+    const mode = PARTY_DECK[Math.floor(Math.random() * PARTY_DECK.length)];
+    const p = (k: PlayerId) => ({ rating: this.seats[k]!.rating, bot: this.seats[k]!.botControlled });
+    const party = setupParty({ mode, online: true, players: { p1: p('p1'), p2: p('p2') } }, Math.random);
+    const names = { ...this.record.meta.players };
+    this.record = { ...newRecord(this.record.seed, names, undefined, mode), id: this.record.id };
+    this.record.setup = { ...this.record.setup, party };
+    this.state = replay(this.record)[0];
+    this.states = [this.state];
   }
 
   private freshRecord(seed: number, players: Record<string, string>): GameRecord {
@@ -84,6 +101,7 @@ export class Room {
       this.seats[k] = { name: `${b.emoji} ${b.name}`, rating: b.rating, connected: false, botControlled: true, token: token(), conn: null, leftAt: null };
       this.record.meta.players[k] = this.seats[k]!.name;
     }
+    this.maybeStartParty();
     this.broadcast();
   }
 
@@ -123,6 +141,7 @@ export class Room {
     const s: Seat = { look: cleanLook(look), name: cleanName(name), rating: Math.max(100, Math.min(3000, Math.round(rating) || 600)), connected: true, botControlled: false, token: token(), conn, leftAt: null };
     this.seats[seat] = s;
     this.host ??= seat;
+    this.maybeStartParty();
     this.record.meta.players[seat] = s.name;
     this.emptySince = null;
     conn.send({ t: 'joined', code: this.code, seat, token: s.token });
@@ -189,7 +208,7 @@ export class Room {
   }
 
   private apply(a: Action) {
-    if (this.clockSetting && a.t === 'move') {
+    if (this.clockSetting && (a.t === 'move' || (a.t === 'buff' && this.state.turn !== play(this.state, a).turn))) {
       const running = this.runningSeat();
       if (running && this.turnStart !== null) {
         this.left[running] = Math.max(0, (this.left[running] ?? 0) - (this.now() - this.turnStart) + this.clockSetting.increment * 1000);
@@ -197,6 +216,17 @@ export class Room {
     }
     this.state = play(this.state, a);
     this.record = { ...this.record, actions: [...this.record.actions, a] };
+    this.states.push(this.state);
+    // Party referee: did that move complete the mover's secret mission?
+    const party = this.record.setup.party;
+    if (party && !this.state.result) {
+      const done = refereeMission(this.states, this.record.actions, party);
+      if (done) {
+        this.state = play(this.state, done);
+        this.record = { ...this.record, actions: [...this.record.actions, done] };
+        this.states.push(this.state);
+      }
+    }
     if (this.state.result) {
       this.record.meta.result = this.state.result;
       this.countResult();
@@ -227,6 +257,13 @@ export class Room {
             this.apply(a);
           } catch {
             return conn.send({ t: 'error', message: 'That move is not allowed.' });
+          }
+        } else if (a.t === 'buff') {
+          if (this.state.turn !== seat || a.by !== seat) return conn.send({ t: 'error', message: 'Buffs are used on your own turn.' });
+          try {
+            this.apply(a);
+          } catch (e) {
+            return conn.send({ t: 'error', message: `That buff did not work: ${(e as Error).message}` });
           }
         } else {
           return conn.send({ t: 'error', message: 'Unknown action.' });
@@ -291,8 +328,10 @@ export class Room {
     const names = Object.fromEntries(ids.map((k) => [k, this.seats[k]?.name ?? '']));
     this.record = this.freshRecord((Math.random() * 0xffffffff) | 0, names);
     this.state = replay(this.record)[0];
+    this.states = [this.state];
     this.counted = false;
     this.setClock(this.clockSetting);
+    this.maybeStartParty();
     this.rematchVotes.clear();
     for (const k of ids) {
       const s = this.seats[k];
@@ -306,9 +345,15 @@ export class Room {
       const { name, rating, connected, botControlled, look } = this.seats[k]!;
       seats[k] = { name, rating, connected, botControlled, look };
     }
-    // Standard chess has no hidden information. Hidden modes will filter per seat here.
-    const msg: ServerMsg = { t: 'room', code: this.code, record: this.record, seats, seatIds: this.seatIds, game: this.game, host: this.host, rematchVotes: [...this.rematchVotes], clock: this.clockSnapshot(), score: this.scoreboard(), gamesPlayed: this.gamesPlayed };
-    for (const s of Object.values(this.seats)) s?.conn?.send(msg);
+    const base = { t: 'room' as const, code: this.code, seats, seatIds: this.seatIds, game: this.game, host: this.host, rematchVotes: [...this.rematchVotes], clock: this.clockSnapshot(), score: this.scoreboard(), gamesPlayed: this.gamesPlayed };
+    const party = this.record.setup.party;
+    for (const k of this.seatIds) {
+      const s = this.seats[k];
+      if (!s?.conn) continue;
+      // Each player only sees their own secret mission until the game ends.
+      const record = party && !this.state.result ? { ...this.record, setup: { ...this.record.setup, party: redactParty(party, k) } } : this.record;
+      s.conn.send({ ...base, record });
+    }
   }
 }
 
