@@ -155,7 +155,7 @@ describe('bots understand the hill', () => {
   });
 });
 
-import { newRecord, initialState, flagSquare, rolledType, MODE_INFO } from '../src/core';
+import { newRecord, initialState, flagSquare, rolledType, diceRoll, diceOptions, fromFEN, MODE_INFO } from '../src/core';
 describe('party modes', () => {
   const start = (mode: string) => initialState(newRecord(7, {}, undefined, mode));
   it('MODE-03 three-check: third check wins', () => {
@@ -168,12 +168,23 @@ describe('party modes', () => {
     for (const san of 'e4 d5 exd5'.split(' ')) s = play(s, parseSAN(s, san)!);
     expect(s.result?.reason).toBe('mode-win');
   });
-  it('MODE-01 dice chess: only the rolled piece type may move', () => {
+  it('MODE-01 dice chess: the rolled kind, the king, or a check', () => {
     const s = start('random-piece');
     const moves = legalActions(s);
-    const types = new Set(moves.map((m) => s.pieces[m.piece].type));
-    expect(types.size).toBe(1);
-    expect(rolledType(s, legalActions({ ...s, mode: 'standard' }))).toBe([...types][0]);
+    const rolled = rolledType(s, legalActions({ ...s, mode: 'standard' }));
+    for (const m of moves) {
+      const t = s.pieces[m.piece].type;
+      expect(t === 'king' || rolled === null || t === rolled).toBe(true);
+    }
+    const r = diceRoll(s, legalActions({ ...s, mode: 'standard' }));
+    expect(r.rolls.length).toBeGreaterThanOrEqual(1);
+    expect(r.rolls.length).toBeLessThanOrEqual(3);
+    // Checks are always allowed: a queen check from far away.
+    const c = { ...fromFEN('4k3/8/8/8/8/8/8/Q3K3 w - - 0 1'), mode: 'random-piece' };
+    expect(legalActions(c).some((m) => m.to === 4 + 8 * 4 || m.to === 60 - 4)).toBe(true);
+    const o = diceOptions(c, legalActions({ ...c, mode: 'standard' }));
+    expect(o.check.length).toBeGreaterThan(0);
+    for (const m of o.check) expect(legalActions(c)).toContainEqual(m);
   });
   it('MODE-22 truce: no captures early', () => {
     let s = start('truce');

@@ -68,6 +68,10 @@ function noise(start: number, dur: number, vol = 0.25, lowpass = 1800) {
 }
 
 export const sfx = {
+  /** Dice rattling. */
+  dice() {
+    for (let i = 0; i < 5; i++) noise(i * 0.06, 0.04, 0.18, 2400 + i * 300);
+  },
   move() {
     tone(520 + Math.random() * 80, 0, 0.07, 'triangle', 0.08);
   },

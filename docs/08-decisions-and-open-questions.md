@@ -165,3 +165,7 @@ Implementing agent: add dated entries below when you resolve an ambiguity or rec
 - The owner lost a save overnight. Progress lives in the browser's storage for one web address on one device, so it is lost if the address differs (a preview link, a home-screen app versus the browser on iPhone), in private browsing, or when site data is cleared.
 - **Safeguards added:** an unreadable save is kept as a rescue copy instead of being overwritten; a second backup copy is written on every save while there are players; when the main save is missing, the welcome screen offers "Bring it back" from those copies; the app asks the browser to keep its storage (`navigator.storage.persist`); if storage is full, the oldest saved games are dropped instead of failing the save.
 - **Backup file:** Settings → "Back up my progress" downloads (or, on phones, shares) a small file; "Load a backup" on any device brings the players back, merging with players already there. No accounts, no server.
+
+### 2026-11-18: Dice chess, owner rules
+
+- Each turn you choose: give check (if you can), move your king (always allowed), or roll. In check you just get out of it (any move). A roll shows one of 6 kinds; if you have no legal move with it, roll again, up to 3 times; after 3 misses you may move any piece. The screen asks for the choice before showing the roll. Rolls come from the game seed, so games replay; the engine accepts any move one of the choices allows (bots choose among all of them).

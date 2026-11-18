@@ -131,20 +131,69 @@ export function die(s: GameState, sides: number): number {
   return ((h ^ (h >>> 16)) >>> 0) % sides;
 }
 
-/** MODE-01 Random piece: the die picks which kind of piece must move this turn. */
-export function rolledType(s: GameState, moves: { piece: number }[]): string | null {
-  if (inCheck(s, s.turn)) return null;
-  // Only roll kinds that really have a legal move (a pinned piece does not count), so the dice never causes a stalemate.
-  const legal = moves.filter((m) => !inCheck(makeMove(s, m as MoveAction), s.turn));
-  const types = [...new Set(legal.map((m) => baseType(s.pieces[m.piece].type)))].sort();
-  if (types.length <= 1) return null;
-  return types[die(s, types.length)];
+/**
+ * MODE-01 Dice chess (owner rules, 2026-11-18). On your turn you may:
+ *  - give check, if you can (any move that checks);
+ *  - get out of check, if you are in check (any legal move);
+ *  - move your king (always allowed);
+ *  - or roll: the die shows one of the 6 kinds. If you have no legal move with it, roll again,
+ *    up to 3 times; after 3 misses you may move any piece.
+ * The rolls come from the game seed, so games replay exactly. The engine allows the union of
+ * the options; the screen asks you to pick one before showing the roll.
+ */
+export const DIE_FACES = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'];
+export interface DiceRoll { rolls: string[]; kind: string | 'any' }
+
+export function diceRoll(s: GameState, legal: MoveAction[]): DiceRoll {
+  const kinds = new Set(legal.map((m) => baseType(s.pieces[m.piece].type)));
+  const rolls: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    const face = DIE_FACES[dieSalted(s, 6, i)];
+    rolls.push(face);
+    if (kinds.has(face)) return { rolls, kind: face };
+  }
+  return { rolls, kind: 'any' };
 }
+
+function dieSalted(s: GameState, sides: number, salt: number): number {
+  let h = (s.rng ^ Math.imul(s.ply + 1 + salt * 7919, 0x9e3779b1)) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
+  return ((h ^ (h >>> 16)) >>> 0) % sides;
+}
+
+export type DiceChoice = 'check' | 'king' | 'roll' | 'escape';
+
+/** The moves each choice allows (legal moves only). */
+export function diceOptions(s: GameState, legal: MoveAction[]): Record<DiceChoice, MoveAction[]> {
+  const me = s.turn;
+  const isKing = (m: MoveAction) => baseType(s.pieces[m.piece].type) === 'king';
+  const checks = (m: MoveAction) => { const n = makeMove(s, m); return s.seats.some((x) => x.id !== me && x.status === 'active' && inCheck(n, x.id)); };
+  if (inCheck(s, me)) return { escape: legal, check: [], king: [], roll: [] };
+  const roll = diceRoll(s, legal);
+  return {
+    escape: [],
+    check: legal.filter(checks),
+    king: legal.filter(isKing),
+    roll: roll.kind === 'any' ? legal : legal.filter((m) => baseType(s.pieces[m.piece].type) === roll.kind),
+  };
+}
+
+/** Old name kept for the status line: the kind the dice gives this turn (null = any). */
+export function rolledType(s: GameState, moves: MoveAction[]): string | null {
+  if (inCheck(s, s.turn)) return null;
+  const legal = moves.filter((m) => !inCheck(makeMove(s, m), s.turn));
+  const r = diceRoll(s, legal);
+  return r.kind === 'any' ? null : r.kind;
+}
+
 const randomPiece: RuleModule = {
   id: 'random-piece',
   filterMoves: (s, moves) => {
-    const t = rolledType(s, moves);
-    return t ? moves.filter((m) => baseType(s.pieces[m.piece].type) === t) : moves;
+    const legal = moves.filter((m) => !inCheck(makeMove(s, m), s.turn));
+    const o = diceOptions(s, legal);
+    const ok = new Set([...o.escape, ...o.check, ...o.king, ...o.roll]);
+    return moves.filter((m) => ok.has(m));
   },
 };
 
@@ -238,7 +287,7 @@ export const MODE_INFO: ModeInfo[] = [
   { id: 'hill-wars', catalogId: 'MODE-29', name: 'Hill wars', emoji: '🚩', players: [2, 3, 4], blurb: 'Hold the middle! Every round you score 1 point per hill square you sit on, 2 for your king. First to the target wins.' },
   { id: 'three-check', catalogId: 'MODE-03', name: 'Three-check', emoji: '✔️', players: [2], blurb: 'Give check three times to win. Or checkmate.' },
   { id: 'capture-race', catalogId: 'MODE-06', name: 'Capture race', emoji: '🏁', players: [2], blurb: 'First to capture 15 points wins (pawn 1, knight/bishop 3, rook 5, queen 9).' },
-  { id: 'random-piece', catalogId: 'MODE-01', name: 'Dice chess', emoji: '🎲', players: [2], blurb: 'Each turn the dice picks which kind of piece you must move.' },
+  { id: 'random-piece', catalogId: 'MODE-01', name: 'Dice chess', emoji: '🎲', players: [2], blurb: 'Each turn: give check, move your king, or roll the dice for which kind of piece to move (3 tries, then anything goes).' },
   { id: 'truce', catalogId: 'MODE-22', name: 'Truce', emoji: '🕊️', players: [2], blurb: 'No captures for the first 10 moves each. Build up, then BOOM.' },
   { id: 'capture-the-flag', catalogId: 'MODE-20', name: 'Capture the flag', emoji: '🏳️', players: [2], blurb: 'Land a piece (not a pawn or king) on the enemy flag and survive one turn to win.' },
   { id: 'shuffle', catalogId: 'MODE-05', name: 'Shuffle start', emoji: '🔀', players: [2], blurb: 'The back row is shuffled! Same for both sides. No castling.' },

@@ -5,9 +5,9 @@ import { nemesisBot, NEMESIS_PREFIX } from '../systems/nemesis';
 import { skinFor } from '../content/cosmetics';
 import { pieceType } from '../core/pieces';
 import { newRecord, replay, type GameRecord } from '../core/record';
-import { flagSquare, hillData, MODE_INFO, rolledType } from '../core/modes';
+import { diceOptions, diceRoll, type DiceChoice, flagSquare, hillData, MODE_INFO } from '../core/modes';
+import { makeMove as makeMoveFast } from '../core/movegen';
 import { type ModeExtra, bossLives, cardChessOf, hiddenQueens, lavaNow, progressOf, reserveOf, ringSquares, shrinkIn } from '../core/modes2';
-import { pieceType as typeInfo } from '../core/pieces';
 import { legalActions, play } from '../core/rules';
 import { inCheck } from '../core/movegen';
 import { toSAN } from '../core/san';
@@ -157,10 +157,16 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   const [retry, setRetry] = useState<{ tries: number; solved: boolean; reveal: boolean } | null>(null);
   const fix = review && review !== 'loading' ? review.fix : null;
   const retrying = !!retry && !!fix && view === fix.ply;
-  const legal = useMemo(
-    () => (retrying && !retry!.solved && !retry!.reveal ? legalActions(states[fix!.ply]) : isHumanTurn && !reviewing ? legalActions(live) : []),
-    [live, isHumanTurn, reviewing, retrying, retry, fix, states],
-  );
+  // Dice chess: pick give check / move the king / roll before moving (resets every turn).
+  const [diceChoice, setDiceChoice] = useState<{ ply: number; choice: DiceChoice } | null>(null);
+  const dicePick = diceChoice?.ply === live.ply ? diceChoice.choice : null;
+  const diceOpts = useMemo(() => (live.mode === 'random-piece' && isHumanTurn && !reviewing && !live.result ? diceOptions(live, legalActions(live)) : null), [live, isHumanTurn, reviewing]);
+  const legal = useMemo(() => {
+    if (retrying && !retry!.solved && !retry!.reveal) return legalActions(states[fix!.ply]);
+    if (!isHumanTurn || reviewing) return [];
+    if (diceOpts) return diceOpts.escape.length ? diceOpts.escape : dicePick ? diceOpts[dicePick] : [];
+    return legalActions(live);
+  }, [live, isHumanTurn, reviewing, retrying, retry, fix, states, diceOpts, dicePick]);
   // Drop-in: a reserve piece picked from the tray. Hidden queen: choosing your secret pawn.
   const [dropPiece, setDropPiece] = useState<number | null>(null);
   const [pickingQueen, setPickingQueen] = useState(false);
@@ -664,6 +670,24 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
         {!reviewRecord && training.panel}
         {!reviewRecord && party.panel}
         <ModeStatus s={shown} names={names} showBlurb={!partySetup} />
+        {diceOpts && (
+          <div className="dice-panel">
+            {diceOpts.escape.length ? <b>⚠️ You're in check! Block it or move out of it (any piece).</b> : !dicePick ? (
+              <>
+                <b>🎲 Your turn: what will you do?</b>
+                <div className="dice-buttons">
+                  <button className="btn small" disabled={!diceOpts.check.length} onClick={() => setDiceChoice({ ply: live.ply, choice: 'check' })}>⚔️ Give check{diceOpts.check.length ? '' : ' (none)'}</button>
+                  <button className="btn small" disabled={!diceOpts.king.length} onClick={() => setDiceChoice({ ply: live.ply, choice: 'king' })}>👑 Move the king{diceOpts.king.length ? '' : ' (stuck)'}</button>
+                  <button className="btn primary small" onClick={() => { sfx.dice(); setDiceChoice({ ply: live.ply, choice: 'roll' }); }}>🎲 Roll!</button>
+                </div>
+              </>
+            ) : dicePick === 'roll' ? (
+              <DiceResult r={diceRoll(live, legalActions({ ...live, mode: 'standard' }).filter((m) => !inCheck(makeMoveFast(live, m), live.turn)))} />
+            ) : (
+              <span>{dicePick === 'check' ? '⚔️ Pick a move that gives check.' : '👑 Move your king.'} <button className="btn small" onClick={() => setDiceChoice(null)}>Change</button></span>
+            )}
+          </div>
+        )}
         {live.mode === 'hidden-queen' && !reviewRecord && !live.result && hiddenQueens(live)[me] === undefined && (
           <button className={`btn small ${pickingQueen ? 'primary' : ''}`} onClick={() => setPickingQueen((x) => !x)}>
             {pickingQueen ? 'Tap one of your pawns… (tap here to cancel)' : '👑 Pick your secret queen'}
@@ -834,9 +858,6 @@ function ModeStatus({ s, names, showBlurb }: { s: GameState; names: Record<strin
   } else if (s.mode === 'capture-race') {
     const pts = (s.modeData?.points as Record<string, number>) ?? {};
     line = who.map((k) => <div key={k} className="hill-bar"><div style={{ width: `${Math.min(100, ((pts[k] ?? 0) / 15) * 100)}%` }} /><span>{names[k]}: {pts[k] ?? 0} / 15</span></div>);
-  } else if (s.mode === 'random-piece' && !s.result) {
-    const t = rolledType(s, legalActions({ ...s, mode: 'standard' }));
-    line = <div className="dice-roll">🎲 {names[s.turn]} must move: <b>{t ? typeInfo(t).name ?? t : 'anything (check!)'}</b></div>;
   } else if (s.mode === 'truce') {
     const left = Math.max(0, Math.ceil((20 - s.ply) / 2));
     line = <div>{left > 0 ? `🕊️ No captures for ${left} more move${left === 1 ? '' : 's'} each` : '💥 Truce is over. Capture away!'}</div>;
@@ -893,6 +914,20 @@ function CardHands({ s, me, names, myTurn, onDiscard, skins }: { s: GameState; m
       <small>Move a piece that matches a card, or 🗑️ throw one away (that's your turn). In check, any move is fine.</small>
       <b className="muted small">{names[them]}'s cards</b>
       {row(them, false)}
+    </div>
+  );
+}
+
+const FACE: Record<string, string> = { pawn: '♟️', knight: '🐴', bishop: '⛪', rook: '🏰', queen: '👑', king: '🤴' };
+/** The dice tumbling: up to 3 rolls, the last one that works is ticked. */
+function DiceResult({ r }: { r: { rolls: string[]; kind: string } }) {
+  return (
+    <div className="dice-result">
+      {r.rolls.map((f, i) => {
+        const hit = i === r.rolls.length - 1 && r.kind !== 'any';
+        return <span key={i} className={`die ${hit ? 'hit' : 'miss'}`} style={{ animationDelay: `${i * 0.35}s` }}>{FACE[f]}<small>{f}{hit ? ' ✓' : ' ✗'}</small></span>;
+      })}
+      <b>{r.kind === 'any' ? '3 misses: move any piece!' : `Move a ${r.kind}!`}</b>
     </div>
   );
 }
