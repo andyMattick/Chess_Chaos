@@ -88,7 +88,7 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
   // "Missions are live" announcement.
   const live_ = party ? missionsLive(live, party, me) : false;
   useEffect(() => {
-    if (party && live_ && !announced.current) { announced.current = true; say(missionIsOpen(party, me) ? '🎯 Missions are LIVE! Do yours and you win at once.' : '🎯 Secret missions are LIVE! Do yours, then keep it safe through their next turn to win.'); }
+    if (party && party.missions[me] && live_ && !announced.current) { announced.current = true; say(missionIsOpen(party, me) ? '🎯 Missions are LIVE! Do yours and you win at once.' : '🎯 Secret missions are LIVE! Do yours, then keep it safe through their next turn to win.'); }
   }, [live_, party]);
 
   // Secret missions shown and stopped (owner rule: the other player gets a few turns to undo it).
@@ -300,6 +300,7 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
         <h4>You</h4>{modList(me)}
         {other && <><h4>{names[other]}</h4>{modList(other)}</>}
       </div>
+      {myMission && (
       <button
         className={`mission-card ${peek ? 'open' : ''} ${live_ ? 'live' : ''}`}
         onPointerDown={() => setPeek(true)} onPointerUp={() => setPeek(false)} onPointerLeave={() => setPeek(false)}
@@ -311,6 +312,7 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
           : missionIsOpen(party, me) && missionText ? <>🎯 <b>{missionText.name}</b><small>Open mission: do it and you win at once!</small></>
           : peek && missionText ? <>🎯 <b>{missionText.name}</b><small>{missionText.blurb}</small></> : <>🤫 Secret mission<small>{live_ ? 'LIVE! Hold to peek' : `Hold to peek · live after move ${party.gate[me] ?? 10}`}</small></>}
       </button>
+      )}
       {other && missionIsOpen(party, other) && party.missions[other] && party.missions[other] !== '?' && !offMap[other] && (
         <div className="mission-card live warn-card">⚠️ <b>{names[other]}'s mission: {missionById(party.missions[other]!)?.name}</b><small>{missionById(party.missions[other]!)?.blurb} If they do it, they win at once!</small></div>
       )}

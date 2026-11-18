@@ -106,7 +106,7 @@ export const ROOM_GAMES: { id: RoomGame; label: string; seats: number; blurb: st
 ];
 
 export type ClientMsg =
-  | { t: 'create'; name: string; rating: number; colour: 'p1' | 'p2' | 'random'; clock?: ClockSetting | null; game?: RoomGame; look?: ArmyLook; wheels?: boolean; hand?: string[]; modePrefs?: Record<string, number> }
+  | { t: 'create'; name: string; rating: number; colour: 'p1' | 'p2' | 'random'; clock?: ClockSetting | null; game?: RoomGame; look?: ArmyLook; wheels?: boolean; hand?: string[]; modePrefs?: Record<string, number>; /** Host's choice: secret missions on (1 vs 1 games). */ missions?: boolean }
   | { t: 'fill-bots' }
   | { t: 'join'; code: string; name: string; rating: number; look?: ArmyLook; wheels?: boolean; hand?: string[]; modePrefs?: Record<string, number> }
   | { t: 'rejoin'; code: string; token: string }
@@ -118,6 +118,8 @@ export type ClientMsg =
   | { t: 'wheels-answer'; answer: 'fun' | 'rated' | 'no' }
   /** The asker saw the "no" and plays on without. */
   | { t: 'wheels-ok' }
+  /** Vote on the recommended extras (buffs and handicaps). */
+  | { t: 'extras-vote'; yes: boolean }
   /** After a game: my new rating, so everyone's leaderboard shows it. */
   | { t: 'rating'; rating: number }
   /** Draft: the pieces I bought (30 points, king free). */
@@ -128,7 +130,7 @@ export type ClientMsg =
 
 export type ServerMsg =
   | { t: 'joined'; code: string; seat: PlayerId; token: string }
-  | { t: 'room'; code: string; record: GameRecord; seats: Partial<Record<PlayerId, SeatInfo>>; seatIds: PlayerId[]; game: RoomGame; host: PlayerId | null; rematchVotes: PlayerId[]; clock: ClockState | null; score?: Partial<Record<PlayerId, number>>; gamesPlayed?: number; wheelsAsk?: WheelsAsk | null; armies?: Partial<Record<PlayerId, 'ready' | 'buying'>> }
+  | { t: 'room'; code: string; record: GameRecord; seats: Partial<Record<PlayerId, SeatInfo>>; seatIds: PlayerId[]; game: RoomGame; host: PlayerId | null; rematchVotes: PlayerId[]; clock: ClockState | null; score?: Partial<Record<PlayerId, number>>; gamesPlayed?: number; wheelsAsk?: WheelsAsk | null; extrasVote?: ExtrasVote | null; missionsOn?: boolean; armies?: Partial<Record<PlayerId, 'ready' | 'buying'>> }
   | { t: 'emote'; from: PlayerId; id: EmoteId }
   | { t: 'error'; message: string };
 
@@ -145,6 +147,17 @@ export function cleanName(raw: string): string {
 export function cleanHand(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   return [...new Set(raw.filter((x): x is string => typeof x === 'string' && PLAYABLE_CARDS.has(x)))].slice(0, 3);
+}
+
+/**
+ * Recommended extras (owner, 2026-11-18): worked out from the two ratings once
+ * the opponent has joined, then both players vote. Both yes: they are used.
+ * Anyone says no: the game is played without them.
+ */
+export interface ExtrasVote {
+  modifiers: Partial<Record<PlayerId, string[]>>;
+  votes: Partial<Record<PlayerId, boolean>>;
+  status: 'pending' | 'on' | 'off';
 }
 
 export interface WheelsAsk { from: PlayerId; status: 'pending' | 'declined' }

@@ -1,7 +1,7 @@
 import type { SkinChoice, SkinId } from '../content/cosmetics';
 import type { GameRecord } from '../core/record';
 import type { Action, PlayerId } from '../core/types';
-import type { WheelsAsk, ArmyLook, ClientMsg, ClockSetting, ClockState, EmoteId, RoomGame, SeatInfo, ServerMsg } from './protocol';
+import type { WheelsAsk, ExtrasVote, ArmyLook, ClientMsg, ClockSetting, ClockState, EmoteId, RoomGame, SeatInfo, ServerMsg } from './protocol';
 
 /**
  * Browser side of online play. Keeps one WebSocket, reconnects with the seat
@@ -16,6 +16,8 @@ export interface OnlineSnapshot {
   record: GameRecord | null;
   seats: Partial<Record<PlayerId, SeatInfo>>;
   wheelsAsk?: WheelsAsk | null;
+  extrasVote?: ExtrasVote | null;
+  missionsOn?: boolean;
   /** Draft rooms: who has bought their army. */
   armies?: Partial<Record<PlayerId, 'ready' | 'buying'>>;
   rematchVotes: PlayerId[];
@@ -95,7 +97,7 @@ class OnlineSession {
         this.set({ code: m.code, seat: m.seat, error: null });
         break;
       case 'room':
-        this.set({ code: m.code, record: m.record, seats: m.seats, rematchVotes: m.rematchVotes, clock: m.clock ?? null, clockAt: Date.now(), seatIds: m.seatIds ?? ['p1', 'p2'], game: m.game ?? 'standard', host: m.host ?? null, score: m.score ?? {}, gamesPlayed: m.gamesPlayed ?? 0, wheelsAsk: m.wheelsAsk ?? null, armies: m.armies });
+        this.set({ code: m.code, record: m.record, seats: m.seats, rematchVotes: m.rematchVotes, clock: m.clock ?? null, clockAt: Date.now(), seatIds: m.seatIds ?? ['p1', 'p2'], game: m.game ?? 'standard', host: m.host ?? null, score: m.score ?? {}, gamesPlayed: m.gamesPlayed ?? 0, wheelsAsk: m.wheelsAsk ?? null, extrasVote: m.extrasVote ?? null, missionsOn: !!m.missionsOn, armies: m.armies });
         break;
       case 'emote':
         this.set({ lastEmote: { from: m.from, id: m.id, at: Date.now() } });
@@ -123,10 +125,10 @@ class OnlineSession {
     try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
   }
 
-  create(name: string, rating: number, colour: 'p1' | 'p2' | 'random', clock: ClockSetting | null = null, game: RoomGame = 'standard', look?: ArmyLook, wheels = false, hand: string[] = [], modePrefs?: Record<string, number>) {
+  create(name: string, rating: number, colour: 'p1' | 'p2' | 'random', clock: ClockSetting | null = null, game: RoomGame = 'standard', look?: ArmyLook, wheels = false, hand: string[] = [], modePrefs?: Record<string, number>, missions?: boolean) {
     this.forget();
     this.set({ record: null, code: null, seat: null, seats: {}, error: null, clock: null });
-    this.send({ t: 'create', name, rating, colour, clock, game, look, wheels, hand, modePrefs });
+    this.send({ t: 'create', name, rating, colour, clock, game, look, wheels, hand, modePrefs, missions });
   }
 
   fillBots() {
@@ -147,6 +149,8 @@ class OnlineSession {
   askWheels() { this.send({ t: 'wheels-ask' }); }
   answerWheels(answer: 'fun' | 'rated' | 'no') { this.send({ t: 'wheels-answer', answer }); }
   wheelsOk() { this.send({ t: 'wheels-ok' }); }
+  /** Yes or no to the recommended extras. */
+  voteExtras(yes: boolean) { this.send({ t: 'extras-vote', yes }); }
   /** Draft: send the army I bought. */
   sendArmy(pieces: string[]) { this.send({ t: 'army', pieces }); }
   /** Share my rating after a game ends. */

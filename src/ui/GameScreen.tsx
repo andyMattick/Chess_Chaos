@@ -33,7 +33,7 @@ import { EASY_GOALS, type EasyGoalId } from '../tactics/missions';
 import { usePartyLayer } from './partyLayer';
 import { refereeMission, undoingMoves, type PartySetup } from '../systems/party';
 import { strengthFor } from '../ai/strength';
-import { missionById } from '../content/party';
+import { missionById, modifierById } from '../content/party';
 import { moveEvents, shakeFor, type MoveEvents } from './effects';
 import { setSoundEnabled, sfx } from './sound';
 import { useYourTurn } from './yourTurn';
@@ -231,6 +231,13 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   // You agreed to their training wheels "just for fun": your rating stays the same this game.
   const forFun = isOnline && !!seatsNow[me]?.forFun && oppWheels;
   const ask = isOnline ? net.wheelsAsk ?? null : null;
+  const extrasVote = isOnline ? net.extrasVote ?? null : null;
+  // Tell both players how the vote went.
+  const voteResult = extrasVote?.status;
+  useEffect(() => {
+    if (voteResult === 'on') setSpeech({ seat: me, text: '👍 Extras on!' });
+    if (voteResult === 'off') setSpeech({ seat: me, text: '👎 No extras this game.' });
+  }, [voteResult]); // eslint-disable-line react-hooks/exhaustive-deps
   const canAskWheels = isOnline && !reviewRecord && net.seatIds.length === 2 && rec.actions.length === 0 && !live.result && !myWheels && !ask && net.seatIds.every((k) => !!seatsNow[k]);
 
   const moveActions = useMemo(() => rec.actions.filter((a): a is MoveAction => a.t === 'move'), [rec]);
@@ -537,6 +544,27 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             net.armies?.[me] === 'ready'
               ? <div className="promo" role="dialog" aria-label="Waiting for armies"><p>🛒 Army ready! Waiting for {names[other(me)]} to finish shopping…</p></div>
               : <div className="promo shop-pop" role="dialog" aria-label="Build your army"><ArmyShop onDone={(army) => online.sendArmy(army)} /></div>
+          )}
+          {extrasVote?.status === 'pending' && !reviewRecord && (
+            <div className="promo extras-vote" role="dialog" aria-label="Vote on the extras">
+              <p>⚖️ <b>Extras for this game?</b> They're suggested from your ratings to make it fair.</p>
+              {net.seatIds.map((k) => (
+                <div key={k} className="extras-row">
+                  <b>{k === me ? 'You' : names[k]}</b>
+                  {(extrasVote.modifiers[k] ?? []).length ? (extrasVote.modifiers[k] ?? []).map((id) => {
+                    const d = modifierById(id);
+                    return d ? <div key={id} className={`mod ${d.kind}`}><span className="mod-emoji">{d.emoji}</span><span><b>{d.name}</b><small>{d.blurb}</small></span></div> : null;
+                  }) : <span className="muted small">nothing</span>}
+                </div>
+              ))}
+              {extrasVote.votes[me] === undefined ? (
+                <div className="wheels-answers">
+                  <button className="btn primary" onClick={() => online.voteExtras(true)}>👍 Use them</button>
+                  <button className="btn" onClick={() => online.voteExtras(false)}>👎 Play without</button>
+                </div>
+              ) : <p className="muted small">You voted {extrasVote.votes[me] ? '👍' : '👎'}. Waiting for {names[other(me)]}…</p>}
+              <p className="muted small">Both say yes: the extras are on. Anyone says no: you play without them.</p>
+            </div>
           )}
           {ask?.status === 'pending' && ask.from !== me && (
             <div className="promo" role="dialog" aria-label="Training wheels request">

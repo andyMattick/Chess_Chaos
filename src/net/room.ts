@@ -4,7 +4,7 @@ import { BOTS } from '../content/bots';
 import { cleanPrefs, pickModeFor, redactParty, refereeMission, setupParty } from '../systems/party';
 import { play } from '../core/rules';
 import type { Action, GameState, PlayerId } from '../core/types';
-import { cleanArmy, cleanHand, cleanLook, cleanName, EMOTES, ROOM_GAMES, type ArmyLook, type ClientMsg, type ClockSetting, type ClockState, type RoomGame, type SeatInfo, type ServerMsg, type WheelsAsk } from './protocol';
+import { cleanArmy, cleanHand, cleanLook, cleanName, EMOTES, ROOM_GAMES, type ArmyLook, type ClientMsg, type ClockSetting, type ClockState, type RoomGame, type SeatInfo, type ServerMsg, type WheelsAsk, type ExtrasVote } from './protocol';
 import { DRAFT_BUDGET, randomArmy } from '../core/modes2';
 
 /**
@@ -54,6 +54,10 @@ export class Room {
   seatIds: PlayerId[];
   /** A training wheels request waiting for (or turned down by) the other player. */
   wheelsAsk: WheelsAsk | null = null;
+  /** Host's choice when creating the room: secret missions in this game. */
+  missionsOn = false;
+  /** Recommended extras waiting for (or decided by) both players' votes. */
+  extrasVote: ExtrasVote | null = null;
   host: PlayerId | null = null;
   /** Match score across rematches, keyed by seat token so it follows players when seats rotate. */
   tally = new Map<string, number>();
@@ -98,18 +102,51 @@ export class Room {
     this.states = [this.state];
   }
 
-  /** Party rooms: once everyone is seated, draw the mode and deal modifiers and missions. */
+  /**
+   * 1 vs 1 rooms, once both players are here (owner, 2026-11-18): the host
+   * picked the mode (or Surprise) and whether there are secret missions.
+   * Extras (buffs and handicaps) are worked out from the ratings and put to
+   * a vote. Surprise party rooms also draw the mode and bring power cards.
+   */
   private maybeStartParty() {
-    if (this.game !== 'party' || !this.allSeated() || this.record.setup.party || this.record.actions.length) return;
+    if (this.seatIds.length !== 2 || !this.allSeated() || this.record.setup.party || this.record.actions.length) return;
+    const surprise = this.game === 'party';
     // Both players' mode rankings count (bots are neutral).
-    const mode = pickModeFor(this.seatIds.map((k) => (this.seats[k]!.botControlled ? undefined : this.seats[k]!.modePrefs)), Math.random);
+    const mode = surprise ? pickModeFor(this.seatIds.map((k) => (this.seats[k]!.botControlled ? undefined : this.seats[k]!.modePrefs)), Math.random) : this.state.mode;
     const p = (k: PlayerId) => ({ rating: this.seats[k]!.rating, bot: this.seats[k]!.botControlled });
     const party = setupParty({ mode, online: true, players: { p1: p('p1'), p2: p('p2') } }, Math.random);
-    const hand = (k: PlayerId) => (this.seats[k]!.botControlled ? [] : this.seats[k]!.hand ?? []);
-    party.cards = { p1: hand('p1'), p2: hand('p2') };
-    const names = { ...this.record.meta.players };
-    this.record = { ...newRecord(this.record.seed, names, undefined, mode), id: this.record.id };
-    this.record.setup = { ...this.record.setup, party };
+    if (!this.missionsOn) party.missions = {};
+    const recommended = party.modifiers;
+    const anyExtras = Object.values(recommended).some((l) => (l?.length ?? 0) > 0);
+    if (!surprise && !this.missionsOn && !anyExtras) return; // a plain game, as before
+    party.modifiers = {};
+    if (surprise) {
+      const hand = (k: PlayerId) => (this.seats[k]!.botControlled ? [] : this.seats[k]!.hand ?? []);
+      party.cards = { p1: hand('p1'), p2: hand('p2') };
+      const names = { ...this.record.meta.players };
+      this.record = { ...newRecord(this.record.seed, names, undefined, mode), id: this.record.id };
+    }
+    this.record = { ...this.record, setup: { ...this.record.setup, party } };
+    this.state = replay(this.record)[0];
+    this.states = [this.state];
+    if (anyExtras) {
+      const votes: Partial<Record<PlayerId, boolean>> = {};
+      for (const k of this.seatIds) if (this.seats[k]!.botControlled) votes[k] = true; // a bot always says yes
+      this.extrasVote = { modifiers: recommended, votes, status: 'pending' };
+      this.settleExtras();
+    }
+  }
+
+  /** Both said yes: use the extras. Anyone said no: play without them. */
+  private settleExtras() {
+    const v = this.extrasVote;
+    if (!v || v.status !== 'pending') return;
+    if (this.seatIds.some((k) => v.votes[k] === false)) { this.extrasVote = { ...v, status: 'off' }; return; }
+    if (!this.seatIds.every((k) => v.votes[k] === true)) return;
+    this.extrasVote = { ...v, status: 'on' };
+    const party = this.record.setup.party;
+    if (!party || this.record.actions.length) return;
+    this.record = { ...this.record, setup: { ...this.record.setup, party: { ...party, modifiers: v.modifiers } } };
     this.state = replay(this.record)[0];
     this.states = [this.state];
   }
@@ -291,6 +328,8 @@ export class Room {
           this.apply({ t: 'resign', by: seat });
         } else if (a.t === 'move' && this.wheelsAsk?.status === 'pending') {
           return conn.send({ t: 'error', message: 'Waiting for the training wheels answer first.' });
+        } else if ((a.t === 'move' || a.t === 'buff') && this.extrasVote?.status === 'pending') {
+          return conn.send({ t: 'error', message: 'Waiting for both votes on the extras first.' });
         } else if (a.t === 'move') {
           if (this.state.turn !== seat) return conn.send({ t: 'error', message: 'Not your turn.' });
           // A move that arrives after the flag fell does not count.
@@ -363,6 +402,14 @@ export class Room {
         this.broadcast();
         return;
       }
+      case 'extras-vote': {
+        const v = this.extrasVote;
+        if (!v || v.status !== 'pending' || this.record.actions.length) return;
+        this.extrasVote = { ...v, votes: { ...v.votes, [seat]: !!msg.yes } };
+        this.settleExtras();
+        this.broadcast();
+        return;
+      }
       case 'wheels-ok': {
         if (this.wheelsAsk?.from === seat && this.wheelsAsk.status === 'declined') { this.wheelsAsk = null; this.broadcast(); }
         return;
@@ -426,6 +473,7 @@ export class Room {
     this.states = [this.state];
     this.counted = false;
     this.wheelsAsk = null;
+    this.extrasVote = null;
     this.setClock(this.clockSetting);
     this.maybeStartParty();
     this.maybeStartSetup();
@@ -442,7 +490,7 @@ export class Room {
       const { name, rating, connected, botControlled, look, wheels, forFun } = this.seats[k]!;
       seats[k] = { name, rating, connected, botControlled, look, wheels: !!wheels, forFun: !!forFun };
     }
-    const base = { t: 'room' as const, code: this.code, seats, seatIds: this.seatIds, game: this.game, host: this.host, rematchVotes: [...this.rematchVotes], clock: this.clockSnapshot(), score: this.scoreboard(), gamesPlayed: this.gamesPlayed, wheelsAsk: this.wheelsAsk };
+    const base = { t: 'room' as const, code: this.code, seats, seatIds: this.seatIds, game: this.game, host: this.host, rematchVotes: [...this.rematchVotes], clock: this.clockSnapshot(), score: this.scoreboard(), gamesPlayed: this.gamesPlayed, wheelsAsk: this.wheelsAsk, extrasVote: this.extrasVote, missionsOn: this.missionsOn };
     const party = this.record.setup.party;
     for (const k of this.seatIds) {
       const s = this.seats[k];
@@ -479,6 +527,8 @@ export class RoomServer {
       this.leaveCurrent(conn);
       const game = ROOM_GAMES.some((g) => g.id === msg.game) ? msg.game! : 'standard';
       const room = new Room(this.newCode(), this.now, (Math.random() * 0xffffffff) | 0, msg.clock ?? null, game);
+      // Secret missions: the host's choice; Surprise party rooms have them unless switched off.
+      room.missionsOn = room.seatIds.length === 2 && (msg.missions ?? game === 'party');
       this.rooms.set(room.code, room);
       this.connRoom.set(conn.id, room);
       const seat: PlayerId = room.seatIds.length > 2 ? 'p1' : msg.colour === 'random' ? (Math.random() < 0.5 ? 'p1' : 'p2') : msg.colour === 'p2' ? 'p2' : 'p1';

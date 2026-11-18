@@ -675,3 +675,4 @@ body[data-calm] .die { animation: none; }
 .welcome { margin-bottom: 8px; } .welcome h1 { margin: 0 0 4px; font-size: 1.8rem; } .welcome p { margin: 4px 0; }
 .warn-card { background: #ffe9d6 !important; }
 .mission-card.warn-card, .mission-card.warn-card b, .mission-card.warn-card small, .mission-card.warn-card h3, .mission-card.warn-card p { color: var(--ink); }
+.extras-vote .extras-row { display: grid; gap: 4px; margin: 6px 0; text-align: left; } .mission-toggle { margin: 8px 0; } .mission-toggle label { font-weight: 800; }

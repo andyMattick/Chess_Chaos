@@ -71,6 +71,9 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
   const [pane, setPane] = useState<'start' | 'join'>(initialCode ? 'join' : 'start');
   const [clockIdx, setClockIdx] = useState(1);
   const [game, setGame] = useState<RoomGame>('standard');
+  // Secret missions: on for a Surprise party, off for a chosen mode, unless the host switches it.
+  const [missionsPick, setMissionsPick] = useState<boolean | null>(null);
+  const missions = missionsPick ?? game === 'party';
   const seatsFor = ROOM_GAMES.find((g) => g.id === game)?.seats ?? 2;
   const clock = CLOCK_CHOICES[clockIdx].setting;
   const name = p?.nickname ?? 'Player';
@@ -176,6 +179,12 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
               <HandPicker />
             </details>
           )}
+          {seatsFor === 2 && (
+            <div className="mission-toggle">
+              <label><input type="checkbox" checked={missions} onChange={(e) => setMissionsPick(e.target.checked)} /> 🤫 Secret missions</label>
+              <p className="muted small">Each player gets a secret goal. Do it and you can win! Extras (buffs and handicaps from your ratings) are suggested when your friend joins, and you both vote on them.</p>
+            </div>
+          )}
           <p className="muted small">How much time each?</p>
           <div className="clock-chips" role="radiogroup" aria-label="Clock">
             {CLOCK_CHOICES.map((c, i) => (
@@ -185,9 +194,9 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
           <div className="row wrap colour-row">
             {seatsFor === 2 ? (
               <>
-                <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock, game, lookFor('p1'), false, hand, p?.modePrefs)}>I'll be White</button>
-                <button className="btn primary dark" onClick={() => online.create(name, rating, 'p2', clock, game, lookFor('p2'), false, hand, p?.modePrefs)}>I'll be Black</button>
-                <button className="btn" onClick={() => online.create(name, rating, 'random', clock, game, lookFor('p1'), false, hand, p?.modePrefs)}>🎲 Whatever</button>
+                <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock, game, lookFor('p1'), false, hand, p?.modePrefs, missions)}>I'll be White</button>
+                <button className="btn primary dark" onClick={() => online.create(name, rating, 'p2', clock, game, lookFor('p2'), false, hand, p?.modePrefs, missions)}>I'll be Black</button>
+                <button className="btn" onClick={() => online.create(name, rating, 'random', clock, game, lookFor('p1'), false, hand, p?.modePrefs, missions)}>🎲 Whatever</button>
               </>
             ) : (
               <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock, game, lookFor('p1'))}>Make the room ({seatsFor} players)</button>

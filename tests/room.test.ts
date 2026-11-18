@@ -1,6 +1,6 @@
 import { RoomServer, type Conn } from '../src/net/room';
 import type { ServerMsg } from '../src/net/protocol';
-import { parseSAN, replay } from '../src/core';
+import { legalActions, parseSAN, replay } from '../src/core';
 
 function client(id: string) {
   const inbox: ServerMsg[] = [];
@@ -16,7 +16,14 @@ function setup(clock: { minutes: number; increment: number } | null = null) {
   server.handle(a.conn, { t: 'create', name: 'Ava', rating: 600, colour: 'p1', clock });
   const code = a.last('joined')!.code;
   server.handle(b.conn, { t: 'join', code, name: 'Ben', rating: 700 });
+  noExtras(server, a, b);
   return { server, a, b, code, advance: (ms: number) => { now += ms; } };
+}
+
+/** The 100-point gap recommends extras; these tests play without them. */
+function noExtras(server: RoomServer, ...cs: ReturnType<typeof client>[]) {
+  if (cs[0].last('room')?.extrasVote?.status !== 'pending') return;
+  for (const c of cs) server.handle(c.conn, { t: 'extras-vote', yes: false });
 }
 
 function move(server: RoomServer, c: ReturnType<typeof client>, san: string) {
@@ -256,8 +263,42 @@ describe('online party rooms', () => {
     expect(pb.missions.p1).toBe(pa.missions.p1);
     expect(pa.defence).toEqual({ p1: 0, p2: 1 });
     expect(pb.missions.p2).not.toBe('?');
-    expect(pa.modifiers.p1!.length).toBe(2); // 600-point gap: major + minor buff
-    expect(pa.modifiers.p2!.length).toBe(1); // and a major handicap
+    // Extras are recommended, then voted on.
+    const vote = a.last('room')!.extrasVote!;
+    expect(vote.status).toBe('pending');
+    expect(vote.modifiers.p1!.length).toBe(2); // 600-point gap: major + minor buff
+    expect(vote.modifiers.p2!.length).toBe(1); // and a major handicap
+    expect(pa.modifiers).toEqual({});
+    const first = legalActions(replay(a.last('room')!.record).at(-1)!)[0];
+    server.handle(a.conn, { t: 'action', action: first }); // no moves until both have voted
+    expect(a.last('error')!.message).toMatch(/vote/);
+    server.handle(a.conn, { t: 'extras-vote', yes: true });
+    server.handle(b.conn, { t: 'extras-vote', yes: true });
+    expect(a.last('room')!.extrasVote!.status).toBe('on');
+    expect(a.last('room')!.record.setup.party!.modifiers.p1!.length).toBe(2);
+  });
+  it('one "no" vote means no extras', () => {
+    const server = new RoomServer(() => 0);
+    const a = client('a'), b = client('b');
+    server.handle(a.conn, { t: 'create', name: 'Ava', rating: 400, colour: 'p1', game: 'koth', missions: false });
+    server.handle(b.conn, { t: 'join', code: a.last('joined')!.code, name: 'Ben', rating: 1000 });
+    expect(a.last('room')!.missionsOn).toBe(false);
+    expect(a.last('room')!.record.setup.party!.missions).toEqual({});
+    expect(a.last('room')!.record.setup.mode).toBe('koth'); // the host's mode, not a surprise
+    server.handle(a.conn, { t: 'extras-vote', yes: true });
+    server.handle(b.conn, { t: 'extras-vote', yes: false });
+    expect(a.last('room')!.extrasVote!.status).toBe('off');
+    expect(a.last('room')!.record.setup.party!.modifiers).toEqual({});
+    move(server, a, 'e4');
+    expect(a.last('room')!.record.actions.length).toBe(1);
+  });
+  it('a chosen mode with secret missions on, and even ratings, needs no vote', () => {
+    const server = new RoomServer(() => 0);
+    const a = client('a'), b = client('b');
+    server.handle(a.conn, { t: 'create', name: 'Ava', rating: 800, colour: 'p1', game: 'standard', missions: true });
+    server.handle(b.conn, { t: 'join', code: a.last('joined')!.code, name: 'Ben', rating: 820 });
+    expect(a.last('room')!.extrasVote).toBeNull();
+    expect(a.last('room')!.record.setup.party!.missions.p1).toMatch(/MISSION-/);
   });
   it('reveals both missions when the game ends', () => {
     const server = new RoomServer(() => 0);
@@ -302,6 +343,7 @@ describe('room modes and training wheels', () => {
     server.handle(a.conn, { t: 'wheels-ask' });
     expect(a.last('error')!.message).toMatch(/before the first move/); // nobody to ask yet
     server.handle(b.conn, { t: 'join', code: a.last('joined')!.code, name: 'Ben', rating: 900 });
+    noExtras(server, a, b);
     server.handle(a.conn, { t: 'wheels-ask' });
     expect(b.last('room')!.wheelsAsk).toEqual({ from: 'p1', status: 'pending' });
     // No moves while the question is open.
@@ -374,6 +416,7 @@ describe('more modes online', () => {
     const a = client('a'), b = client('b');
     server.handle(a.conn, { t: 'create', name: 'Ava', rating: ra, colour: 'p1', game: game as never });
     server.handle(b.conn, { t: 'join', code: a.last('joined')!.code, name: 'Ben', rating: rb });
+    noExtras(server, a, b);
     return { server, a, b };
   }
   it('boss battle gives the boss to the higher-rated player', () => {
