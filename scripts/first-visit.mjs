@@ -47,6 +47,11 @@ const home = async () => {
 
 await step('open the app', async () => { await page.goto(URL_); await page.waitForLoadState('networkidle'); });
 await step('make a player', async () => { await page.getByLabel('Nickname').fill('Newbie'); await page.getByText("Let's go!").click(); });
+await step('player number question (say not now)', async () => {
+  // Owner, 2026-11-18: new players are asked once for a player number. A first visitor can say no.
+  const ask = page.locator('.number-modal');
+  if (await ask.waitFor({ timeout: 3000 }).then(() => true).catch(() => false)) await ask.getByRole('button', { name: 'Not now' }).click();
+});
 await step('home screen', async () => { await page.getByText('Play the bots').waitFor({ timeout: 5000 }); });
 await step('open the bot path', async () => { await page.getByText('Play the bots').click(); });
 await step('pick the first bot', async () => { await page.locator('.path-info').first().click(); });

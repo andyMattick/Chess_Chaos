@@ -21,6 +21,7 @@ import { lookOf, activeProfile, addGame, noteOpponent, refreshOpponentRating, up
 import { updateRating } from '../systems/rating';
 import { coinsFor, type CoinAward } from '../systems/coins';
 import { Board } from './Board';
+import { NumberPrompt } from './CloudSave';
 import { Character } from './skins';
 import { useSave } from './store';
 import { requestAnalysis, requestReview } from '../ai/client';
@@ -761,7 +762,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
                 const myNo = activeProfile(save)?.cloud?.number;
                 const theirs = other(me);
                 const friendsNow = myNo && net.friendOffers?.includes(me) && net.friendOffers?.includes(theirs);
-                if (!myNo) return <p className="muted small">🤝 Get a player number (⚙️ Settings) to add {names[theirs]} as a friend.</p>;
+                if (!myNo) return <NumberPrompt why={`To add ${names[theirs]} as a friend, you need a player number.`} onYes={(n) => online.offerFriend(n)} />;
                 if (friendsNow) return <p className="small">🤝 You and {names[theirs]} are friends now! Find them in 📬 Challenges.</p>;
                 return (
                   <div className="row center friend-offer">

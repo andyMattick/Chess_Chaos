@@ -84,3 +84,49 @@ export function CloudRestore({ done }: { done?: () => void }) {
     </div>
   );
 }
+
+/**
+ * Asking for a player number (owner, 2026-11-18): once when the game opens
+ * without one, and again from anything that needs one (challenges, friends,
+ * tournaments, the world leaderboard). Saying no is fine.
+ */
+export function NumberPrompt({ why, onNo, onYes }: { why?: string; onNo?: () => void; onYes?: (number: string) => void }) {
+  const save = useSave();
+  const p = activeProfile(save);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [made, setMade] = useState<string | null>(null);
+  if (!vaultBase() || !p) return null;
+  if (made || p.cloud) {
+    const n = made ?? p.cloud!.number;
+    return (
+      <div className="cloud-card number-ask">
+        <b>🎉 Your player number: <code>{showNumber(n)}</code></b>
+        <p className="small">Your secret save key is in ⚙️ Settings → ☁️ Cloud save. 📸 Take a photo of it (with a grown-up) so you can get {p.nickname} back on any device.</p>
+      </div>
+    );
+  }
+  const yes = () => {
+    setBusy(true); setErr(null);
+    turnOnCloud().then((r) => { setMade(r.number); onYes?.(r.number); }).catch((e) => setErr((e as Error).message)).finally(() => setBusy(false));
+  };
+  return (
+    <div className="cloud-card number-ask">
+      <b>☁️ Get a player number?</b>
+      {why && <p className="small"><b>{why}</b></p>}
+      <ul className="small number-reasons">
+        <li>💾 Your progress is backed up. New phone? Get it all back.</li>
+        <li>👫 Add friends after a game and see their scores.</li>
+        <li>📬 Send challenges and play in tournaments.</li>
+        <li>🌍 See where you rank in the world.</li>
+        <li>🔒 No names, emails or personal details: just your game progress, locked with a key only you get.</li>
+      </ul>
+      <small className="muted">Not sure? Ask a grown-up. You can always get one later.</small>
+      <div className="row wrap">
+        <button className="btn small primary" disabled={busy} onClick={yes}>{busy ? 'Making it…' : '☁️ Yes, make my number'}</button>
+        {onNo && <button className="btn small" disabled={busy} onClick={onNo}>Not now</button>}
+      </div>
+      {err && <small className="warn">{err}</small>}
+    </div>
+  );
+}

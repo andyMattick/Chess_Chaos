@@ -50,6 +50,8 @@ export interface Profile {
   openings?: Record<string, OpeningCard>;
   /** Cloud save: player number and the save key that locks it (src/storage/cloud.ts). */
   cloud?: { number: string; key: string };
+  /** When this player said "not now" to a player number at start-up (they are asked again only from things that need one). */
+  numberDeclined?: number;
   /** On the world leaderboard (on unless switched off). */
   worldBoard?: boolean;
   /** Names this player gave to player numbers, on this device only. */

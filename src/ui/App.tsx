@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { GameRecord } from '../core/record';
-import { askToKeepStorage, lookOf, activeProfile } from '../storage/storage';
-import { startCloudSync } from '../storage/cloud';
+import { askToKeepStorage, lookOf, activeProfile, updateProfile } from '../storage/storage';
+import { startCloudSync, vaultBase } from '../storage/cloud';
+import { NumberPrompt } from './CloudSave';
 import { GameScreen, type GameConfig } from './GameScreen';
 import { landscapeById } from './landscapes';
 import { OnlineLobby, roomFromUrl } from './OnlineLobby';
@@ -68,6 +69,14 @@ export function App() {
   useEffect(() => askToKeepStorage(), []);
   useEffect(() => startCloudSync(), []);
 
+  // No player number yet: ask once when the game opens (owner, 2026-11-18). "Not now" is remembered;
+  // after that, only the things that need a number ask again.
+  const askP = activeProfile(save);
+  const [askOpen, setAskOpen] = useState(false);
+  useEffect(() => {
+    if (screen.name === 'home' && askP && !askP.cloud && !askP.numberDeclined && vaultBase()) setAskOpen(true);
+  }, [screen.name, askP?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Sound and shake settings apply everywhere.
   useEffect(() => {
     setSoundEnabled(save.settings.sound);
@@ -78,6 +87,14 @@ export function App() {
 
   return (
     <main className="app">
+      {askOpen && askP && (
+        <div className="number-modal" role="dialog" aria-label="Get a player number">
+          <div>
+            <NumberPrompt why={`Hi ${askP.nickname}! Want a player number? It's free.`} onNo={() => { updateProfile((x) => ({ ...x, numberDeclined: Date.now() })); setAskOpen(false); }} />
+            {askP.cloud && <button className="btn primary" onClick={() => setAskOpen(false)}>Done</button>}
+          </div>
+        </div>
+      )}
       {screen.name === 'home' && (
         <Home
           go={(s) => setScreen((s === 'online' ? { name: 'online' } : { name: s }) as Screen)}

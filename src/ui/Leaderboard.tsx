@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { vaultBase } from '../storage/cloud';
 import { labelFor, setOnBoard, type BoardRow } from '../storage/world';
 import { StatsLine, useWorldBoard } from './FriendStats';
+import { NumberPrompt } from './CloudSave';
 import { activeProfile, type Opponent } from '../storage/storage';
 import { BOTS } from '../content/bots';
 import type { GameRecord } from '../core/record';
@@ -119,7 +120,7 @@ function WorldBoard({ back, mine }: { back: () => void; mine: () => void }) {
         <button className="chip on">🌍 World</button>
       </div>
       <p className="muted small">Everyone with a player number. No names here: other players show as ••••1234. Your friends show with the names you gave them (only you see those).</p>
-      {!p?.cloud && <p className="rescue-card">Get a player number to join: ⚙️ Settings → ☁️ Cloud save.</p>}
+      {!p?.cloud && <NumberPrompt why="Get a player number to be on the world leaderboard." />}
       {p?.cloud && (
         <label className="small"><input type="checkbox" checked={p.worldBoard !== false} onChange={(e) => void setOnBoard(e.target.checked).catch(() => {})} /> Show me on the world leaderboard</label>
       )}

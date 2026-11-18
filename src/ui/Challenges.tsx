@@ -9,7 +9,7 @@ import { addFriend, answerChallenge, challenge, createTournament, labelFor, myGa
 import { isBotSeat, TOURNAMENT_MAX } from '../net/world';
 import { botForSeat, seatBotLabel, tournamentBots } from '../systems/tournamentBots';
 import { showNumber as fmt } from '../net/vault';
-import { CloudSaveCard } from './CloudSave';
+import { NumberPrompt } from './CloudSave';
 import { StatsLine, useWorldBoard } from './FriendStats';
 import type { GameConfig } from './GameScreen';
 import { useSave } from './store';
@@ -55,7 +55,7 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
       <div className="panel taped">
         <h2>📬 Challenges <span className="scribble">play a friend, a move at a time</span></h2>
         <p>Send a friend a game and play a move whenever you like. First you need a player number: it's your address for challenges.</p>
-        <CloudSaveCard />
+        <NumberPrompt why="Challenges, friends and tournaments need a player number: it's your address." />
         <button className="btn" onClick={back}>← Home</button>
       </div>
     );
