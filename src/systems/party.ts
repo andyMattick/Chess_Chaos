@@ -1,5 +1,5 @@
-import { MISSION_DEFENCE_TURNS, MISSION_DEFENCE_TURNS_VS_UNDERDOG, MISSION_UNDERDOG_GAP, MISSIONS, MODIFIERS, type ModifierDef } from '../content/party';
-import { legalActions, missionChallenges, play } from '../core/rules';
+import { MISSION_DEFENCE_TURNS, MISSION_DEFENCE_TURNS_VS_UNDERDOG, MISSION_UNDERDOG_GAP, MISSIONS, MODIFIERS, UNDERDOG_BONUS_MODES, type ModifierDef } from '../content/party';
+import { advance, legalActions, missionChallenges, play } from '../core/rules';
 import { IMPLEMENTED } from '../core/modifiers';
 import { movesMade } from '../core/modifiers';
 import type { GameRecord } from '../core/record';
@@ -131,7 +131,10 @@ export function pickModifiers(o: PartyOptions, rand: () => number): Record<'p1' 
   const underdog: 'p1' | 'p2' = o.players.p1.rating <= o.players.p2.rating ? 'p1' : 'p2';
   const favourite = underdog === 'p1' ? 'p2' : 'p1';
   const slots = slotsForGap(gap);
-  for (const tier of slots.underdog) {
+  // Lopsided modes: one more Minor buff for the weaker player (docs/12).
+  const bonus = gap >= MISSION_UNDERDOG_GAP ? UNDERDOG_BONUS_MODES[o.mode] : undefined;
+  const underdogSlots = bonus ? [...slots.underdog, bonus] : slots.underdog;
+  for (const tier of underdogSlots) {
     const m = pick(MODIFIERS.filter((d) => d.kind === 'buff' && d.tier === tier && !out[underdog].includes(d.id) && eligible(d, o.mode, o.players[underdog], o.online)), rand);
     if (m) out[underdog].push(m.id);
   }
@@ -273,11 +276,67 @@ export function blockingMoves(states: GameState[], actions: Action[], party: Par
   return safe.length && safe.length < mine.length ? safe : [];
 }
 
-/** What a bot should limit itself to: undo a shown mission, else block an open one. Empty: play normally. */
+/**
+ * Looking further: the other player's two-move plans for their open mission
+ * (as if the defender did nothing), and the defender's moves that spoil the
+ * most of them. Empty when there is no plan, or nothing helps.
+ */
+export function blockingMoves2(states: GameState[], party: PartySetup, defender: PlayerId, maxPlans = 24): MoveAction[] {
+  const s = states[states.length - 1];
+  if (!s || s.result || s.turn !== defender) return [];
+  const opp = (Object.keys(party.missions) as PlayerId[]).find((k) => k !== defender);
+  const id = opp ? party.missions[opp] : undefined;
+  if (!opp || !id || id === '?' || !missionIsOpen(party, opp) || missionOff(s, opp)) return [];
+  if (movesMade(s, opp) + 2 <= (party.gate[opp] ?? 10)) return [];
+  const history = states.slice(0, -1);
+  /** Does the plan r1 then r2 still finish the mission from position `from` (opponent to move twice)? */
+  const works = (from: GameState, r1: MoveAction, r2: MoveAction, pre: GameState[]): boolean => {
+    const a0 = { ...from, turn: opp };
+    if (!legalActions(a0).some((m) => m.piece === r1.piece && m.to === r1.to && m.promo === r1.promo)) return false;
+    const a = { ...advance(a0, r1), turn: opp };
+    if (a.result) return false;
+    if (!legalActions(a).some((m) => m.piece === r2.piece && m.to === r2.to && m.promo === r2.promo)) return false;
+    const b = advance(a, r2);
+    const arr = [...pre, a0, a, b];
+    return missionDone(id, { states: arr, ply: arr.length - 2, move: r2, player: opp, movesMade: movesMade(b, opp) });
+  };
+  // 1. The plans.
+  const plans: [MoveAction, MoveAction][] = [];
+  const pass = { ...s, turn: opp };
+  for (const r1 of legalActions(pass)) {
+    const a = { ...advance(pass, r1), turn: opp };
+    if (a.result) continue;
+    for (const r2 of legalActions(a)) {
+      const b = advance(a, r2);
+      const arr = [...history, pass, a, b];
+      if (missionDone(id, { states: arr, ply: arr.length - 2, move: r2, player: opp, movesMade: movesMade(b, opp) })) { plans.push([r1, r2]); break; }
+    }
+    if (plans.length >= maxPlans) break;
+  }
+  if (!plans.length) return [];
+  // 2. My moves that leave the fewest plans working.
+  let best = plans.length;
+  let out: MoveAction[] = [];
+  for (const m of legalActions(s)) {
+    let n: GameState;
+    try { n = play(s, m); } catch { continue; }
+    if (n.result) continue;
+    const left = plans.filter(([r1, r2]) => works(n, r1, r2, [...history, s])).length;
+    if (left < best) { best = left; out = [m]; } else if (left === best && left < plans.length) out.push(m);
+  }
+  return best < plans.length ? out : [];
+}
+
+/** What a bot should limit itself to: undo a shown mission, else block an open one (next move first, then two moves ahead). Empty: play normally. */
 export function defenceMoves(states: GameState[], actions: Action[], party: PartySetup, bot: PlayerId): MoveAction[] {
   const s = states[states.length - 1];
   const undo = undoingMoves(s, bot);
-  return undo.length ? undo : blockingMoves(states, actions, party, bot);
+  if (undo.length) return undo;
+  const now = blockingMoves(states, actions, party, bot);
+  if (now.length) return now;
+  // Nothing to stop this move: look two moves ahead, but never walk into a mission done next move.
+  const later = blockingMoves2(states, party, bot);
+  return later;
 }
 
 /** Moves that undo a shown mission of the other player (for bots, and for hints). */

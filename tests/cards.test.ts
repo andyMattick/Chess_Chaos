@@ -157,7 +157,7 @@ describe('power cards', () => {
     const end = replay(rec).at(-1)!;
     expect(end.pieces[s0.sq[sq('g1')]].type).toBe('nightrider');
     expect(end.pieces[s0.sq[sq('e7')]].type).toBe('super-pawn');
-    expect(PLAYABLE_CARDS.size).toBe(25);
+    expect(PLAYABLE_CARDS.size).toBe(29);
   });
 });
 
@@ -189,5 +189,30 @@ describe('king cards and suits', () => {
     expect(to).toContain(sq('c1'));
     expect(to).toContain(sq('g3'));
     expect(to).not.toContain(sq('e3')); // the pawn on e2 is in the way
+  });
+});
+
+describe('more king and queen cards', () => {
+  const up = (fen: string, card: string, from: string) => {
+    let s = withCards(fen, [card]);
+    s = play(s, { t: 'buff', by: 'p1', id: card, piece: s.sq[sq(from)] });
+    return play(s, legalActions(s)[0]); // Black moves, White to play again
+  };
+  const dests = (s: GameState, type: string) => legalActions(s).filter((m) => s.pieces[m.piece].type === type).map((m) => m.to);
+  it('Ghost queen passes through her own pieces, not the enemy', () => {
+    const s = up('4k3/8/8/8/8/8/3P4/3QK3 w - - 0 1', 'CARD-27', 'd1');
+    expect(dests(s, 'ghost-queen')).toContain(sq('d5'));
+  });
+  it('Leaping queen hops one piece on a line', () => {
+    const s = up('4k3/8/8/8/3p4/8/8/3QK3 w - - 0 1', 'CARD-28', 'd1');
+    expect(dests(s, 'leaping-queen')).toContain(sq('d6'));
+  });
+  it('Hop king jumps two squares straight, Hill king two diagonally', () => {
+    expect(dests(up('4k3/8/8/8/8/8/4P3/4K3 w - - 0 1', 'CARD-29', 'e1'), 'hop-king')).toContain(sq('e3'));
+    expect(dests(up('4k3/8/8/8/8/8/5P2/4K3 w - - 0 1', 'CARD-30', 'e1'), 'hill-king')).toContain(sq('g3'));
+  });
+  it('the upgraded king is still the king', () => {
+    const s = up('4k3/r7/8/8/8/8/8/4K3 w - - 0 1', 'CARD-29', 'e1');
+    expect(s.pieces.find((p) => p.owner === 'p1')!.type).toBe('hop-king');
   });
 });

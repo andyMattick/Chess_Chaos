@@ -39,3 +39,15 @@ All 26 modes in the Party deck, 12 games each, bots at ★800: **no crashes and 
 - Missions decided about a third of the games. They never finish in Atomic and Progressive, which end around move 10, about when missions switch on.
 - **Fixed: Pawn wars** gave buffs for pieces that are not on the board (the favourite won 7 of 8). Pawn wars now removes standard-army and castling buffs like Racing kings does; the underdog then won 4 of 12.
 - Capture the flag (1 of 8) and Wrap (2 of 8) leaned to the favourite in this run; worth another look with more games.
+
+## Fairness tuning (2026-11-18, owner request)
+
+Party bot test, ★800 + buffs vs ★1200 + handicaps, 16 games per mode, after giving the weaker player one more Minor buff in these three modes (content/party.ts `UNDERDOG_BONUS_MODES`) and making the stronger player the Boss in bot Party matches too (as online):
+
+| Mode | Weaker player before | After |
+|---|---|---|
+| Three-check | 1 of 8 | 8 of 16 |
+| Boss battle | 0 of 8 | 9 of 16 |
+| Hidden queen | 1 of 8 | 4 of 16 (a Major buff instead gave 3 of 16) |
+
+Hidden queen stays lopsided between bots. Bots only get always-on buffs (never the one-shot buttons a player taps), so this test can't show what the buffs do for a child; watch it in the weekly check and real games before changing the mode.

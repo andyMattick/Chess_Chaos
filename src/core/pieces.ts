@@ -73,6 +73,10 @@ export const PIECE_TYPES: Record<PieceTypeId, PieceType> = {
   lance: { id: 'lance', base: 'pawn', card: '🗡️', name: 'Lance', letter: 'T', value: 3, royal: false, moves: [{ kind: 'ride', dirs: [[0, 1]], relative: true }] },
   'knight-king': { id: 'knight-king', base: 'king', card: '🏇', name: 'Knight king', letter: 'F', value: 0, royal: true, moves: [{ kind: 'leap', offsets: [...ORTH, ...DIAG] }, { kind: 'leap', offsets: KNIGHT }] },
   'long-king': { id: 'long-king', base: 'king', card: '👢', name: 'Long-step king', letter: 'I', value: 0, royal: true, moves: [{ kind: 'ride', dirs: [...ORTH, ...DIAG], max: 2 }] },
+  'ghost-queen': { id: 'ghost-queen', base: 'queen', card: '🫥', name: 'Ghost queen', letter: 'V', value: 10, royal: false, moves: [{ kind: 'ride', dirs: [...ORTH, ...DIAG], pass: 'own' }] },
+  'leaping-queen': { id: 'leaping-queen', base: 'queen', card: '🦋', name: 'Leaping queen', letter: 'V', value: 11, royal: false, moves: [{ kind: 'ride', dirs: [...ORTH, ...DIAG], pass: 'one' }] },
+  'hop-king': { id: 'hop-king', base: 'king', card: '🐸', name: 'Hop king', letter: 'F', value: 0, royal: true, moves: [{ kind: 'leap', offsets: [...ORTH, ...DIAG, [2, 0], [-2, 0], [0, 2], [0, -2]] }] },
+  'hill-king': { id: 'hill-king', base: 'king', card: '⛰️', name: 'Hill king', letter: 'F', value: 0, royal: true, moves: [{ kind: 'leap', offsets: [...ORTH, ...DIAG, [2, 2], [2, -2], [-2, 2], [-2, -2]] }] },
   guard: { id: 'guard', base: 'pawn', card: '🛡️', name: 'Guard', letter: 'U', value: 3, royal: false, moves: [{ kind: 'leap', offsets: [...ORTH, ...DIAG] }] },
   /** Giveaway: a king with no special status (it can be captured like anything else). */
   commoner: { id: 'commoner', base: 'king', name: 'King', letter: 'M', value: 3, royal: false, moves: [{ kind: 'leap', offsets: [...ORTH, ...DIAG] }] },

@@ -95,6 +95,11 @@ export function cardsEarned(i: EarnInput, progress: Record<string, number>): Ear
   // King cards (owner, 2026-11-18).
   if (won && myMoves.some((x) => !!x.m.castle)) out.add('CARD-25');
   if (won && myMoves.length >= 20 && !states.some((s) => inCheck(s, me))) out.add('CARD-26');
+  const queenCaps = myMoves.filter((x) => baseType(x.s.pieces[x.m.piece].type) === 'queen' && x.s.sq[x.m.to] >= 0).length;
+  if (won && queenCaps >= 3) out.add('CARD-27');
+  if (won && myMoves.length >= 30 && end.pieces.some((x) => x.at >= 0 && x.owner === me && baseType(x.type) === 'queen')) out.add('CARD-28');
+  if (won && myMoves.filter((x) => baseType(x.s.pieces[x.m.piece].type) === 'king').length >= 6) out.add('CARD-29');
+  if (won && (end.mode === 'koth' || end.mode === 'hill-wars')) out.add('CARD-30');
   const counter = (key: string, hit: boolean, need: number, card: string) => {
     if (!hit) return;
     prog[key] = (prog[key] ?? 0) + 1;

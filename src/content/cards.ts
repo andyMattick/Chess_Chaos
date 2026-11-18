@@ -86,6 +86,15 @@ export const CARDS: CardDef[] = [
     blurb: 'Your king can also jump like a knight. It is still your king!', earn: 'Win a game after you castled.' },
   { id: 'CARD-26', name: 'Long-step king', emoji: '👢', kind: 'Upgrade', rarity: 'Common', suit: 'king', usesMove: true, taps: up('king'),
     blurb: 'Your king can move up to 2 squares in a straight line (not over pieces).', earn: 'Win a game of 20+ moves where your king was never in check.' },
+  // More king and queen cards (owner, 2026-11-18), so the big collections can be finished.
+  { id: 'CARD-27', name: 'Ghost queen', emoji: '🫥', kind: 'Upgrade', rarity: 'Rare', suit: 'queen', usesMove: true, taps: up('queen'),
+    blurb: 'Your queen glides straight through your own pieces.', earn: 'Win a game where your queen made 3 captures.' },
+  { id: 'CARD-28', name: 'Leaping queen', emoji: '🦋', kind: 'Upgrade', rarity: 'Epic', suit: 'queen', usesMove: true, taps: up('queen'),
+    blurb: 'Your queen can hop over one piece (any colour) on each line.', earn: 'Win with your queen still on the board after move 30.' },
+  { id: 'CARD-29', name: 'Hop king', emoji: '🐸', kind: 'Upgrade', rarity: 'Common', suit: 'king', usesMove: true, taps: up('king'),
+    blurb: 'Your king can also jump 2 squares straight, even over a piece.', earn: 'Win a game where your king moved 6 times or more.' },
+  { id: 'CARD-30', name: 'Hill king', emoji: '⛰️', kind: 'Upgrade', rarity: 'Rare', suit: 'king', usesMove: true, taps: up('king'),
+    blurb: 'Your king can also jump 2 squares diagonally, even over a piece.', earn: 'Win a game of King of the hill or Hill wars.' },
 ];
 
 export function cardById(id: string): CardDef | undefined {

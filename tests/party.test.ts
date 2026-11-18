@@ -2,7 +2,7 @@ import { newRecord, replay, play, parseSAN, initialState, legalActions } from '.
 import type { Action, GameState } from '../src/core';
 import { MISSIONS, MODIFIERS } from '../src/content/party';
 import { IMPLEMENTED } from '../src/core/modifiers';
-import { blockingMoves, dealMissions, defenceMoves, drawMode, missionDefence, missionOff, pickModifiers, refereeAll, refereeMission, setupParty, slotsForGap, redactParty, undoingMoves, PARTY_DECK } from '../src/systems/party';
+import { blockingMoves, blockingMoves2, dealMissions, defenceMoves, drawMode, missionDefence, missionOff, pickModifiers, refereeAll, refereeMission, setupParty, slotsForGap, redactParty, undoingMoves, PARTY_DECK } from '../src/systems/party';
 import { missionChallenges } from '../src/core/rules';
 import { MISSION_DEFENCE_TURNS, MISSION_DEFENCE_TURNS_VS_UNDERDOG } from '../src/content/party';
 import { missionDone, MISSION_CHECKS } from '../src/systems/missions';
@@ -289,5 +289,32 @@ describe('bots defend against missions', () => {
     // A secret (not open) mission is not blocked: the bot does not know it.
     rec.setup.party!.defence = { p1: 1, p2: 1 };
     expect(blockingMoves([s], [], rec.setup.party!, 'p2')).toEqual([]);
+  });
+});
+
+describe('bots look two moves ahead for open missions', () => {
+  it('finds the plan and the moves that spoil it', () => {
+    // White (the weaker player) wants a runaway pawn: d3-d4-d5 is two moves. Black's rook can stand in the way.
+    const rec = partyFen('k7/8/8/8/7r/3P4/8/K7 b - - 0 1', { p1: 'MISSION-17', p2: 'MISSION-23' });
+    rec.setup.party!.defence = { p1: 0, p2: 1 };
+    const s = initialState(rec);
+    expect(blockingMoves([s], [], rec.setup.party!, 'p2')).toEqual([]); // nothing to stop this move
+    const later = blockingMoves2([s], rec.setup.party!, 'p2');
+    expect(later.length).toBeGreaterThan(0);
+    expect(later.length).toBeLessThan(legalActions(s).length);
+    const has = (san: string) => { const m = parseSAN(s, san)!; return later.some((x) => x.piece === m.piece && x.to === m.to); };
+    expect(has('Rd4')).toBe(true); // blocks the pawn
+    expect(has('Kb7')).toBe(false); // does nothing about it
+    expect(defenceMoves([s], [], rec.setup.party!, 'p2')).toEqual(later);
+  });
+});
+
+describe('fairness tuning', () => {
+  it('the weaker player gets one more buff in the lopsided modes', () => {
+    const o = (mode: string) => ({ mode, online: false, players: { p1: { rating: 800, bot: false }, p2: { rating: 1200, bot: true } } });
+    for (let i = 0; i < 20; i++) {
+      const normal = pickModifiers(o('standard'), seeded(i + 1)).p1.length;
+      expect(pickModifiers(o('three-check'), seeded(i + 1)).p1.length).toBe(normal + 1);
+    }
   });
 });

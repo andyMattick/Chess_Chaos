@@ -4,7 +4,7 @@ import { missionById, modifierById } from '../content/party';
 import { MODE_INFO } from '../core/modes';
 import { activeProfile, updateProfile } from '../storage/storage';
 import { PATH, unlockedCount } from '../systems/coins';
-import { drawMode, missionIsOpen, setupParty } from '../systems/party';
+import { PARTY_MODES, drawMode, missionIsOpen, setupParty } from '../systems/party';
 import type { GameConfig } from './GameScreen';
 import { useSave } from './store';
 import { CardTile, HandPicker, useHand } from './Cards';
@@ -12,8 +12,9 @@ import { cardById } from '../content/cards';
 import { botPrize } from '../systems/cards';
 
 /**
- * Party match setup against a bot: the mode comes off your mode deck, the
- * rating gap decides buffs and handicaps, and each side gets a secret mission.
+ * Party match setup against a bot: a surprise mode off your mode deck, or one
+ * you pick; extras (buffs and handicaps) from the rating gap, which you can
+ * switch off; and secret missions, which you can switch off too (owner, 2026-11-18).
  */
 export function PartySetup({ start, back }: { start: (c: GameConfig) => void; back: () => void }) {
   const save = useSave();
@@ -29,23 +30,32 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
 
   // Draw the mode once per visit (and remember the deck).
   const [draw] = useState(() => drawMode(p.modeDeck, undefined, Math.random, p.modePrefs));
-  const setup = useMemo(() => {
+  const [pick, setPick] = useState<string>('surprise');
+  const [missionsOn, setMissionsOn] = useState(true);
+  const [extrasOn, setExtrasOn] = useState(true);
+  const modeId = pick === 'surprise' ? draw.mode : pick;
+  const full = useMemo(() => {
     const players = humanSeat === 'p1'
       ? { p1: { rating: p.rating, bot: false }, p2: { rating: bot.rating, bot: true } }
       : { p1: { rating: bot.rating, bot: true }, p2: { rating: p.rating, bot: false } };
-    return setupParty({ mode: draw.mode, players, online: false }, Math.random);
-  }, [botId, draw.mode, humanSeat]); // eslint-disable-line react-hooks/exhaustive-deps
-  const mode = MODE_INFO.find((m) => m.id === draw.mode)!;
+    return setupParty({ mode: modeId, players, online: false }, Math.random);
+  }, [botId, modeId, humanSeat]); // eslint-disable-line react-hooks/exhaustive-deps
+  const setup = { ...full, modifiers: extrasOn ? full.modifiers : {}, missions: missionsOn ? full.missions : {} };
+  const mode = MODE_INFO.find((m) => m.id === modeId)!;
   const botSeat = humanSeat === 'p1' ? 'p2' : 'p1';
   const mine = setup.modifiers[humanSeat] ?? [];
   const theirs = setup.modifiers[botSeat] ?? [];
-  const mission = missionById(setup.missions[humanSeat]!);
-  const theirMission = missionById(setup.missions[botSeat]!);
+  const mission = setup.missions[humanSeat] ? missionById(setup.missions[humanSeat]!) : undefined;
+  const theirMission = setup.missions[botSeat] ? missionById(setup.missions[botSeat]!) : undefined;
 
   const go = () => {
-    updateProfile((x) => ({ ...x, modeDeck: draw.deck, partyMatches: x.partyMatches + 1 }));
+    // The surprise mode comes off your mode deck; a mode you picked leaves the deck alone.
+    updateProfile((x) => ({ ...x, modeDeck: pick === 'surprise' ? draw.deck : x.modeDeck, partyMatches: x.partyMatches + 1 }));
     start({
-      kind: 'bot', botId, humanSeat, mode: draw.mode, party: { ...setup, cards: { [humanSeat]: hand, [botSeat]: [prize] } },
+      kind: 'bot', botId, humanSeat, mode: modeId,
+      // Boss battle: the stronger player is the Boss (the Boss side is the harder one), like online.
+      ...(modeId === 'boss' ? { extra: { boss: p.rating > bot.rating ? humanSeat : botSeat } } : {}),
+      party: { ...setup, cards: { [humanSeat]: hand, [botSeat]: [prize] } },
       names: humanSeat === 'p1' ? { p1: p.nickname, p2: bot.name } : { p1: bot.name, p2: p.nickname },
     });
   };
@@ -70,7 +80,9 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
           <h3>{bot.emoji} {bot.name}'s extras</h3>
           {modRow(theirs)}
         </div>
-        {missionIsOpen(setup, humanSeat) && mission ? (
+        {!missionsOn ? (
+          <div className="reveal-card mission-card big open"><div className="reveal-emoji">🙅</div><h3>No secret missions</h3><p>Win the normal way for this mode.</p></div>
+        ) : missionIsOpen(setup, humanSeat) && mission ? (
           <div className="reveal-card mission-card big open">
             <div className="reveal-emoji">🎯</div><h3>{mission.name}</h3><p>{mission.blurb}</p>
             <small>You're the underdog, so your mission is open: {bot.name} can see it. But if you do it (after your move {setup.gate[humanSeat]}), you win at once!</small>
@@ -97,6 +109,18 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
           <CardTile c={cardById(prize)!} small><span className="pc-kind">{bot.name}'s</span></CardTile>
         </div>
         <p className="muted small">Win and you take one of their cards. Every other card brought in is used up, win or lose.</p>
+      </div>
+      <h3>Mode</h3>
+      <div className="clock-chips">
+        <button className={`chip ${pick === 'surprise' ? 'on' : ''}`} onClick={() => setPick('surprise')}>🎲 Surprise me</button>
+        {PARTY_MODES.map((id) => {
+          const m = MODE_INFO.find((x) => x.id === id);
+          return m ? <button key={id} className={`chip ${pick === id ? 'on' : ''}`} onClick={() => setPick(id)}>{m.emoji} {m.name}</button> : null;
+        })}
+      </div>
+      <div className="mission-toggle">
+        <label><input type="checkbox" checked={missionsOn} onChange={(e) => setMissionsOn(e.target.checked)} /> 🤫 Secret missions</label>
+        <label><input type="checkbox" checked={extrasOn} onChange={(e) => setExtrasOn(e.target.checked)} /> ⚖️ Use the extras (buffs and handicaps from your ratings)</label>
       </div>
       <h3>Opponent</h3>
       <div className="clock-chips">

@@ -95,6 +95,12 @@ export const MISSION_DEFENCE_TURNS = 1;
  * shown to the opponent from the start, but doing it wins at once (0 turns to undo).
  */
 export const MISSION_DEFENCE_TURNS_VS_UNDERDOG = 0;
+/**
+ * Modes where the stronger player wins far more than in the rest of Party
+ * (bot playtest, docs/12): the weaker player gets one more buff there.
+ */
+export const UNDERDOG_BONUS_MODES: Record<string, 'Major' | 'Minor'> = { boss: 'Minor', 'three-check': 'Minor', 'hidden-queen': 'Minor' };
+
 /** Rating gap from which the weaker player gets that advantage. */
 export const MISSION_UNDERDOG_GAP = 100;
 

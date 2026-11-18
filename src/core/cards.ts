@@ -31,6 +31,10 @@ const UPGRADES: Record<string, { from: string[]; to: string }> = {
   'CARD-24': { from: ['pawn'], to: 'guard' },
   'CARD-25': { from: ['king'], to: 'knight-king' },
   'CARD-26': { from: ['king'], to: 'long-king' },
+  'CARD-27': { from: ['queen'], to: 'ghost-queen' },
+  'CARD-28': { from: ['queen'], to: 'leaping-queen' },
+  'CARD-29': { from: ['king'], to: 'hop-king' },
+  'CARD-30': { from: ['king'], to: 'hill-king' },
 };
 
 /** Cards the engine can play. CARD-23 Decoy king needs hidden information and is not built yet. */
