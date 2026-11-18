@@ -742,3 +742,12 @@ body[data-calm] .die { animation: none; }
 .set-pieces .set-have { font-size: 0.7rem; font-weight: 800; margin-left: 1px; vertical-align: super; }
 .ready-dot { color: #2f8f4e; font-weight: 800; }
 .invite-row { align-items: center; gap: 8px; margin: 6px 0; }
+.friend-requests { display: grid; gap: 6px; padding: 8px 10px; margin: 6px 0; background: #e8f6ff; border: 3px solid var(--ink); border-radius: 12px; }
+.friend-request { align-items: center; gap: 6px; }
+.friend-request input { max-width: 150px; }
+.popup { position: fixed; z-index: 70; left: 50%; bottom: 14px; transform: translateX(-50%); width: min(460px, calc(100vw - 20px)); display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; padding: 10px 12px; background: #fffaf0; border: 3px solid var(--ink); border-radius: 16px; box-shadow: 4px 6px 0 var(--ink); animation: popup-in 0.25s ease-out; }
+.popup .row { grid-column: 1 / -1; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+.popup-emoji { font-size: 1.8rem; }
+.popup-text { font-weight: 700; }
+@keyframes popup-in { from { transform: translate(-50%, 30px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .popup { animation: none; } }

@@ -3,6 +3,7 @@ import type { GameRecord } from '../core/record';
 import { askToKeepStorage, lookOf, activeProfile, updateProfile } from '../storage/storage';
 import { startCloudSync, vaultBase } from '../storage/cloud';
 import { NumberPrompt } from './CloudSave';
+import { Popups } from './Popups';
 import { GameScreen, type GameConfig } from './GameScreen';
 import { landscapeById } from './landscapes';
 import { OnlineLobby, roomFromUrl } from './OnlineLobby';
@@ -101,6 +102,7 @@ export function App() {
 
   return (
     <main className="app">
+      <Popups openChallenges={() => setScreen({ name: 'challenges' })} quiet={inGame || screen.name === 'battle-game' || askOpen} inChallenges={screen.name === 'challenges'} />
       {askOpen && askP && (
         <div className="number-modal" role="dialog" aria-label="Get a player number">
           <div>

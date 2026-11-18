@@ -256,3 +256,38 @@ describe('tournament bots', () => {
   });
 });
 
+
+describe('friend requests', () => {
+  it('ask, see it, say yes: both sides learn it; numbers only', async () => {
+    const sv = server();
+    const a = await sv.player(), b = await sv.player();
+    expect((await (await a.call('POST', `/friends/${b.number}`)).json()).status).toBe('sent');
+    const inbox = await (await b.call('GET', '/friends')).json();
+    expect(inbox.incoming.map((x: { n: string }) => x.n)).toEqual([a.number]);
+    expect(JSON.stringify(inbox)).not.toMatch(/name/);
+    expect((await (await a.call('GET', '/friends')).json()).sent.map((x: { n: string }) => x.n)).toEqual([b.number]);
+    expect((await (await b.call('POST', `/friends/${a.number}/accept`)).json()).status).toBe('friends');
+    const back = await (await a.call('GET', '/friends')).json();
+    expect(back.accepted.map((x: { n: string }) => x.n)).toEqual([b.number]);
+    expect(back.sent).toEqual([]);
+    await a.call('POST', `/friends/${b.number}/seen`);
+    expect((await (await a.call('GET', '/friends')).json()).accepted).toEqual([]);
+    expect((await (await b.call('GET', '/friends')).json()).incoming).toEqual([]);
+  });
+  it('asking each other is a yes; no thanks and take back; strangers and bad numbers', async () => {
+    const sv = server();
+    const a = await sv.player(), b = await sv.player(), c = await sv.player();
+    await a.call('POST', `/friends/${b.number}`);
+    expect((await (await b.call('POST', `/friends/${a.number}`)).json()).status).toBe('friends');
+    expect((await (await a.call('GET', '/friends')).json()).accepted.map((x: { n: string }) => x.n)).toEqual([b.number]);
+    await c.call('POST', `/friends/${a.number}`);
+    await a.call('POST', `/friends/${c.number}/decline`);
+    expect((await (await c.call('GET', '/friends')).json()).sent).toEqual([]);
+    await c.call('POST', `/friends/${b.number}`);
+    await c.call('DELETE', `/friends/${b.number}`);
+    expect((await (await b.call('GET', '/friends')).json()).incoming).toEqual([]);
+    expect((await a.call('POST', '/friends/99999999')).status).toBe(404);
+    expect((await a.call('POST', `/friends/${a.number}`)).status).toBe(400);
+    expect((await a.call('POST', `/friends/${c.number}/accept`)).status).toBe(404);
+  });
+});

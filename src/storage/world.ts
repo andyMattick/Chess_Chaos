@@ -108,6 +108,40 @@ export function addFriend(n: string, name?: string) {
   });
 }
 
+/* ---- Friend requests through the server (numbers only) ---- */
+export interface FriendInbox { incoming: { n: string; at: number }[]; sent: { n: string; at: number }[]; accepted: { n: string; at: number }[] }
+
+export async function friendInbox(): Promise<FriendInbox> {
+  return answer<FriendInbox>(await call(activeProfile()!, 'GET', '/friends'));
+}
+
+/** Add someone by number: on your list now, and a request to them so they can add you back with one tap. */
+export async function requestFriend(n: string, name?: string): Promise<'sent' | 'friends'> {
+  addFriend(n, name);
+  const r = await answer<{ status: 'sent' | 'friends' }>(await call(activeProfile()!, 'POST', `/friends/${n.replace(/\D/g, '')}`));
+  return r.status;
+}
+
+export async function acceptFriend(n: string, name?: string): Promise<void> {
+  await answer(await call(activeProfile()!, 'POST', `/friends/${n}/accept`));
+  addFriend(n, name);
+}
+
+export async function declineFriend(n: string): Promise<void> {
+  await answer(await call(activeProfile()!, 'POST', `/friends/${n}/decline`));
+}
+
+/** They said yes to your request: make sure they're on your list, then clear the note. Returns who. */
+export async function takeAccepted(inbox: FriendInbox): Promise<string[]> {
+  const p = activeProfile();
+  if (!p) return [];
+  for (const { n } of inbox.accepted) {
+    addFriend(n);
+    await call(p, 'POST', `/friends/${n}/seen`).catch(() => undefined);
+  }
+  return inbox.accepted.map((x) => x.n);
+}
+
 export function removeFriend(n: string) {
   updateProfile((x) => ({ ...x, friends: (x.friends ?? []).filter((f) => f !== n) }));
 }

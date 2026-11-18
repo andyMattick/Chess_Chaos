@@ -5,7 +5,7 @@ import { MAIL_GAMES, type MailGame } from '../net/world';
 import { replay } from '../core/record';
 import { vaultBase } from '../storage/cloud';
 import { activeProfile } from '../storage/storage';
-import { addFriend, answerChallenge, challenge, createTournament, labelFor, myGames, myTournaments, nameNumber, removeFriend, tournamentAction, type Tournament } from '../storage/world';
+import { acceptFriend, declineFriend, friendInbox, requestFriend, takeAccepted, type FriendInbox, addFriend, answerChallenge, challenge, createTournament, labelFor, myGames, myTournaments, nameNumber, removeFriend, tournamentAction, type Tournament } from '../storage/world';
 import { isBotSeat, TOURNAMENT_MAX } from '../net/world';
 import { botForSeat, seatBotLabel, tournamentBots } from '../systems/tournamentBots';
 import { showNumber as fmt } from '../net/vault';
@@ -35,6 +35,9 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
   // Opened from a friend's invite link: their number is filled in.
   const [invitedBy] = useState(() => { try { return sessionStorage.getItem('chess-chaos:invite') ?? ''; } catch { return ''; } });
   const [shared, setShared] = useState<string | null>(null);
+  const [inbox, setInbox] = useState<FriendInbox | null>(null);
+  const [reqNames, setReqNames] = useState<Record<string, string>>({});
+  const [friendNote, setFriendNote] = useState<string | null>(null);
   const [tours, setTours] = useState<Tournament[]>([]);
   const [tPick, setTPick] = useState<string[]>([]);
   const [tGame, setTGame] = useState<RoomGame>('standard');
@@ -43,7 +46,8 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
   const number = p?.cloud?.number;
   const { board } = useWorldBoard();
 
-  const refresh = () => Promise.all([myGames(), myTournaments()]).then(([g, t]) => { setGames(g); setTours(t); setErr(null); }).catch((e) => setErr((e as Error).message));
+  const refresh = () => Promise.all([myGames(), myTournaments(), friendInbox().then(async (f) => { await takeAccepted(f); return f; })])
+    .then(([g, t, f]) => { setGames(g); setTours(t); setInbox(f); setErr(null); }).catch((e) => setErr((e as Error).message));
   useEffect(() => {
     if (!number) return;
     void refresh();
@@ -173,7 +177,7 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
         return known.length > 0 && (
           <div className="friend-suggest">
             <small className="muted">People you've played:</small>
-            {known.slice(0, 6).map((n) => <button key={n} className="chip" onClick={() => addFriend(n)}>➕ {label(n)}</button>)}
+            {known.slice(0, 6).map((n) => <button key={n} className="chip" onClick={() => requestFriend(n).then(refresh).catch((e) => setErr((e as Error).message))}>➕ {label(n)}</button>)}
           </div>
         );
       })()}
@@ -184,10 +188,25 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
       {invitedBy && !(p.friends ?? []).includes(invitedBy) && addNo === '' && (
         <p className="banner">📨 You were invited by player {showNumber(invitedBy)}. <button className="btn small" onClick={() => setAddNo(invitedBy)}>Fill in their number</button></p>
       )}
+      {(inbox?.incoming ?? []).length > 0 && (
+        <div className="friend-requests">
+          <b>🤝 Friend requests</b>
+          {inbox!.incoming.map(({ n }) => (
+            <div key={n} className="row wrap friend-request">
+              <span>Player <b>{showNumber(n)}</b>{(p.contacts ?? {})[n] ? ` (${p.contacts![n]})` : ''} wants to be friends.</span>
+              <input aria-label={`Name for ${n}`} placeholder="Their name (only you see it)" maxLength={16} value={reqNames[n] ?? ''} onChange={(e) => setReqNames({ ...reqNames, [n]: e.target.value })} />
+              <button className="btn small primary" onClick={() => acceptFriend(n, reqNames[n]).then(refresh).catch((e) => setErr((e as Error).message))}>Yes!</button>
+              <button className="btn small" onClick={() => declineFriend(n).then(refresh).catch((e) => setErr((e as Error).message))}>No thanks</button>
+            </div>
+          ))}
+        </div>
+      )}
+      {(inbox?.sent ?? []).length > 0 && <p className="muted small">⏳ Waiting for {inbox!.sent.map(({ n }) => label(n)).join(', ')} to say yes to your friend request.</p>}
+      {friendNote && <p className="small">{friendNote}</p>}
       <div className="mail-form add-friend">
         <input aria-label="New friend's player number" inputMode="numeric" placeholder="Friend's player number" value={addNo} onChange={(e) => setAddNo(e.target.value)} />
         <input aria-label="New friend's name" placeholder="Their name (only you see it)" maxLength={16} value={addName} onChange={(e) => setAddName(e.target.value)} />
-        <button className="btn small" disabled={addNo.replace(/\D/g, '').length !== 8} onClick={() => { try { addFriend(addNo, addName); setAddNo(''); setAddName(''); } catch (e) { setErr((e as Error).message); } }}>➕ Add friend</button>
+        <button className="btn small" disabled={addNo.replace(/\D/g, '').length !== 8} onClick={() => { const no = addNo, nm = addName; requestFriend(no, nm).then((st) => { setAddNo(''); setAddName(''); setFriendNote(st === 'friends' ? '🤝 Friends on both phones now!' : '📨 Friend request sent. They\'ll see it in the app.'); return refresh(); }).catch((e) => setErr((e as Error).message)); }}>➕ Add friend</button>
       </div>
 
       <h3>🏆 Tournaments <span className="scribble">knockout, a move at a time</span></h3>

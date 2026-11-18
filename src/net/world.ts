@@ -124,6 +124,62 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
     return bad('method', 405);
   }
 
+  // ---- Friend requests ---------------------------------------------------
+  // Numbers only, never names (owner, 2026-11-18). fr:<to>:<from> a request waiting,
+  // fs:<from>:<to> the sender's copy, fa:<from>:<to> "they said yes" for the sender's phone.
+  if (parts[0] === 'friends') {
+    if (!who) return bad('no key', 401);
+    const list = async (prefix: string) => {
+      const out: { n: string; at: number }[] = [];
+      for (const [k, v] of await store.list(prefix)) {
+        const at = Number(v) || 0;
+        if (now - at > FRIEND_REQUEST_MS) { await store.delete(k); continue; }
+        out.push({ n: k.slice(prefix.length), at });
+      }
+      return out.sort((a, b) => b.at - a.at);
+    };
+    if (req.method === 'GET' && !parts[1]) {
+      return json({ incoming: await list(`fr:${who}:`), sent: await list(`fs:${who}:`), accepted: await list(`fa:${who}:`) });
+    }
+    const other = parts[1];
+    if (!other || !isNumber(other) || other === who) return bad('That is not a player number.');
+    const befriend = async () => {
+      await store.delete(`fr:${who}:${other}`);
+      await store.delete(`fs:${other}:${who}`);
+      await store.delete(`fr:${other}:${who}`);
+      await store.delete(`fs:${who}:${other}`);
+      await store.put(`fa:${other}:${who}`, String(now));
+    };
+    if (req.method === 'POST' && !parts[2]) {
+      if (!(await exists(other))) return bad('No player has that number.', 404);
+      // They already asked you: that's a yes from both.
+      if (await store.get(`fr:${who}:${other}`)) { await befriend(); return json({ status: 'friends' }); }
+      if ((await store.list(`fr:${other}:`)).length >= FRIEND_REQUEST_MAX) return bad('They have too many friend requests waiting.', 429);
+      await store.put(`fr:${other}:${who}`, String(now));
+      await store.put(`fs:${who}:${other}`, String(now));
+      return json({ status: 'sent' });
+    }
+    if (req.method === 'POST' && parts[2] === 'accept') {
+      if (!(await store.get(`fr:${who}:${other}`))) return bad('No request from that player.', 404);
+      await befriend();
+      return json({ status: 'friends' });
+    }
+    if (req.method === 'POST' && parts[2] === 'decline') {
+      await store.delete(`fr:${who}:${other}`);
+      await store.delete(`fs:${other}:${who}`);
+      return json({ ok: true });
+    }
+    // The sender's phone has added them: forget the "they said yes" note.
+    if (req.method === 'POST' && parts[2] === 'seen') { await store.delete(`fa:${who}:${other}`); return json({ ok: true }); }
+    // Take back a request you sent.
+    if (req.method === 'DELETE' && !parts[2]) {
+      await store.delete(`fs:${who}:${other}`);
+      await store.delete(`fr:${other}:${who}`);
+      return json({ ok: true });
+    }
+    return bad('method', 405);
+  }
+
   // ---- Challenges --------------------------------------------------------
   if (parts[0] === 'games') {
     if (!who) return bad('no key', 401);
@@ -341,6 +397,10 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
  * settled at once by a roll weighted by their ratings.
  * ------------------------------------------------------------------------- */
 export const TOURNAMENT_MAX = 8;
+
+/** Friend requests wait up to 30 days; at most 30 waiting for one player. */
+export const FRIEND_REQUEST_MS = 30 * 24 * 3600 * 1000;
+export const FRIEND_REQUEST_MAX = 30;
 
 /** A bot seat: a path bot by id, or a Mirror/nemesis by its opening book. No player names: the Mirror is shown as "Mirror of <organizer>". */
 export interface TournamentBot {
