@@ -120,6 +120,7 @@ export class Room {
       case 'battle-4': return newBattleRecord(seed, players, 'four');
       case 'battle-teams': return newBattleRecord(seed, players, 'teams');
       case 'battle-hill-4': return newBattleRecord(seed, players, 'four', 'battle-hill');
+      case 'battle-paint-4': return newBattleRecord(seed, players, 'four', 'battle-paint');
       case 'standard': case 'party': return newRecord(seed, players);
       // Every other 2-player game is a core mode with the same id.
       default: return newRecord(seed, players, undefined, this.game);

@@ -134,21 +134,24 @@ const givesCheck = (s: GameState, m: MoveAction) => {
   return inCheck(n, other(s, s.pieces[m.piece].owner));
 };
 
+/**
+ * Racing kings (owner rule, 2026-11-18): reaching the top row is not a win yet. The other side
+ * gets one turn to chase you off it, and on that turn (only) they may give check. If your king is
+ * still on the top row and not in check after their turn, you win. Both kings up there: a draw.
+ */
 const racingKings: RuleModule = {
   id: 'racing-kings',
   noMaterialDraw: true,
-  filterMoves: (s, moves) => moves.filter((m) => !givesCheck(s, m)),
+  // No checks, except to chase a king that is sitting on the top row.
+  filterMoves: (s, moves) => (onGoal(s, other(s, s.turn)) ? moves : moves.filter((m) => !givesCheck(s, m))),
   checkEnd: (s, prev) => {
     if (s.ply === prev.ply) return undefined;
-    const w = onGoal(s, 'p1'), b = onGoal(s, 'p2');
-    if (w && b) return { reason: 'mode-win', winners: [] };
-    if (b) return { reason: 'mode-win', winners: ['p2'] };
-    if (w && prev.turn === 'p2') return { reason: 'mode-win', winners: ['p1'] }; // Black had its reply and missed
-    if (w) {
-      // White got there first: Black gets one reply to draw by also arriving.
-      const k = royals(s, 'p2')[0];
-      const canReach = !!k && legalMoves(s, true).some((m) => m.piece === k.id && rankOf(s.board, m.to) === s.board.height - 1 && !givesCheck(s, m));
-      return canReach ? undefined : { reason: 'mode-win', winners: ['p1'] };
+    const mover = prev.turn;
+    const waiting = s.turn; // the side that may have arrived earlier
+    if (waiting === mover) return undefined;
+    // The chaser had their turn: is the waiting king still up there and safe?
+    if (onGoal(prev, waiting) && onGoal(s, waiting) && !inCheck(s, waiting)) {
+      return { reason: 'mode-win', winners: onGoal(s, mover) ? [] : [waiting] };
     }
     return undefined;
   },
@@ -675,3 +678,71 @@ MODE_SETUP_2['card-chess'] = (s) => {
   cc = drawUp(s, cc, 'p2');
   return setData(s, 'cc', cc);
 };
+
+// ---------- MODE-30 Paint the board (2 to 4 players) ----------
+
+/** Owner of each painted square ('' = not painted). */
+export function paintOf(s: GameState): string[] {
+  return data<string[]>(s, 'paint', []);
+}
+export const PAINT_ROUNDS = 30;
+/** Squares painted per player. */
+export function paintScores(s: GameState): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const seat of s.seats) out[seat.id] = 0;
+  for (const p of paintOf(s)) if (p && out[p] !== undefined) out[p]++;
+  return out;
+}
+/** Rounds played so far (a round = everyone still in the game moved once). */
+export function paintRound(s: GameState): number {
+  const n = data<number>(s, 'paintPlayers', s.seats.length);
+  return Math.floor(s.ply / n);
+}
+
+const paint: RuleModule = {
+  id: 'paint',
+  afterMove: (s, prev) => {
+    const l = s.last;
+    if (!l || s.ply === prev.ply || l === prev.last) return s;
+    const board = paintOf(s).slice();
+    board[l.to] = l.by;
+    // A knocked-out army's colour washes off the board.
+    const out = new Set(s.seats.filter((x) => x.status === 'eliminated').map((x) => x.id));
+    for (let i = 0; i < board.length; i++) if (board[i] && out.has(board[i] as PlayerId)) board[i] = '';
+    let n = setData(s, 'paint', board);
+    if (prev.modeData?.paintPlayers === undefined) n = setData(n, 'paintPlayers', s.seats.length);
+    return n;
+  },
+  checkEnd: (s) => {
+    if (paintRound(s) < PAINT_ROUNDS) return undefined;
+    const scores = paintScores(s);
+    const alive = s.seats.filter((x) => x.status !== 'eliminated').map((x) => x.id);
+    const best = Math.max(...alive.map((k) => scores[k] ?? 0));
+    const winners = alive.filter((k) => scores[k] === best);
+    return { reason: 'mode-win', winners: winners.length === 1 ? winners : [] };
+  },
+};
+
+// ---------- MINI-01 Pawn wars ----------
+
+const PAWN_WARS_FEN = '4k3/pppppppp/8/8/8/8/PPPPPPPP/4K3 w - - 0 1';
+/** Pawns only (and kings, so the usual rules still hold): the first pawn to reach the far row wins. */
+const pawnWars: RuleModule = {
+  id: 'pawn-wars',
+  noMaterialDraw: true,
+  checkEnd: (s, prev) => {
+    const l = s.last;
+    if (!l || s.ply === prev.ply) return undefined;
+    if (prev.pieces[l.piece]?.type === 'pawn' && s.pieces[l.piece].type !== 'pawn') return { reason: 'mode-win', winners: [l.by] };
+    // Out of pawns with no way to promote: the side with pawns left wins.
+    const pawns = (p: PlayerId) => s.pieces.some((x) => x.at >= 0 && x.owner === p && x.type === 'pawn');
+    if (!pawns('p1') && pawns('p2')) return { reason: 'mode-win', winners: ['p2'] };
+    if (!pawns('p2') && pawns('p1')) return { reason: 'mode-win', winners: ['p1'] };
+    return undefined;
+  },
+};
+
+MODE_MODULES_2.paint = [paint];
+MODE_MODULES_2['battle-paint'] = [paint];
+MODE_MODULES_2['pawn-wars'] = [pawnWars];
+MODE_SETUP_2['pawn-wars'] = (s) => fromFenKeep(s, PAWN_WARS_FEN);

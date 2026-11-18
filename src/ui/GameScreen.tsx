@@ -7,7 +7,8 @@ import { pieceType } from '../core/pieces';
 import { newRecord, replay, type GameRecord } from '../core/record';
 import { diceOptions, diceRoll, type DiceChoice, flagSquare, hillData, MODE_INFO } from '../core/modes';
 import { makeMove as makeMoveFast } from '../core/movegen';
-import { type ModeExtra, bossLives, cardChessOf, hiddenQueens, lavaNow, progressOf, reserveOf, ringSquares, shrinkIn } from '../core/modes2';
+import { PAINT_COLOUR, PAINT_NAME, paintTints } from './paintOverlay';
+import { type ModeExtra, PAINT_ROUNDS, paintRound, paintScores, bossLives, cardChessOf, hiddenQueens, lavaNow, progressOf, reserveOf, ringSquares, shrinkIn } from '../core/modes2';
 import { legalActions, play } from '../core/rules';
 import { inCheck } from '../core/movegen';
 import { toSAN } from '../core/san';
@@ -88,6 +89,7 @@ const MODE_WIN_TEXT: Record<string, string> = {
   'capture-race': 'by winning the capture race! 🏁', 'capture-the-flag': 'by capturing the flag! 🏳️', atomic: 'by blowing up the king! 💥',
   giveaway: 'by giving everything away! 🎁', 'racing-kings': 'by racing to the top! 🏎️', horde: 'by wiping out the horde! 🐜',
   shrinking: 'when a king fell off the board! 📉', boss: 'by beating the Boss three times! 👹', survival: 'by holding out! 🛡️',
+  paint: 'by painting the most squares! 🎨', 'pawn-wars': 'by promoting first! ♟️', 'racing-kings-chase': '',
 };
 
 function pick<T>(list: readonly T[]): T {
@@ -837,6 +839,7 @@ function withFlags(s: GameState, o: import('./Board').BoardOverlays | undefined,
   const badges = new Map(o?.badges ?? []);
   if (s.mode === 'capture-the-flag') for (const seat of s.seats) tint.set(flagSquare(s, seat.id), seat.id === 'p1' ? 'rgba(80, 160, 255, 0.55)' : 'rgba(255, 70, 70, 0.55)');
   if (s.mode === 'lava') for (const t of lavaNow(s)) tint.set(t, 'rgba(255, 110, 20, 0.75)');
+  paintTints(s, tint);
   if (s.mode === 'shrinking') {
     const n = shrinkIn(s);
     if (n !== null && n <= 4) for (const t of ringSquares(s, ((s.modeData?.rings as number) ?? 0))) tint.set(t, 'rgba(255, 40, 40, 0.45)');
@@ -883,8 +886,16 @@ function ModeStatus({ s, names, showBlurb }: { s: GameState; names: Record<strin
   } else if (s.mode === 'survival') {
     const left = Math.max(0, Math.ceil((40 - (s.ply - ((s.modeData?.surviveFrom as number) ?? 0))) / 2));
     line = <div>🛡️ Hold out for <b>{left}</b> more move{left === 1 ? '' : 's'}. A draw counts as a win!</div>;
+  } else if (s.mode === 'paint') {
+    const sc = paintScores(s);
+    line = (
+      <>
+        <div>🎨 Round <b>{Math.min(PAINT_ROUNDS, paintRound(s) + 1)}</b> of {PAINT_ROUNDS}</div>
+        {who.map((k) => <div key={k} className="hill-bar"><div style={{ width: `${Math.min(100, (sc[k] / 64) * 100)}%`, background: PAINT_COLOUR[k] }} /><span>{names[k]} ({PAINT_NAME[k]}): {sc[k]} squares</span></div>)}
+      </>
+    );
   } else if (s.mode === 'racing-kings') {
-    line = <div>🏁 First king to the top row wins. No checks allowed!</div>;
+    line = <div>🏁 First king to the top row wins. No checks allowed, except to chase a king off the top row: it must survive one turn up there.</div>;
   }
   return (
     <div className="hill-goal">

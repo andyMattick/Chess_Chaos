@@ -14,7 +14,7 @@ import { missionDone } from './missions';
 /** Modes in the deck. Classic chess appears three times (docs/08 Q6). */
 export const PARTY_DECK = [
   'standard', 'standard', 'standard', 'koth', 'three-check', 'capture-race', 'random-piece', 'truce', 'capture-the-flag', 'shuffle', 'hill-wars',
-  'atomic', 'giveaway', 'racing-kings', 'wrap', 'lava', 'mini', 'horde', 'monster', 'shrinking', 'progressive', 'drop-in', 'boss', 'mystery-army', 'hidden-queen', 'card-chess',
+  'atomic', 'giveaway', 'racing-kings', 'wrap', 'lava', 'mini', 'horde', 'monster', 'shrinking', 'progressive', 'drop-in', 'boss', 'mystery-army', 'hidden-queen', 'card-chess', 'paint', 'pawn-wars',
 ];
 
 /** Capabilities each mode removes, for tag filtering (docs/02 s7). */

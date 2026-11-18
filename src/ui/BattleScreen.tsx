@@ -19,6 +19,8 @@ import { Character } from './skins';
 import { setSoundEnabled, sfx } from './sound';
 import { useYourTurn } from './yourTurn';
 import { useSave } from './store';
+import { PAINT_COLOUR, paintTints } from './paintOverlay';
+import { PAINT_ROUNDS, paintRound, paintScores } from '../core/modes2';
 import { QuickToggles } from './QuickToggles';
 
 /**
@@ -28,7 +30,7 @@ import { QuickToggles } from './QuickToggles';
  */
 export interface LocalBattle {
   kind: BattleKind;
-  mode: 'battle' | 'battle-hill';
+  mode: 'battle' | 'battle-hill' | 'battle-paint';
   botRating: number;
 }
 
@@ -198,6 +200,7 @@ export function BattleScreen({ local, onExit, onAgain }: { local?: LocalBattle; 
   }, [isOnline, !!live.result, ratingKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hill = live.mode === 'battle-hill' ? hillData(live) : null;
+  const paint = live.mode === 'battle-paint' ? paintScores(live) : null;
   const myStatus = live.seats.find((x) => x.id === me)?.status;
   const won = live.result?.winners.includes(me);
   const turnName = names[live.turn];
@@ -216,6 +219,7 @@ export function BattleScreen({ local, onExit, onAgain }: { local?: LocalBattle; 
           <Board
             state={live} bottom={me} selected={selected} targets={targets} lastMove={lastMoveOf(rec, states)}
             showCoordinates={false} landscape={look.landscape} skins={look.skins} interactive={myTurn} onSquare={onSquare} fx={fx}
+            overlays={live.mode === 'battle-paint' ? { tint: paintTints(live) } : undefined}
           />
           {promo && (
             <div className="promo" role="dialog" aria-label="Choose a piece">
@@ -233,7 +237,7 @@ export function BattleScreen({ local, onExit, onAgain }: { local?: LocalBattle; 
             <div className="result-card" role="dialog" aria-label="Game over">
               <div className="result-emoji">{won ? '👑' : '💥'}</div>
               <h2>{won ? (live.result.winners.length > 1 ? 'YOUR TEAM WINS!' : 'LAST ONE STANDING!') : `${live.result.winners.map((w) => names[w]).join(' & ')} wins!`}</h2>
-              <p>{live.result.reason === 'mode-win' ? 'They ruled the hill.' : 'The last king standing takes it all.'}</p>
+              <p>{live.result.reason === 'mode-win' ? (paint ? 'Most squares painted!' : 'They ruled the hill.') : 'The last king standing takes it all.'}</p>
               {award && award.coins.total > 0 && (
                 <div className="coin-award"><span className="coin-big">🪙</span> +{award.coins.total}<small>{award.coins.lines.map((l) => `${l.label} +${l.coins}`).join(' · ')}</small></div>
               )}
@@ -255,6 +259,7 @@ export function BattleScreen({ local, onExit, onAgain }: { local?: LocalBattle; 
       <aside className="game-side">
         {isOnline && <div className="room-code">Room <b>{net.code}</b></div>}
         {hill && <div className="hill-goal">🚩 First to <b>{hill.target}</b> hill points</div>}
+        {paint && <div className="hill-goal">🎨 Round <b>{Math.min(PAINT_ROUNDS, paintRound(live) + 1)}</b> of {PAINT_ROUNDS}: most squares wins</div>}
         <ol className="seat-list">
           {seatIds.map((k) => {
             const seat = live.seats.find((x) => x.id === k)!;
@@ -266,6 +271,7 @@ export function BattleScreen({ local, onExit, onAgain }: { local?: LocalBattle; 
                 <div className="seat-info">
                   <b>{names[k]}{k === me ? ' (you)' : ''}{isOnline && net.gamesPlayed > 0 && <span className="wins"> 🏆{net.score[k] ?? 0}</span>}</b>
                   <span className="muted small">{SIDE_NAME[k]}{seat.team ? ` · Team ${seat.team}` : ''} · ★{ratings[k]}</span>
+                  {paint && <div className="hill-bar"><div style={{ width: `${Math.min(100, ((paint[k] ?? 0) / 60) * 100)}%`, background: PAINT_COLOUR[k] }} /><span>🎨 {paint[k] ?? 0}</span></div>}
                   {hill && <div className="hill-bar"><div style={{ width: `${Math.min(100, (score / hill.target) * 100)}%` }} /><span>{score}</span></div>}
                   {speech?.seat === k && <span className="speech">{speech.text}</span>}
                 </div>

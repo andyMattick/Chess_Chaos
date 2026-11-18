@@ -53,11 +53,21 @@ describe('more modes', () => {
     const s = start('racing-kings');
     expect(s.pieces.some((p) => p.type === 'pawn')).toBe(false);
     expect(legalActions(s).length).toBeGreaterThan(5);
+    // Arriving is not enough: Black gets one turn to chase the king away.
     const w = go(fen('racing-kings', '8/6K1/8/8/8/8/k7/8 w - - 0 1'), 'Kg8');
-    expect(w.result?.winners).toEqual(['p1']);
+    expect(w.result).toBeNull();
+    expect(go(w, 'Kb3').result?.winners).toEqual(['p1']); // not chased: White wins
+    // Chasing: a rook may give check to a king on the top row.
+    let c = go(fen('racing-kings', '8/6K1/8/8/8/8/k7/1r6 w - - 0 1'), 'Kg8');
+    expect(legalActions(c).some((m) => m.to === 57 && c.pieces[m.piece].type === 'rook')).toBe(true);
+    c = go(c, 'Rb8+');
+    expect(c.result).toBeNull(); // in check: no win
+    // Both kings up there: a draw.
     const close = go(fen('racing-kings', '8/k5K1/8/8/8/8/8/8 w - - 0 1'), 'Kg8');
-    expect(close.result).toBeNull(); // Black can still reach the row
-    expect(go(close, 'Ka8').result?.winners).toEqual([]); // both there: a draw
+    expect(go(close, 'Kb8').result?.winners).toEqual([]);
+    // Normally checks are not allowed.
+    const quiet = fen('racing-kings', '8/8/8/3k4/8/8/8/R5K1 w - - 0 1');
+    expect(legalActions(quiet).some((m) => m.to === sq('a5'))).toBe(false); // Ra5+ would be check
     fuzz(start('racing-kings'));
   });
 
@@ -266,5 +276,33 @@ describe('owner tweaks', () => {
     s = play(s, { t: 'buff', by: 'p2', id: 'DRAW', target: 0 });
     s = play(s, { t: 'buff', by: 'p1', id: 'DRAW', target: 1 });
     expect(s.turn).toBe('p2');
+  });
+});
+
+import { paintScores, paintRound, PAINT_ROUNDS } from '../src/core/modes2';
+import { newBattleRecord } from '../src/core/record';
+describe('paint the board and pawn wars', () => {
+  it('paint: landing squares take your colour; most squares after 30 rounds wins', () => {
+    let s = go(start('paint'), 'e4', 'e5', 'Nf3');
+    expect(paintScores(s)).toEqual({ p1: 2, p2: 1 });
+    s = go(s, 'Nc6', 'Nxe5');
+    expect(paintScores(s)).toEqual({ p1: 3, p2: 1 }); // e5 repainted white
+    s = fuzz(start('paint'), 200);
+    expect(s.result).not.toBeNull();
+    if (s.result?.reason === 'mode-win') expect(paintRound(s)).toBe(PAINT_ROUNDS);
+  });
+  it('paint works in a 4-way battle', () => {
+    const rec = newBattleRecord(4, { p1: 'A', p2: 'B', p3: 'C', p4: 'D' }, 'four', 'battle-paint');
+    let s = initialState(rec);
+    s = fuzz(s, 30);
+    expect(Object.keys(paintScores(s)).length).toBe(4);
+    expect(Object.values(paintScores(s)).reduce((a, b) => a + b, 0)).toBeGreaterThan(5);
+  });
+  it('pawn wars: first to promote wins', () => {
+    const s = start('pawn-wars');
+    expect(s.pieces.filter((p) => p.type !== 'pawn' && p.type !== 'king').length).toBe(0);
+    const w = go(fen('pawn-wars', '4k3/P7/8/8/8/8/7p/4K3 w - - 0 1'), 'a8=Q');
+    expect(w.result?.winners).toEqual(['p1']);
+    fuzz(start('pawn-wars'));
   });
 });

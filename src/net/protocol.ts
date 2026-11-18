@@ -67,7 +67,7 @@ export interface ClockState {
 }
 
 /** What kind of game a room plays. */
-export type RoomGame = 'standard' | 'party' | 'koth' | 'hill-wars' | 'atomic' | 'giveaway' | 'racing-kings' | 'wrap' | 'lava' | 'mini' | 'horde' | 'monster' | 'shrinking' | 'progressive' | 'drop-in' | 'boss' | 'mystery-army' | 'hidden-queen' | 'draft' | 'card-chess' | 'three-check' | 'capture-race' | 'random-piece' | 'truce' | 'capture-the-flag' | 'shuffle' | 'battle-3' | 'battle-4' | 'battle-teams' | 'battle-hill-4';
+export type RoomGame = 'standard' | 'party' | 'koth' | 'hill-wars' | 'atomic' | 'giveaway' | 'racing-kings' | 'wrap' | 'lava' | 'mini' | 'horde' | 'monster' | 'shrinking' | 'progressive' | 'drop-in' | 'boss' | 'mystery-army' | 'hidden-queen' | 'draft' | 'card-chess' | 'three-check' | 'capture-race' | 'random-piece' | 'truce' | 'capture-the-flag' | 'shuffle' | 'battle-3' | 'battle-4' | 'battle-teams' | 'battle-hill-4' | 'paint' | 'pawn-wars' | 'battle-paint-4';
 
 export const ROOM_GAMES: { id: RoomGame; label: string; seats: number; blurb: string; more?: boolean }[] = [
   { id: 'standard', label: '♟️ Classic', seats: 2, blurb: 'Normal chess, 1 vs 1.' },
@@ -94,12 +94,15 @@ export const ROOM_GAMES: { id: RoomGame; label: string; seats: number; blurb: st
   { id: 'boss', label: '👹 Boss battle', seats: 2, more: true, blurb: 'The higher-rated player gets a king, pawns and a 3-life Boss. The other gets the full army.' },
   { id: 'mystery-army', label: '🎲 Mystery army', seats: 2, more: true, blurb: 'Both get the same surprise 39-point army.' },
   { id: 'hidden-queen', label: '🕵️ Hidden queen', seats: 2, more: true, blurb: 'Secretly pick a pawn that can move like a queen.' },
+  { id: 'paint', label: '🎨 Paint the board', seats: 2, more: true, blurb: 'Land on squares to paint them. Most squares after 30 rounds wins.' },
+  { id: 'pawn-wars', label: '♟️ Pawn wars', seats: 2, more: true, blurb: 'Just pawns and kings. First to promote wins.' },
   { id: 'card-chess', label: '🎴 Card chess', seats: 2, more: true, blurb: 'Hold 3 cards; move a piece that matches one, or throw one away. Three of a kind = two moves.' },
   { id: 'draft', label: '🛒 Draft', seats: 2, more: true, blurb: 'Spend 30 points to build your army, then fight.' },
   { id: 'battle-3', label: '⚔️ 3-way battle', seats: 3, blurb: 'Three armies, one winner. Capture kings to knock players out.' },
   { id: 'battle-4', label: '⚔️ 4-way battle', seats: 4, blurb: 'Four armies, every one for themselves.' },
   { id: 'battle-teams', label: '🤝 2 vs 2 teams', seats: 4, blurb: 'Partners sit opposite. Knock out both enemy kings.' },
   { id: 'battle-hill-4', label: '🚩 4-way Hill wars', seats: 4, blurb: 'Four armies fight over a big hill. First to 30.' },
+  { id: 'battle-paint-4', label: '🖌️ 4-way Paint', seats: 4, blurb: 'Four colours. Most squares painted after 30 rounds wins.' },
 ];
 
 export type ClientMsg =

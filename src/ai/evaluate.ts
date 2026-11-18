@@ -40,6 +40,7 @@ export function evaluate(s: GameState, pov: PlayerId): number {
   }
   score += hillTerm(s, pov);
   score += raceTerm(s, pov);
+  score += paintTerm(s, pov);
   return Math.round(score);
 }
 
@@ -139,5 +140,14 @@ function raceTerm(s: GameState, pov: PlayerId): number {
     const v = r * 60 + (r >= 5 ? (r - 4) * 120 : 0);
     t += p.owner === pov ? v : -v;
   }
+  return t;
+}
+
+/** Paint the board: every painted square counts (more towards the end). */
+function paintTerm(s: GameState, pov: PlayerId): number {
+  if (s.mode !== 'paint' && s.mode !== 'battle-paint') return 0;
+  const board = (s.modeData?.paint as string[] | undefined) ?? [];
+  let t = 0;
+  for (const p of board) if (p) t += p === pov ? 18 : -18 / Math.max(1, s.seats.length - 1);
   return t;
 }

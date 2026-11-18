@@ -32,7 +32,9 @@ export interface RuleModule {
   noRepetitionDraw?: boolean;
 }
 
-const MODULES: Record<string, RuleModule[]> = { ...MODE_MODULES, ...MODE_MODULES_2 };
+const MODULES: Record<string, RuleModule[]> = { ...MODE_MODULES };
+// A mode listed in both tables gets both sets of rules (Battle + Paint).
+for (const [k, v] of Object.entries(MODE_MODULES_2)) MODULES[k] = [...(MODULES[k] ?? []), ...v];
 
 export function registerMode(mode: string, modules: RuleModule[]) {
   MODULES[mode] = modules;

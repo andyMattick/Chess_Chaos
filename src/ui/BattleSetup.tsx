@@ -14,6 +14,8 @@ const BIG: { id: string; label: string; emoji: string; kind: BattleKind; mode: L
   { id: '3', label: '3-way battle', emoji: '⚔️', kind: 'three', mode: 'battle', blurb: 'You vs 2 bots. Capture a king to knock its army out.' },
   { id: '4', label: '4-way battle', emoji: '💥', kind: 'four', mode: 'battle', blurb: 'You vs 3 bots. Last king standing wins.' },
   { id: 'teams', label: '2 vs 2 teams', emoji: '🤝', kind: 'teams', mode: 'battle', blurb: 'You and a bot partner (opposite you) vs two bots.' },
+  { id: 'paint3', label: '3-way Paint the board', emoji: '🎨', kind: 'three', mode: 'battle-paint', blurb: 'Paint squares by landing on them. Most squares after 30 rounds wins.' },
+  { id: 'paint4', label: '4-way Paint the board', emoji: '🖌️', kind: 'four', mode: 'battle-paint', blurb: 'Four colours, one board. Most squares after 30 rounds wins.' },
   { id: 'hill4', label: '4-way Hill wars', emoji: '🚩', kind: 'four', mode: 'battle-hill', blurb: 'Hold the big hill in the middle. First to 30 points.' },
 ];
 

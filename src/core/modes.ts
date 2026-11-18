@@ -270,6 +270,7 @@ export const MODE_MODULES: Record<string, RuleModule[]> = {
   'hill-wars': [hillWars],
   battle: [battle],
   'battle-hill': [battle, hillWars],
+  'battle-paint': [battle],
 };
 
 export interface ModeInfo {
@@ -307,6 +308,8 @@ export const MODE_INFO: ModeInfo[] = [
   { id: 'hidden-queen', catalogId: 'MODE-19', name: 'Hidden queen', emoji: '🕵️', players: [2], blurb: 'Secretly pick one pawn. It can move like a queen! The first time it does, everyone finds out.' },
   { id: 'draft', catalogId: 'MODE-07', name: 'Draft', emoji: '🛒', players: [2], blurb: 'Spend 30 points to build your own army, then fight with it.' },
   { id: 'survival', catalogId: 'MODE-12', name: 'Endgame survival', emoji: '🛡️', players: [2], blurb: 'Hold out for 20 moves from a tricky endgame. A draw counts!' },
+  { id: 'paint', catalogId: 'MODE-30', name: 'Paint the board', emoji: '🎨', players: [2, 3, 4], blurb: 'Every square your pieces land on turns your colour. After 30 rounds, the most squares wins!' },
+  { id: 'pawn-wars', catalogId: 'MINI-01', name: 'Pawn wars', emoji: '♟️', players: [2], blurb: 'Just pawns (and kings). First pawn to reach the far side wins!' },
   { id: 'card-chess', catalogId: 'MODE-32', name: 'Card chess', emoji: '🎴', players: [2], blurb: 'You hold 3 cards. Move a piece that matches one of them, or throw a card away. Three of the same card? Take two moves!' },
   { id: 'battle', catalogId: 'MODE-26/27/28', name: 'Battle royale', emoji: '⚔️', players: [3, 4], blurb: 'Everyone for themselves (or 2 vs 2). Capture a king to knock that player out. Last king standing wins.' },
 ];
