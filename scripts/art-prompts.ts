@@ -20,7 +20,7 @@ let md = `# Art prompts for collection skins
 
 Made by \`scripts/art-prompts.ts\` from \`src/content/collections.ts\`. ${SET_SKINS.length} new skins, each needing two images (light army and dark army): ${SET_SKINS.length * 2} images.
 
-Until a skin's art is added, the game shows a sparkly stand-in (an existing character in a special colour with ✨), so the game works with no art, some art, or all of it.
+All 22 skins are already drawn in code (src/ui/setSkins.tsx), light and dark armies, so **no art is needed**. These prompts are only for replacing a drawn skin with richer artwork later: an art sheet, once added, is used instead of the drawing.
 
 ## How to add a skin's art
 

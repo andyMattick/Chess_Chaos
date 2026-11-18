@@ -13,6 +13,7 @@ import { PieceGlyph } from './PieceGlyph';
 import { COLOURWAYS, parseSkin, type BaseSkinId, type Palette, type SkinId } from '../content/cosmetics';
 import { setSkinById } from '../content/collections';
 import { artReady, useArt } from './skinArt';
+import { SET_BODIES, SET_HAT_TOP, SET_PALETTES } from './setSkins';
 export { DEFAULT_SKINS, skinFor, type SkinChoice, type SkinId } from '../content/cosmetics';
 
 type Drawn = Exclude<BaseSkinId, 'classic'>;
@@ -68,7 +69,7 @@ export function skinInfo(id: SkinId): { name: string; blurb: string } {
 const SCALE: Record<string, number> = { pawn: 0.74, knight: 0.86, bishop: 0.86, rook: 0.9, queen: 0.96, king: 1 };
 
 /** Small deterministic wobble per piece so the army never looks copy-pasted. */
-function jitter(seed: number, i: number) {
+export function jitter(seed: number, i: number) {
   const x = Math.sin(seed * 12.9898 + i * 78.233) * 43758.5453;
   return x - Math.floor(x) - 0.5;
 }
@@ -84,6 +85,8 @@ export function Character({ skin: skinId, type, owner, seed = 0, badge = false }
   if (parsed.set) {
     const def = setSkinById(skinId);
     if (def && artReady(parsed.set, side)) return <ArtPiece slug={parsed.set} side={side} type={type} owner={owner} badge={badge} />;
+    const body = SET_BODIES[parsed.set];
+    if (body) return <Drawn2 body={body} pal={SET_PALETTES[parsed.set][side]} top={SET_HAT_TOP[parsed.set] ?? 34} type={type} owner={owner} seed={seed} badge={badge} />;
     skin = def?.fallback.base ?? 'gremlin';
     cw = def?.fallback.colourway;
     sparkle = true;
@@ -108,7 +111,7 @@ export function Character({ skin: skinId, type, owner, seed = 0, badge = false }
       <ellipse cx={50} cy={93} rx={26 * s} ry={4} fill="rgba(0,0,0,0.22)" />
       <g transform={`translate(50 94) rotate(${tilt}) scale(${s}) translate(-50 -94)`} filter={hue > 0 ? `url(#hue-${owner})` : undefined}>
         {BODIES[skin](pal, type, seed)}
-        <Hat type={type} skin={skin} pal={pal} />
+        <Hat type={type} top={hatTop(skin)} pal={pal} />
       </g>
       {sparkle && <text x={14} y={30} fontSize={18}>✨</text>}
       {badge && (
@@ -121,9 +124,9 @@ export function Character({ skin: skinId, type, owner, seed = 0, badge = false }
   );
 }
 
-const STROKE = { strokeWidth: 3.5, strokeLinejoin: 'round' as const, strokeLinecap: 'round' as const };
+export const STROKE = { strokeWidth: 3.5, strokeLinejoin: 'round' as const, strokeLinecap: 'round' as const };
 
-function Eyes({ pal, y, gap = 12, r = 7, seed }: { pal: Palette; y: number; gap?: number; r?: number; seed: number }) {
+export function Eyes({ pal, y, gap = 12, r = 7, seed }: { pal: Palette; y: number; gap?: number; r?: number; seed: number }) {
   // Pupils look in slightly different directions. On purpose.
   const lx = jitter(seed, 2) * 4, ly = jitter(seed, 3) * 3;
   const rx = jitter(seed, 4) * 4, ry = jitter(seed, 5) * 3;
@@ -314,8 +317,12 @@ const GOLD = '#ffcf3a';
 const GOLD_DARK = '#b8860b';
 
 /** The hat says what piece it is. Drawn in body space, sitting on the head (top near y=32). */
-function Hat({ type, skin, pal }: { type: string; skin: Drawn; pal: Palette }) {
-  const top = skin === 'robot' || skin === 'muncher' ? 38 : skin === 'critter' || skin === 'dog' ? 42 : skin === 'fish' ? 44 : skin === 'alien' ? 36 : 34;
+function hatTop(skin: Drawn): number {
+  return skin === 'robot' || skin === 'muncher' ? 38 : skin === 'critter' || skin === 'dog' ? 42 : skin === 'fish' ? 44 : skin === 'alien' ? 36 : 34;
+}
+
+/** The piece's hat. `top` is where the character's head is (34 for most). */
+export function Hat({ type, top, pal }: { type: string; top: number; pal: Palette }) {
   const t = (y: number) => y - 34 + top;
   switch (type) {
     case 'king':
@@ -380,6 +387,29 @@ function ArtPiece({ slug, side, type, owner, badge }: { slug: string; side: 'p1'
       <svg x={50 - size / 2} y={94 - size} width={size} height={size} viewBox={`${col} ${row} 1 1`} filter={hue > 0 ? `url(#hue-art-${owner})` : undefined}>
         <image href={`/skins/${slug}-${side === 'p1' ? 'light' : 'dark'}.png`} width={3} height={2} preserveAspectRatio="none" />
       </svg>
+      {badge && (
+        <g transform="translate(70 68) scale(0.3)">
+          <circle cx={50} cy={50} r={46} fill="#fff" stroke="#2d2a3e" strokeWidth={8} />
+          <g transform="translate(14 12) scale(0.72)"><PieceGlyph type={type} light={owner === 'p1'} /></g>
+        </g>
+      )}
+    </g>
+  );
+}
+
+/** A collection skin drawn in code (ui/setSkins.tsx), with its piece hat. */
+function Drawn2({ body, pal, top, type, owner, seed, badge }: { body: (pal: Palette, type: string, seed: number) => ReactElement; pal: Palette; top: number; type: string; owner: string; seed: number; badge: boolean }) {
+  const hue = owner === 'p3' ? 150 : owner === 'p4' ? 200 : 0;
+  const s = SCALE[type] ?? 0.85;
+  const tilt = jitter(seed, 1) * 9;
+  return (
+    <g>
+      {hue > 0 && <defs><filter id={`hue-set-${owner}`}><feColorMatrix type="hueRotate" values={String(hue)} /></filter></defs>}
+      <ellipse cx={50} cy={93} rx={26 * s} ry={4} fill="rgba(0,0,0,0.22)" />
+      <g transform={`translate(50 94) rotate(${tilt}) scale(${s}) translate(-50 -94)`} filter={hue > 0 ? `url(#hue-set-${owner})` : undefined}>
+        {body(pal, type, seed)}
+        <Hat type={type} top={top} pal={pal} />
+      </g>
       {badge && (
         <g transform="translate(70 68) scale(0.3)">
           <circle cx={50} cy={50} r={46} fill="#fff" stroke="#2d2a3e" strokeWidth={8} />
