@@ -48,6 +48,8 @@ export interface Profile {
   worldBoard?: boolean;
   /** Names this player gave to player numbers, on this device only. */
   contacts?: Record<string, string>;
+  /** Friends' player numbers (newest first), on this device only. Names are in contacts. */
+  friends?: string[];
   /** Solo mini-games: stars per level, best score, ladder step (content/minis.ts). */
   minis?: Record<string, MiniProgress>;
   /** Challenge games whose result was already counted here. */

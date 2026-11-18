@@ -91,3 +91,18 @@ export function nameNumber(n: string, name: string) {
 export function labelFor(p: Profile | undefined, n: string): string {
   return p?.contacts?.[n] || `Player ${n.slice(0, 4)} ${n.slice(4)}`;
 }
+
+/** Add a friend by player number, with a name only you see. */
+export function addFriend(n: string, name?: string) {
+  const num = n.replace(/\D/g, '');
+  if (!/^\d{8}$/.test(num)) throw new Error('A player number has 8 digits.');
+  updateProfile((x) => {
+    if (x.cloud?.number === num) return x;
+    const contacts = name?.trim() ? { ...(x.contacts ?? {}), [num]: name.trim().slice(0, 16) } : x.contacts;
+    return { ...x, contacts, friends: [num, ...(x.friends ?? []).filter((f) => f !== num)].slice(0, 100) };
+  });
+}
+
+export function removeFriend(n: string) {
+  updateProfile((x) => ({ ...x, friends: (x.friends ?? []).filter((f) => f !== n) }));
+}

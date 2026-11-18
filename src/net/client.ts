@@ -18,6 +18,9 @@ export interface OnlineSnapshot {
   wheelsAsk?: WheelsAsk | null;
   extrasVote?: ExtrasVote | null;
   missionsOn?: boolean;
+  friendOffers?: PlayerId[];
+  /** Set when both players said "add as friend" (the screen saves it). */
+  newFriend?: { number: string; name: string } | null;
   /** Draft rooms: who has bought their army. */
   armies?: Partial<Record<PlayerId, 'ready' | 'buying'>>;
   rematchVotes: PlayerId[];
@@ -97,7 +100,10 @@ class OnlineSession {
         this.set({ code: m.code, seat: m.seat, error: null });
         break;
       case 'room':
-        this.set({ code: m.code, record: m.record, seats: m.seats, rematchVotes: m.rematchVotes, clock: m.clock ?? null, clockAt: Date.now(), seatIds: m.seatIds ?? ['p1', 'p2'], game: m.game ?? 'standard', host: m.host ?? null, score: m.score ?? {}, gamesPlayed: m.gamesPlayed ?? 0, wheelsAsk: m.wheelsAsk ?? null, extrasVote: m.extrasVote ?? null, missionsOn: !!m.missionsOn, armies: m.armies });
+        this.set({ code: m.code, record: m.record, seats: m.seats, rematchVotes: m.rematchVotes, clock: m.clock ?? null, clockAt: Date.now(), seatIds: m.seatIds ?? ['p1', 'p2'], game: m.game ?? 'standard', host: m.host ?? null, score: m.score ?? {}, gamesPlayed: m.gamesPlayed ?? 0, wheelsAsk: m.wheelsAsk ?? null, extrasVote: m.extrasVote ?? null, missionsOn: !!m.missionsOn, friendOffers: m.friendOffers ?? [], armies: m.armies });
+        break;
+      case 'friend':
+        this.set({ newFriend: { number: m.number, name: m.name } });
         break;
       case 'emote':
         this.set({ lastEmote: { from: m.from, id: m.id, at: Date.now() } });
@@ -151,6 +157,8 @@ class OnlineSession {
   wheelsOk() { this.send({ t: 'wheels-ok' }); }
   /** Yes or no to the recommended extras. */
   voteExtras(yes: boolean) { this.send({ t: 'extras-vote', yes }); }
+  /** Offer my player number to the other player (swapped only if they offer too). */
+  offerFriend(number: string) { this.send({ t: 'friend-offer', number }); }
   /** Draft: send the army I bought. */
   sendArmy(pieces: string[]) { this.send({ t: 'army', pieces }); }
   /** Share my rating after a game ends. */

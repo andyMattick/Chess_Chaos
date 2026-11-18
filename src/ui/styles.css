@@ -690,3 +690,4 @@ body[data-calm] .die { animation: none; }
 .ladder li.locked { opacity: 0.55; }
 .sprint-bar { font-size: 1.1rem; }
 .mini-play .board-wrap { width: 100%; max-width: 520px; margin: 8px auto; }
+.friend-suggest { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 8px; } .add-friend { margin-bottom: 12px; }

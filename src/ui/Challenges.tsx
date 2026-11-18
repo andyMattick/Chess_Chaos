@@ -5,7 +5,8 @@ import { MAIL_GAMES, type MailGame } from '../net/world';
 import { replay } from '../core/record';
 import { vaultBase } from '../storage/cloud';
 import { activeProfile } from '../storage/storage';
-import { answerChallenge, challenge, labelFor, myGames, nameNumber } from '../storage/world';
+import { addFriend, answerChallenge, challenge, labelFor, myGames, nameNumber, removeFriend } from '../storage/world';
+import { showNumber as fmt } from '../net/vault';
 import { CloudSaveCard } from './CloudSave';
 import type { GameConfig } from './GameScreen';
 import { useSave } from './store';
@@ -26,6 +27,8 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
   const [busy, setBusy] = useState(false);
   const [naming, setNaming] = useState<string | null>(null);
   const [nameText, setNameText] = useState('');
+  const [addNo, setAddNo] = useState('');
+  const [addName, setAddName] = useState('');
   const number = p?.cloud?.number;
 
   const refresh = () => myGames().then((g) => { setGames(g); setErr(null); }).catch((e) => setErr((e as Error).message));
@@ -112,7 +115,49 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
       {theirTurn.length > 0 && <><h3>⏳ Their move</h3><ul className="mail-list">{theirTurn.map((g) => row(g, <button className="btn small" onClick={() => open(g)}>Look</button>))}</ul></>}
       {sent.length > 0 && <><h3>📤 Waiting for an answer</h3><ul className="mail-list">{sent.map((g) => row(g, <button className="btn small" onClick={() => act(g, 'cancel')}>Cancel</button>))}</ul></>}
 
+      <h3>👫 Friends <span className="scribble">only on this phone</span></h3>
+      {(p.friends ?? []).length === 0 && <p className="muted small">No friends yet. Add a friend's number below, or tap "Add as friend" after you play someone.</p>}
+      <ul className="mail-list">
+        {(p.friends ?? []).map((n) => (
+          <li key={n} className="mail-row">
+            {naming === n ? (
+              <span className="row">
+                <input aria-label="Name for this friend" autoFocus value={nameText} maxLength={16} placeholder="A name only you see" onChange={(e) => setNameText(e.target.value)} />
+                <button className="btn small" onClick={() => { nameNumber(n, nameText); setNaming(null); }}>Save</button>
+              </span>
+            ) : (
+              <span><b>{label(n)}</b> <button className="link-btn" aria-label="Rename" onClick={() => { setNaming(n); setNameText(p.contacts?.[n] ?? ''); }}>✏️</button></span>
+            )}
+            <small className="muted">{fmt(n)}</small>
+            <span className="row wrap">
+              <button className="btn small primary" onClick={() => { setTo(n); document.querySelector('.mail-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>⚔️ Challenge</button>
+              <button className="btn small" onClick={() => removeFriend(n)}>Remove</button>
+            </span>
+          </li>
+        ))}
+      </ul>
+      {(() => {
+        // People you have played challenges with who are not friends yet.
+        const known = [...new Set(list.map(otherNo))].filter((n) => !(p.friends ?? []).includes(n));
+        return known.length > 0 && (
+          <div className="friend-suggest">
+            <small className="muted">People you've played:</small>
+            {known.slice(0, 6).map((n) => <button key={n} className="chip" onClick={() => addFriend(n)}>➕ {label(n)}</button>)}
+          </div>
+        );
+      })()}
+      <div className="mail-form add-friend">
+        <input aria-label="New friend's player number" inputMode="numeric" placeholder="Friend's player number" value={addNo} onChange={(e) => setAddNo(e.target.value)} />
+        <input aria-label="New friend's name" placeholder="Their name (only you see it)" maxLength={16} value={addName} onChange={(e) => setAddName(e.target.value)} />
+        <button className="btn small" disabled={addNo.replace(/\D/g, '').length !== 8} onClick={() => { try { addFriend(addNo, addName); setAddNo(''); setAddName(''); } catch (e) { setErr((e as Error).message); } }}>➕ Add friend</button>
+      </div>
+
       <h3>⚔️ Challenge a friend</h3>
+      {(p.friends ?? []).length > 0 && (
+        <div className="clock-chips">
+          {(p.friends ?? []).slice(0, 12).map((n) => <button key={n} className={`chip ${to.replace(/\D/g, '') === n ? 'on' : ''}`} onClick={() => setTo(n)}>{label(n)}</button>)}
+        </div>
+      )}
       <div className="mail-form">
         <input aria-label="Friend's player number" inputMode="numeric" placeholder="Friend's player number (8 digits)" value={to} onChange={(e) => setTo(e.target.value)} />
         <select aria-label="Game" value={game} onChange={(e) => setGame(e.target.value as RoomGame)}>

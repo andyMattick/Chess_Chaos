@@ -122,6 +122,8 @@ export type ClientMsg =
   | { t: 'extras-vote'; yes: boolean }
   /** After a game: my new rating, so everyone's leaderboard shows it. */
   | { t: 'rating'; rating: number }
+  /** "Add as friend": my player number, shared only if the other player offers theirs too. */
+  | { t: 'friend-offer'; number: string }
   /** Draft: the pieces I bought (30 points, king free). */
   | { t: 'army'; pieces: string[] }
   /** hand: power cards for the next party game (some may have burned). */
@@ -130,7 +132,9 @@ export type ClientMsg =
 
 export type ServerMsg =
   | { t: 'joined'; code: string; seat: PlayerId; token: string }
-  | { t: 'room'; code: string; record: GameRecord; seats: Partial<Record<PlayerId, SeatInfo>>; seatIds: PlayerId[]; game: RoomGame; host: PlayerId | null; rematchVotes: PlayerId[]; clock: ClockState | null; score?: Partial<Record<PlayerId, number>>; gamesPlayed?: number; wheelsAsk?: WheelsAsk | null; extrasVote?: ExtrasVote | null; missionsOn?: boolean; armies?: Partial<Record<PlayerId, 'ready' | 'buying'>> }
+  /** Both players said "add as friend": here is the other player's number. */
+  | { t: 'friend'; number: string; name: string }
+  | { t: 'room'; code: string; record: GameRecord; seats: Partial<Record<PlayerId, SeatInfo>>; seatIds: PlayerId[]; game: RoomGame; host: PlayerId | null; rematchVotes: PlayerId[]; clock: ClockState | null; score?: Partial<Record<PlayerId, number>>; gamesPlayed?: number; wheelsAsk?: WheelsAsk | null; extrasVote?: ExtrasVote | null; missionsOn?: boolean; friendOffers?: PlayerId[]; armies?: Partial<Record<PlayerId, 'ready' | 'buying'>> }
   | { t: 'emote'; from: PlayerId; id: EmoteId }
   | { t: 'error'; message: string };
 

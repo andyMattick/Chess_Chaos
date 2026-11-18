@@ -25,6 +25,8 @@ interface Seat extends SeatInfo {
   modePrefs?: Record<string, number>;
   /** Draft: the army this player bought. */
   army?: string[];
+  /** "Add as friend": this player's number, kept here until the other player offers theirs. */
+  friendNumber?: string;
   conn: Conn | null;
   leftAt: number | null;
 }
@@ -417,6 +419,21 @@ export class Room {
         if (this.wheelsAsk?.from === seat && this.wheelsAsk.status === 'declined') { this.wheelsAsk = null; this.broadcast(); }
         return;
       }
+      case 'friend-offer': {
+        // Two players only, both human; the numbers are swapped only when both have offered.
+        const num = String(msg.number ?? '').replace(/\D/g, '');
+        if (this.seatIds.length !== 2 || !/^\d{8}$/.test(num)) return;
+        const other = this.seatIds.find((k) => k !== seat)!;
+        const o = this.seats[other];
+        if (!o || o.botControlled) return;
+        this.seats[seat]!.friendNumber = num;
+        if (o.friendNumber && o.friendNumber !== num) {
+          this.seats[seat]!.conn?.send({ t: 'friend', number: o.friendNumber, name: o.name });
+          o.conn?.send({ t: 'friend', number: num, name: this.seats[seat]!.name });
+        }
+        this.broadcast();
+        return;
+      }
       case 'rating': {
         // Only after a game ends, so nobody changes their rating mid-game.
         if (!this.state.result || typeof msg.rating !== 'number') return;
@@ -493,7 +510,7 @@ export class Room {
       const { name, rating, connected, botControlled, look, wheels, forFun } = this.seats[k]!;
       seats[k] = { name, rating, connected, botControlled, look, wheels: !!wheels, forFun: !!forFun };
     }
-    const base = { t: 'room' as const, code: this.code, seats, seatIds: this.seatIds, game: this.game, host: this.host, rematchVotes: [...this.rematchVotes], clock: this.clockSnapshot(), score: this.scoreboard(), gamesPlayed: this.gamesPlayed, wheelsAsk: this.wheelsAsk, extrasVote: this.extrasVote, missionsOn: this.missionsOn };
+    const base = { t: 'room' as const, code: this.code, seats, seatIds: this.seatIds, game: this.game, host: this.host, rematchVotes: [...this.rematchVotes], clock: this.clockSnapshot(), score: this.scoreboard(), gamesPlayed: this.gamesPlayed, wheelsAsk: this.wheelsAsk, extrasVote: this.extrasVote, missionsOn: this.missionsOn, friendOffers: this.seatIds.filter((k) => !!this.seats[k]?.friendNumber) };
     const party = this.record.setup.party;
     for (const k of this.seatIds) {
       const s = this.seats[k];

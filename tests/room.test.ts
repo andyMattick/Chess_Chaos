@@ -448,3 +448,28 @@ describe('more modes online', () => {
     expect(replay(b.last('room')!.record).at(-1)!.pieces[s.sq[12]].type).toBe('queen');
   });
 });
+
+describe('friends', () => {
+  it('numbers are swapped only when both players say "add as friend"', () => {
+    const server = new RoomServer(() => 0);
+    const a = client('a'), b = client('b');
+    server.handle(a.conn, { t: 'create', name: 'Ava', rating: 600, colour: 'p1' });
+    server.handle(b.conn, { t: 'join', code: a.last('joined')!.code, name: 'Ben', rating: 600 });
+    server.handle(a.conn, { t: 'friend-offer', number: '11112222' });
+    expect(b.last('friend')).toBeUndefined();
+    expect(b.last('room')!.friendOffers).toEqual(['p1']);
+    // The offer itself never shows the number.
+    expect(JSON.stringify(b.inbox)).not.toContain('11112222');
+    server.handle(b.conn, { t: 'friend-offer', number: '33334444' });
+    expect(a.last('friend')).toEqual({ t: 'friend', number: '33334444', name: 'Ben' });
+    expect(b.last('friend')).toEqual({ t: 'friend', number: '11112222', name: 'Ava' });
+  });
+  it('ignores bad numbers', () => {
+    const server = new RoomServer(() => 0);
+    const a = client('a'), b = client('b');
+    server.handle(a.conn, { t: 'create', name: 'Ava', rating: 600, colour: 'p1' });
+    server.handle(b.conn, { t: 'join', code: a.last('joined')!.code, name: 'Ben', rating: 600 });
+    server.handle(a.conn, { t: 'friend-offer', number: 'abc' });
+    expect(a.last('room')!.friendOffers).toEqual([]);
+  });
+});

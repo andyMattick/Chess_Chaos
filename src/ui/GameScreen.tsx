@@ -35,7 +35,7 @@ import { defenceMoves, refereeMission, type PartySetup } from '../systems/party'
 import { strengthFor } from '../ai/strength';
 import { missionById, modifierById } from '../content/party';
 import type { MailGame } from '../net/world';
-import { getGame, resignMail, sendMailMove } from '../storage/world';
+import { addFriend, getGame, resignMail, sendMailMove } from '../storage/world';
 import { moveEvents, shakeFor, type MoveEvents } from './effects';
 import { setSoundEnabled, sfx } from './sound';
 import { useYourTurn } from './yourTurn';
@@ -267,6 +267,11 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   const forFun = isOnline && !!seatsNow[me]?.forFun && oppWheels;
   const ask = isOnline ? net.wheelsAsk ?? null : null;
   const extrasVote = isOnline ? net.extrasVote ?? null : null;
+  // Both said "add as friend": keep their number (and their name, only on this phone).
+  const newFriend = isOnline ? net.newFriend : null;
+  useEffect(() => {
+    if (newFriend) { try { addFriend(newFriend.number, newFriend.name); } catch { /* not a number */ } }
+  }, [newFriend?.number]); // eslint-disable-line react-hooks/exhaustive-deps
   // Tell both players how the vote went.
   const voteResult = extrasVote?.status;
   useEffect(() => {
@@ -729,6 +734,20 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
                 {canAnalyze && <button className="btn" onClick={() => { runAnalysis(); setView(states.length - 1); }}>🔍 Full analysis</button>}
                 <button className="btn" onClick={onExit}>Home</button>
               </div>
+              {isOnline && net.seatIds.length === 2 && oppSeat && !oppSeat.botControlled && (() => {
+                const myNo = activeProfile(save)?.cloud?.number;
+                const theirs = other(me);
+                const friendsNow = myNo && net.friendOffers?.includes(me) && net.friendOffers?.includes(theirs);
+                if (!myNo) return <p className="muted small">🤝 Get a player number (⚙️ Settings) to add {names[theirs]} as a friend.</p>;
+                if (friendsNow) return <p className="small">🤝 You and {names[theirs]} are friends now! Find them in 📬 Challenges.</p>;
+                return (
+                  <div className="row center friend-offer">
+                    {net.friendOffers?.includes(me)
+                      ? <span className="small">🤝 Asked {names[theirs]} to be friends. Waiting for them to tap it too…</span>
+                      : <button className="btn small" onClick={() => online.offerFriend(myNo)}>🤝 {net.friendOffers?.includes(theirs) ? `${names[theirs]} wants to be friends! Say yes` : `Add ${names[theirs]} as a friend`}</button>}
+                  </div>
+                );
+              })()}
             </div>
           )}
           {training.toast && <div className="toast">{training.toast}</div>}
