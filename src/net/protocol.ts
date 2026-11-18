@@ -26,7 +26,8 @@ export interface ArmyLook {
   pieces: Record<string, string>;
 }
 
-const SKIN_ID = /^[a-z]{2,12}$/;
+/** Base skins, colour versions ("gremlin~lava") and collection skins ("set-royal-court"). */
+const SKIN_ID = /^([a-z]{2,12}(~[a-z]{2,10})?|set-[a-z0-9-]{2,40})$/;
 const PIECE_ID = /^(king|queen|rook|bishop|knight|pawn)$/;
 export function cleanLook(raw: unknown): ArmyLook | undefined {
   const l = raw as ArmyLook | undefined;

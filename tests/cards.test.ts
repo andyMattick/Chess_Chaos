@@ -157,6 +157,37 @@ describe('power cards', () => {
     const end = replay(rec).at(-1)!;
     expect(end.pieces[s0.sq[sq('g1')]].type).toBe('nightrider');
     expect(end.pieces[s0.sq[sq('e7')]].type).toBe('super-pawn');
-    expect(PLAYABLE_CARDS.size).toBe(23);
+    expect(PLAYABLE_CARDS.size).toBe(25);
+  });
+});
+
+describe('king cards and suits', () => {
+  it('every card has a suit, and every suit has cards', async () => {
+    const { CARDS, SUITS } = await import('../src/content/cards');
+    for (const c of CARDS) expect(SUITS).toContain(c.suit);
+    for (const s of SUITS) expect(CARDS.filter((c) => c.suit === s && !c.notYet).length).toBeGreaterThanOrEqual(2);
+  });
+  it('Knight king jumps like a knight and is still the king', () => {
+    let s = withCards('4k3/8/8/8/8/8/8/4K3 w - - 0 1', ['CARD-25']);
+    s = play(s, { t: 'buff', by: 'p1', id: 'CARD-25', piece: s.sq[sq('e1')] });
+    const k = s.pieces.find((p) => p.owner === 'p1')!;
+    expect(k.type).toBe('knight-king');
+    s = play(s, legalActions(s)[0]); // Black moves
+    expect(legalActions(s).some((m) => m.piece === k.id && m.to === sq('f3'))).toBe(true);
+    // Still royal: a rook giving check is check.
+    const t = withCards('4k3/r7/8/8/8/8/8/4K3 w - - 0 1', ['CARD-25']);
+    const u = play(t, { t: 'buff', by: 'p1', id: 'CARD-25', piece: t.sq[sq('e1')] });
+    const v = play(u, parseSAN(u, 'Ra1')!);
+    expect(inCheck(v, 'p1')).toBe(true);
+  });
+  it('Long-step king moves up to 2 squares but not over pieces', () => {
+    let s = withCards('4k3/8/8/8/8/8/4P3/4K3 w - - 0 1', ['CARD-26']);
+    s = play(s, { t: 'buff', by: 'p1', id: 'CARD-26', piece: s.sq[sq('e1')] });
+    s = play(s, legalActions(s)[0]);
+    const k = s.pieces.find((p) => p.owner === 'p1' && p.type === 'long-king')!;
+    const to = legalActions(s).filter((m) => m.piece === k.id).map((m) => m.to);
+    expect(to).toContain(sq('c1'));
+    expect(to).toContain(sq('g3'));
+    expect(to).not.toContain(sq('e3')); // the pawn on e2 is in the way
   });
 });

@@ -1,3 +1,4 @@
+import { inCheck } from '../core/movegen';
 import { CARDS } from '../content/cards';
 import { fileOf, rankOf, seatOf } from '../core/board';
 import { baseType, pieceType } from '../core/pieces';
@@ -91,6 +92,9 @@ export function cardsEarned(i: EarnInput, progress: Record<string, number>): Ear
     if (won && prog.winStreak > 0 && prog.winStreak % 3 === 0) out.add('CARD-03');
   }
   if (myMoves.some((x) => !!x.m.promo)) out.add('CARD-04');
+  // King cards (owner, 2026-11-18).
+  if (won && myMoves.some((x) => !!x.m.castle)) out.add('CARD-25');
+  if (won && myMoves.length >= 20 && !states.some((s) => inCheck(s, me))) out.add('CARD-26');
   const counter = (key: string, hit: boolean, need: number, card: string) => {
     if (!hit) return;
     prog[key] = (prog[key] ?? 0) + 1;

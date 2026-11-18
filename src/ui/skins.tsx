@@ -10,13 +10,15 @@ import { PieceGlyph } from './PieceGlyph';
  * piece type (but the White knights are ghosts).
  */
 
-import type { SkinId } from '../content/cosmetics';
+import { COLOURWAYS, parseSkin, type BaseSkinId, type Palette, type SkinId } from '../content/cosmetics';
+import { setSkinById } from '../content/collections';
+import { artReady, useArt } from './skinArt';
 export { DEFAULT_SKINS, skinFor, type SkinChoice, type SkinId } from '../content/cosmetics';
 
-interface Palette { body: string; shade: string; belly: string; ink: string; eye: string }
+type Drawn = Exclude<BaseSkinId, 'classic'>;
 
 /** Each skin has its own colours for each army, so mixed armies stay readable. */
-const PALETTES: Record<Exclude<SkinId, 'classic'>, Record<'p1' | 'p2', Palette>> = {
+const PALETTES: Record<Drawn, Record<'p1' | 'p2', Palette>> = {
   gremlin: { p1: { body: '#a6e04a', shade: '#6fa82a', belly: '#e3f7a8', ink: '#1d2410', eye: '#fff' }, p2: { body: '#8a4fd8', shade: '#5b2a9e', belly: '#c9a8f5', ink: '#1a0f2e', eye: '#fff36b' } },
   robot: { p1: { body: '#cfe3ea', shade: '#8fb1bd', belly: '#5fe0d0', ink: '#1b2a30', eye: '#5fe0d0' }, p2: { body: '#d0603a', shade: '#8f3a20', belly: '#ffcf4a', ink: '#2a1208', eye: '#ffcf4a' } },
   ghost: { p1: { body: '#fbfbff', shade: '#c8cbe6', belly: '#ffd2e4', ink: '#2b2a40', eye: '#2b2a40' }, p2: { body: '#5a6b8f', shade: '#36425e', belly: '#8fa3cc', ink: '#0f1422', eye: '#c6ff6b' } },
@@ -49,6 +51,19 @@ export const SKINS: { id: SkinId; name: string; blurb: string }[] = [
   { id: 'unicorn', name: 'Unicorns', blurb: 'Sparkly, magical, surprisingly ruthless.' },
 ];
 
+/** Name and one line for any skin: base, colour version or collection skin. */
+export function skinInfo(id: SkinId): { name: string; blurb: string } {
+  const { base, colourway, set } = parseSkin(id);
+  if (set) {
+    const d = setSkinById(id);
+    return { name: d?.name ?? 'Collection skin', blurb: d ? `${d.look[0].toUpperCase()}${d.look.slice(1)}.` : '' };
+  }
+  const b = SKINS.find((x) => x.id === base);
+  if (!colourway) return { name: b?.name ?? base, blurb: b?.blurb ?? '' };
+  const cw = COLOURWAYS.find((c) => c.id === colourway);
+  return { name: `${cw?.name} ${b?.name}`, blurb: `${b?.name} in ${cw?.name.toLowerCase()} colours.` };
+}
+
 /** Bigger pieces are bigger characters: a pawn is short, the king is tall. */
 const SCALE: Record<string, number> = { pawn: 0.74, knight: 0.86, bishop: 0.86, rook: 0.9, queen: 0.96, king: 1 };
 
@@ -58,12 +73,26 @@ function jitter(seed: number, i: number) {
   return x - Math.floor(x) - 0.5;
 }
 
-export function Character({ skin, type, owner, seed = 0, badge = false }: { skin: SkinId; type: string; owner: string; seed?: number; badge?: boolean }): ReactElement {
+export function Character({ skin: skinId, type, owner, seed = 0, badge = false }: { skin: SkinId; type: string; owner: string; seed?: number; badge?: boolean }): ReactElement {
+  useArt(); // redraw when collection art finishes loading
+  const parsed = parseSkin(skinId);
+  const side = owner === 'p1' || owner === 'p3' ? 'p1' : 'p2';
+  // Collection skins: their art if it is in public/skins, else a sparkly stand-in.
+  let sparkle = false;
+  let skin: BaseSkinId = parsed.base;
+  let cw = parsed.colourway;
+  if (parsed.set) {
+    const def = setSkinById(skinId);
+    if (def && artReady(parsed.set, side)) return <ArtPiece slug={parsed.set} side={side} type={type} owner={owner} badge={badge} />;
+    skin = def?.fallback.base ?? 'gremlin';
+    cw = def?.fallback.colourway;
+    sparkle = true;
+  }
   if (skin === 'classic') {
     const tint = owner === 'p3' ? '#ffcf3a' : owner === 'p4' ? '#45c7a8' : undefined;
     return <PieceGlyph type={type} light={owner === 'p1'} tint={tint} />;
   }
-  const pal = PALETTES[skin][owner === 'p1' || owner === 'p3' ? 'p1' : 'p2'];
+  const pal = cw ? COLOURWAYS.find((c) => c.id === cw)![side] : PALETTES[skin][side];
   // Third and fourth armies: same character, shifted colours.
   const hue = owner === 'p3' ? 150 : owner === 'p4' ? 200 : 0;
   const s = SCALE[type] ?? 0.85;
@@ -81,6 +110,7 @@ export function Character({ skin, type, owner, seed = 0, badge = false }: { skin
         {BODIES[skin](pal, type, seed)}
         <Hat type={type} skin={skin} pal={pal} />
       </g>
+      {sparkle && <text x={14} y={30} fontSize={18}>✨</text>}
       {badge && (
         <g transform="translate(70 68) scale(0.3)">
           <circle cx={50} cy={50} r={46} fill="#fff" stroke="#2d2a3e" strokeWidth={8} />
@@ -108,7 +138,7 @@ function Eyes({ pal, y, gap = 12, r = 7, seed }: { pal: Palette; y: number; gap?
   );
 }
 
-const BODIES: Record<Exclude<SkinId, 'classic'>, (pal: Palette, type: string, seed: number) => ReactElement> = {
+const BODIES: Record<Drawn, (pal: Palette, type: string, seed: number) => ReactElement> = {
   gremlin: (pal, type, seed) => (
     <g>
       <path d="M30 94 l-6 0 M70 94 l6 0" stroke={pal.ink} {...STROKE} />
@@ -284,7 +314,7 @@ const GOLD = '#ffcf3a';
 const GOLD_DARK = '#b8860b';
 
 /** The hat says what piece it is. Drawn in body space, sitting on the head (top near y=32). */
-function Hat({ type, skin, pal }: { type: string; skin: SkinId; pal: Palette }) {
+function Hat({ type, skin, pal }: { type: string; skin: Drawn; pal: Palette }) {
   const top = skin === 'robot' || skin === 'muncher' ? 38 : skin === 'critter' || skin === 'dog' ? 42 : skin === 'fish' ? 44 : skin === 'alien' ? 36 : 34;
   const t = (y: number) => y - 34 + top;
   switch (type) {
@@ -332,4 +362,30 @@ function Hat({ type, skin, pal }: { type: string; skin: SkinId; pal: Palette }) 
       void pal;
       return null;
   }
+}
+
+/** Cell of each piece in an art sheet: 3 columns by 2 rows (docs/ART-PROMPTS.md). */
+const ART_CELL: Record<string, [number, number]> = { king: [0, 0], queen: [1, 0], rook: [2, 0], bishop: [0, 1], knight: [1, 1], pawn: [2, 1] };
+
+/** A piece drawn from a collection skin's art sheet. */
+function ArtPiece({ slug, side, type, owner, badge }: { slug: string; side: 'p1' | 'p2'; type: string; owner: string; badge: boolean }) {
+  const [col, row] = ART_CELL[type] ?? ART_CELL.pawn;
+  const s = SCALE[type] ?? 0.85;
+  const hue = owner === 'p3' ? 150 : owner === 'p4' ? 200 : 0;
+  const size = 100 * s;
+  return (
+    <g>
+      {hue > 0 && <defs><filter id={`hue-art-${owner}`}><feColorMatrix type="hueRotate" values={String(hue)} /></filter></defs>}
+      <ellipse cx={50} cy={93} rx={26 * s} ry={4} fill="rgba(0,0,0,0.22)" />
+      <svg x={50 - size / 2} y={94 - size} width={size} height={size} viewBox={`${col} ${row} 1 1`} filter={hue > 0 ? `url(#hue-art-${owner})` : undefined}>
+        <image href={`/skins/${slug}-${side === 'p1' ? 'light' : 'dark'}.png`} width={3} height={2} preserveAspectRatio="none" />
+      </svg>
+      {badge && (
+        <g transform="translate(70 68) scale(0.3)">
+          <circle cx={50} cy={50} r={46} fill="#fff" stroke="#2d2a3e" strokeWidth={8} />
+          <g transform="translate(14 12) scale(0.72)"><PieceGlyph type={type} light={owner === 'p1'} /></g>
+        </g>
+      )}
+    </g>
+  );
 }

@@ -692,3 +692,15 @@ body[data-calm] .die { animation: none; }
 .mini-play .board-wrap { width: 100%; max-width: 520px; margin: 8px auto; }
 .friend-suggest { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 8px; } .add-friend { margin-bottom: 12px; }
 .leaderboard li.friend { background: #eaf6ff; } .leaderboard li.off { opacity: 0.6; } .stats-line { display: block; font-size: 0.82rem; } .stats-line .vs { color: #7a5cc8; font-weight: 700; }
+.set-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(170px, 100%), 1fr)); gap: 10px; margin: 8px 0 14px; }
+.set-card { display: grid; gap: 4px; justify-items: center; text-align: center; padding: 8px; background: var(--card); border: 3px solid var(--ink); border-radius: var(--wonky2); box-shadow: 3px 4px 0 var(--ink); }
+.set-card svg { width: 100%; max-width: 160px; }
+.set-card.ready { background: #fff4c2; }
+.set-card.owned { opacity: 0.7; }
+.set-card.rarity-uncommon { border-color: #2f8f4e; }
+.set-card.rarity-rare { border-color: #2f6fd0; }
+.set-card.rarity-epic { border-color: #8a3ffc; }
+.set-card.rarity-legendary { border-color: #d49a00; background: linear-gradient(135deg, #fff8d6, #ffe9a8); }
+.set-pieces { font-size: 1.4rem; letter-spacing: 2px; }
+.set-pieces .need { opacity: 0.3; }
+.set-pieces .got { color: #2f8f4e; }

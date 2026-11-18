@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { LANDSCAPE_PRICES, SKIN_PRICES, skinFor, type LandscapeId, type SkinChoice, type SkinId } from '../content/cosmetics';
 import { activeProfile, updateProfile } from '../storage/storage';
 import { LANDSCAPES, squareDoodle } from './landscapes';
-import { Character, SKINS } from './skins';
+import { Character, SKINS, skinInfo } from './skins';
 import { sfx } from './sound';
 import { useSave } from './store';
 
@@ -36,7 +36,10 @@ export function Wardrobe({ back }: { back: () => void }) {
     setSkins({ ...skins, pieces: { ...skins.pieces, [seat]: mine } });
   };
 
-  const price = buying ? (buying.kind === 'skin' ? SKIN_PRICES[buying.id] : LANDSCAPE_PRICES[buying.id]) : 0;
+  // Base skins first, then any collection skins you have won.
+  const allIds: SkinId[] = [...SKINS.map((x) => x.id), ...p.owned.skins.filter((id) => !SKINS.some((b) => b.id === id))];
+  const priceOf = (id: SkinId) => (SKIN_PRICES as Record<string, number>)[id] ?? 0;
+  const price = buying ? (buying.kind === 'skin' ? priceOf(buying.id) : LANDSCAPE_PRICES[buying.id]) : 0;
   const buy = () => {
     if (!buying || p.coins < price) return;
     updateProfile((x) => ({
@@ -46,7 +49,7 @@ export function Wardrobe({ back }: { back: () => void }) {
       look: buying.kind === 'land' ? { ...x.look, landscape: buying.id } : x.look,
     }));
     sfx.promote();
-    setFlash(buying.kind === 'skin' ? `${SKINS.find((s) => s.id === buying.id)?.name} unlocked!` : 'New landscape unlocked!');
+    setFlash(buying.kind === 'skin' ? `${skinInfo(buying.id).name} unlocked!` : 'New landscape unlocked!');
     setTimeout(() => setFlash(null), 2200);
     setBuying(null);
   };
@@ -67,7 +70,7 @@ export function Wardrobe({ back }: { back: () => void }) {
         <section key={seat} className="army">
           <h3>{label}{seat === 'p1' && <span className="scribble">this is your army online</span>}</h3>
           <div className="skin-row">
-            {SKINS.map((s) => {
+            {allIds.map((id) => ({ id, ...skinInfo(id) })).map((s) => {
               const have = owns(s.id);
               return (
                 <button
@@ -81,11 +84,12 @@ export function Wardrobe({ back }: { back: () => void }) {
                     <g transform="translate(100 10) scale(0.9)"><Character skin={s.id} type="pawn" owner={seat} seed={8} /></g>
                   </svg>
                   <b>{s.name}</b>
-                  {!have && <span className="price">🪙 {SKIN_PRICES[s.id]}</span>}
+                  {!have && <span className="price">🪙 {priceOf(s.id)}</span>}
                 </button>
               );
             })}
           </div>
+          <p className="muted small">🏆 More skins: turn in card sets in 🃏 Power cards → Collections.</p>
           <p className="muted small">Tap a piece to give it its own look:</p>
           <div className="piece-row">
             {TYPES.map((t) => {
@@ -99,7 +103,7 @@ export function Wardrobe({ back }: { back: () => void }) {
                   </button>
                   {open && (
                     <div className="mini-picker">
-                      {SKINS.filter((s) => owns(s.id)).map((s) => (
+                      {allIds.filter((id) => owns(id)).map((id) => ({ id, ...skinInfo(id) })).map((s) => (
                         <button key={s.id} className={sk === s.id ? 'on' : ''} onClick={() => { setPiece(seat, t, s.id); setEditing(null); }} aria-label={s.name}>
                           <svg viewBox="0 0 100 100"><Character skin={s.id} type={t} owner={seat} seed={2} /></svg>
                         </button>
@@ -158,8 +162,8 @@ export function Wardrobe({ back }: { back: () => void }) {
             ) : (
               <div className="shop-land">{LANDSCAPES.find((l) => l.id === buying.id)?.emoji}</div>
             )}
-            <h3>{buying.kind === 'skin' ? SKINS.find((s) => s.id === buying.id)?.name : LANDSCAPES.find((l) => l.id === buying.id)?.name}</h3>
-            {buying.kind === 'skin' && <p>{SKINS.find((s) => s.id === buying.id)?.blurb}</p>}
+            <h3>{buying.kind === 'skin' ? skinInfo(buying.id).name : LANDSCAPES.find((l) => l.id === buying.id)?.name}</h3>
+            {buying.kind === 'skin' && <p>{skinInfo(buying.id).blurb}</p>}
             <p className="price big">🪙 {price}</p>
             {p.coins >= price ? (
               <div className="row center">
