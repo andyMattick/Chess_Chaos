@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { GameRecord } from '../core/record';
-import { lookOf, activeProfile } from '../storage/storage';
+import { askToKeepStorage, lookOf, activeProfile } from '../storage/storage';
 import { GameScreen, type GameConfig } from './GameScreen';
 import { landscapeById } from './landscapes';
 import { OnlineLobby, roomFromUrl } from './OnlineLobby';
@@ -56,6 +56,9 @@ export function App() {
   useEffect(() => {
     try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior }); } catch { window.scrollTo(0, 0); }
   }, [screenKey]);
+
+  // Ask the browser to keep our saved progress (best effort; it helps on Android and installed apps).
+  useEffect(() => askToKeepStorage(), []);
 
   // Sound and shake settings apply everywhere.
   useEffect(() => {

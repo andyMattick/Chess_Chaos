@@ -103,12 +103,24 @@ function migrate(raw: unknown): SaveData {
 let memory: SaveData | null = null;
 const listeners = new Set<() => void>();
 
+const BACKUP_KEY = `${KEY}:backup`;
+const RESCUE_PREFIX = `${KEY}:rescue:`;
+
+/** Keep a copy of anything we could not read, so a bug can never wipe a save for good. */
+function rescue(raw: string) {
+  try { globalThis.localStorage?.setItem(`${RESCUE_PREFIX}${Date.now()}`, raw); } catch { /* full */ }
+}
+
 export function load(): SaveData {
   if (memory) return memory;
+  let raw: string | null = null;
   try {
-    const raw = globalThis.localStorage?.getItem(KEY);
-    memory = migrate(raw ? JSON.parse(raw) : null);
+    raw = globalThis.localStorage?.getItem(KEY) ?? null;
+    const parsed = raw ? JSON.parse(raw) : null;
+    memory = migrate(parsed);
+    if (raw && !memory.profiles.length && (parsed as Partial<SaveData> | null)?.profiles?.length) rescue(raw);
   } catch {
+    if (raw) rescue(raw);
     memory = empty();
   }
   return memory;
@@ -117,11 +129,64 @@ export function load(): SaveData {
 export function save(next: SaveData) {
   memory = next;
   try {
-    globalThis.localStorage?.setItem(KEY, JSON.stringify(next));
+    const json = JSON.stringify(next);
+    globalThis.localStorage?.setItem(KEY, json);
+    // A second copy, only ever written while there are players, so it survives an accidental wipe.
+    if (next.profiles.length) globalThis.localStorage?.setItem(BACKUP_KEY, json);
   } catch {
-    // Storage full or blocked: keep running from memory.
+    // Storage full: drop the oldest saved games and try once more, rather than losing progress.
+    try {
+      const slim = { ...next, games: Object.fromEntries(Object.entries(next.games).map(([k, g]) => [k, g.slice(-30)])) };
+      globalThis.localStorage?.setItem(KEY, JSON.stringify(slim));
+    } catch { /* blocked: keep running from memory */ }
   }
   listeners.forEach((l) => l());
+}
+
+/** A save with players found in the backup or a rescue copy, when the main save has none. */
+export function findLostSave(): SaveData | null {
+  try {
+    const ls = globalThis.localStorage;
+    if (!ls) return null;
+    const keys = [BACKUP_KEY, ...Object.keys(ls).filter((k) => k.startsWith(RESCUE_PREFIX)).sort().reverse()];
+    for (const k of keys) {
+      const raw = ls.getItem(k);
+      if (!raw) continue;
+      try {
+        const d = migrate(JSON.parse(raw));
+        if (d.profiles.length) return d;
+      } catch { /* try the next one */ }
+    }
+  } catch { /* storage blocked */ }
+  return null;
+}
+
+/** Ask the browser not to clear our storage when space runs low (best effort). */
+export function askToKeepStorage() {
+  try { void globalThis.navigator?.storage?.persist?.(); } catch { /* not supported */ }
+}
+
+/** The whole save as text, for a backup file. */
+export function exportSave(): string {
+  return JSON.stringify({ app: 'chess-chaos', exportedAt: new Date().toISOString(), save: load() });
+}
+
+/** Load a backup file. Players already on this device are kept; same players are replaced by the backup. */
+export function importSave(text: string): { players: number } {
+  const parsed = JSON.parse(text) as { app?: string; save?: unknown };
+  const incoming = migrate(parsed?.app === 'chess-chaos' ? parsed.save : parsed);
+  if (!incoming.profiles.length) throw new Error('That file has no players in it.');
+  update((d) => {
+    const ids = new Set(incoming.profiles.map((p) => p.id));
+    return {
+      ...d,
+      profiles: [...d.profiles.filter((p) => !ids.has(p.id)), ...incoming.profiles],
+      games: { ...d.games, ...incoming.games },
+      activeProfileId: d.activeProfileId ?? incoming.activeProfileId ?? incoming.profiles[0].id,
+      settings: d.profiles.length ? d.settings : incoming.settings,
+    };
+  });
+  return { players: incoming.profiles.length };
 }
 
 export function subscribe(l: () => void): () => void {
@@ -206,5 +271,10 @@ export function addGame(d: SaveData, profileId: string, rec: GameRecord): SaveDa
 
 /** For tests. */
 export function resetMemory() {
+  memory = null;
+}
+
+/** Tests only: forget the in-memory copy so the next load reads storage again. */
+export function resetMemoryForTests() {
   memory = null;
 }

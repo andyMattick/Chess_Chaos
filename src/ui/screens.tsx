@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { type Bot } from '../content/bots';
 import { PATH, unlockedCount } from '../systems/coins';
 import type { GameRecord } from '../core/record';
-import { activeProfile, newProfile, update, updateProfile, upsertProfile, type Profile } from '../storage/storage';
+import { activeProfile, exportSave, findLostSave, importSave, newProfile, update, updateProfile, upsertProfile, type Profile } from '../storage/storage';
 import { nemesisBot } from '../systems/nemesis';
 import { NemesisCard } from './Nemesis';
 import { useSave } from './store';
@@ -97,6 +97,7 @@ function Settings() {
       <label><input type="checkbox" checked={s.shake !== false} onChange={(e) => set({ shake: e.target.checked })} /> Board shake and phone buzz</label>
       <label><input type="checkbox" checked={s.chesscomEnabled} onChange={(e) => set({ chesscomEnabled: e.target.checked })} /> Show the Chess.com corner (parents can switch this off)</label>
       <label><input type="checkbox" checked={s.showCoordinates} onChange={(e) => set({ showCoordinates: e.target.checked })} /> Show board letters and numbers</label>
+      <BackupButtons />
     </details>
   );
 }
@@ -116,8 +117,16 @@ export function Profiles({ done }: { done: () => void }) {
     update((d) => ({ ...upsertProfile(d, p), activeProfileId: p.id }));
     done();
   };
+  const lost = !save.profiles.length ? findLostSave() : null;
   return (
     <div className="panel">
+      {lost && (
+        <div className="rescue-card">
+          <b>🛟 We found saved progress on this device!</b>
+          <p>{lost.profiles.map((p) => `${p.nickname} (★ ${p.rating})`).join(', ')}</p>
+          <button className="btn primary" onClick={() => { update(() => lost); done(); }}>Bring it back</button>
+        </div>
+      )}
       <h2>Who is playing?</h2>
       <div className="profile-grid">
         {save.profiles.map((p) => (
@@ -138,7 +147,46 @@ export function Profiles({ done }: { done: () => void }) {
         </div>
         <button className="btn primary" onClick={create} disabled={!name.trim()}>Let's go!</button>
       </div>
-      {save.profiles.length > 0 && <button className="btn" onClick={done}>← Back</button>}
+      {save.profiles.length > 0 ? <button className="btn" onClick={done}>← Back</button> : <BackupButtons onlyLoad />}
+    </div>
+  );
+}
+
+/** Backup without accounts: a small file you keep (or send to yourself), and load on any device. */
+function BackupButtons({ onlyLoad }: { onlyLoad?: boolean }) {
+  const [note, setNote] = useState<string | null>(null);
+  const download = async () => {
+    const text = exportSave();
+    const name = `chess-chaos-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    const file = new File([text], name, { type: 'application/json' });
+    // On phones, the share sheet lets you save it to Files, Drive or send it to yourself.
+    const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
+    if (nav.canShare?.({ files: [file] })) {
+      try { await nav.share({ files: [file], title: 'Chess Chaos backup' }); setNote('Backup shared.'); return; } catch { /* cancelled: fall back to a download */ }
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(file);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    setNote('Backup saved to your downloads.');
+  };
+  const load = (f: File | undefined) => {
+    if (!f) return;
+    f.text().then((t) => {
+      try { const r = importSave(t); setNote(`Loaded ${r.players} player${r.players === 1 ? '' : 's'}!`); }
+      catch (e) { setNote(`That didn't work: ${(e as Error).message}`); }
+    });
+  };
+  return (
+    <div className="backup">
+      {!onlyLoad && <button className="btn small" onClick={download}>💾 Back up my progress</button>}
+      <label className="btn small">
+        📂 Load a backup
+        <input type="file" accept="application/json,.json" hidden onChange={(e) => load(e.target.files?.[0])} />
+      </label>
+      {note && <small>{note}</small>}
+      {!onlyLoad && <small className="muted">Progress lives on this device and this web address only. Back it up now and then, especially before clearing the browser.</small>}
     </div>
   );
 }

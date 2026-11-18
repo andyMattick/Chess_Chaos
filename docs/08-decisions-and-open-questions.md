@@ -159,3 +159,9 @@ Implementing agent: add dated entries below when you resolve an ambiguity or rec
 
 - **Card chess (new, MODE-32):** each player holds 3 cards drawn from their own deck, which has one card per piece they have (8 pawn cards, 2 knight cards… and a queen card more after a promotion). Move a piece that matches a card (the card is used), or throw one card away instead of moving; then draw back up to 3. When the deck runs out, a new one is made from the pieces still on the board. **Three of the same card:** moving that kind gives a second move straight away (not after giving check). In check, any move is allowed; if no card can move at all, any move is allowed. Both hands are shown to both players. In Game modes, Play online and the Party deck.
 - **Power cards in Party matches now need 3 of the same card** (owner choice between fewer cards and a 3-copy rule). The hand picker only offers cards you have 3 of, and playing one uses all 3. Earn rates are unchanged.
+
+### 2026-11-18: Keeping progress without a database
+
+- The owner lost a save overnight. Progress lives in the browser's storage for one web address on one device, so it is lost if the address differs (a preview link, a home-screen app versus the browser on iPhone), in private browsing, or when site data is cleared.
+- **Safeguards added:** an unreadable save is kept as a rescue copy instead of being overwritten; a second backup copy is written on every save while there are players; when the main save is missing, the welcome screen offers "Bring it back" from those copies; the app asks the browser to keep its storage (`navigator.storage.persist`); if storage is full, the oldest saved games are dropped instead of failing the save.
+- **Backup file:** Settings → "Back up my progress" downloads (or, on phones, shares) a small file; "Load a backup" on any device brings the players back, merging with players already there. No accounts, no server.
