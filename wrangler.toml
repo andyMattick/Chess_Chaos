@@ -8,4 +8,4 @@ class_name = "Lobby"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["Lobby"]
+new_sqlite_classes = ["Lobby"]   # free plan needs SQLite-backed Durable Objects
