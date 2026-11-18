@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import type { Palette } from '../content/cosmetics';
 import { Eyes, jitter } from './skins';
+import { RICH_BODIES, RICH_PALETTES } from './richSkins';
 
 /**
  * The 22 collection skins (content/collections.ts), drawn in code like the
@@ -15,7 +16,7 @@ const PINK = '#ff8fb8';
 // Same outline as the other skins (kept here: skins.tsx imports this file).
 const S = { strokeWidth: 3.5, strokeLinejoin: 'round' as const, strokeLinecap: 'round' as const };
 
-export const SET_PALETTES: Record<string, { p1: Palette; p2: Palette }> = {
+const BASE_PALETTES: Record<string, { p1: Palette; p2: Palette }> = {
   'royal-court': { p1: P('#ffd9e8', '#e08fb8', '#fff8ef', '#3a1f33', '#fff'), p2: P('#5a2a6e', '#2e1340', '#f3e6ff', '#14061c', '#fff') },
   'high-council': { p1: P('#e8c99a', '#a87c4a', '#fff4dc', '#2e1d0b', '#fff7c2'), p2: P('#4a4a6e', '#26263f', '#c9c9e6', '#0c0c18', '#ffe14a') },
   'war-council': { p1: P('#ff6a5a', '#c23a2e', '#fff3d6', '#2a0c08', '#fff'), p2: P('#2f4f8f', '#17294f', '#ffe9b0', '#060d1c', '#fff') },
@@ -49,7 +50,7 @@ const smile = (pal: Palette, y = 68, w = 10) => <path d={`M${50 - w} ${y} Q50 ${
 const cheeks = (y = 66, c = PINK) => <g><ellipse cx={33} cy={y} rx={4} ry={2.5} fill={c} opacity={0.7} /><ellipse cx={67} cy={y} rx={4} ry={2.5} fill={c} opacity={0.7} /></g>;
 const feet = (pal: Palette) => <path d="M38 93 h-6 M62 93 h6" stroke={pal.ink} {...S} strokeWidth={5} />;
 
-export const SET_BODIES: Record<string, Body> = {
+const BASE_BODIES: Record<string, Body> = {
   'royal-court': (pal, _t, seed) => (
     <g>
       <path d="M26 94 L34 52 L66 52 L74 94 Z" fill={pal.shade} stroke={pal.ink} {...S} />
@@ -315,3 +316,7 @@ export const SET_BODIES: Record<string, Body> = {
     </g>
   ),
 };
+
+/** The storybook redraws (ui/richSkins.tsx) replace the first versions. */
+export const SET_PALETTES: Record<string, { p1: Palette; p2: Palette }> = { ...BASE_PALETTES, ...RICH_PALETTES };
+export const SET_BODIES: Record<string, Body> = { ...BASE_BODIES, ...RICH_BODIES };
