@@ -34,7 +34,7 @@ const PALETTES: Record<Drawn, Record<'p1' | 'p2', Palette>> = {
   veggie: { p1: { body: '#ff5d5d', shade: '#c93030', belly: '#ffb0a0', ink: '#3a0d0d', eye: '#fff' }, p2: { body: '#7a4fd0', shade: '#4d2a90', belly: '#b99af0', ink: '#160b2e', eye: '#fff' } },
 };
 
-export const SKINS: { id: SkinId; name: string; blurb: string }[] = [
+export const SKINS: { id: BaseSkinId; name: string; blurb: string }[] = [
   { id: 'classic', name: 'Classic', blurb: 'Plain old chess pieces.' },
   { id: 'gremlin', name: 'Gremlins', blurb: 'Lumpy, toothy, a little bit rude.' },
   { id: 'robot', name: 'Robots', blurb: 'Beep. Boop. Checkmate.' },
