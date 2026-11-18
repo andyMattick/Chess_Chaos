@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newRecord, replay, initialState, type GameRecord } from '../src/core/record';
+import { newRecord, initialState, type GameRecord } from '../src/core/record';
 import { legalActions, play } from '../src/core/rules';
 import { parseSAN, toSAN } from '../src/core/san';
 import { fromFEN } from '../src/core/setup';
