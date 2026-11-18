@@ -191,7 +191,7 @@ function toB64(bytes: Uint8Array): string {
   return btoa(s);
 }
 
-function fromB64(b64: string): Uint8Array {
+function fromB64(b64: string): Uint8Array<ArrayBuffer> {
   const s = atob(b64);
   const out = new Uint8Array(s.length);
   for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
@@ -209,6 +209,6 @@ export async function lock(text: string, key: string): Promise<string> {
 
 export async function unlock(b64: string, key: string): Promise<string> {
   const all = fromB64(b64);
-  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.subarray(0, 12) }, await aesKey(key), all.subarray(12));
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, await aesKey(key), all.slice(12));
   return new TextDecoder().decode(pt);
 }
