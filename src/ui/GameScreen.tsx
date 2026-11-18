@@ -670,6 +670,9 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
         {!reviewRecord && training.panel}
         {!reviewRecord && party.panel}
         <ModeStatus s={shown} names={names} showBlurb={!partySetup} />
+        {live.mode === 'progressive' && isHumanTurn && !reviewing && !live.result && progressOf(live).left < progressOf(live).quota && (
+          <button className="btn small" onClick={() => push({ t: 'buff', by: me, id: 'STOP' })}>✋ That's enough, end my run</button>
+        )}
         {diceOpts && (
           <div className="dice-panel">
             {diceOpts.escape.length ? <b>⚠️ You're in check! Block it or move out of it (any piece).</b> : !dicePick ? (
@@ -868,7 +871,7 @@ function ModeStatus({ s, names, showBlurb }: { s: GameState; names: Record<strin
     line = <div>{n === null ? '📉 The board is as small as it gets.' : n <= 4 ? <b>⚠️ The outside ring falls in {Math.ceil(n / 2)} move{n > 2 ? 's' : ''}! Get off the red squares!</b> : `📉 Next ring falls in ${Math.ceil(n / 2)} moves.`}</div>;
   } else if (s.mode === 'progressive' && !s.result) {
     const p = progressOf(s);
-    line = <div>📈 {names[s.turn]}: move <b>{p.quota - p.left + 1}</b> of {p.quota}</div>;
+    line = <div>📈 {names[s.turn]}: move <b>{p.quota - p.left + 1}</b> of {p.quota} <small>(runs grow to 5; you can stop early)</small></div>;
   } else if (s.mode === 'monster' && !s.result && s.turn === 'p1') {
     line = <div>👾 {names.p1}: move <b>{s.modeData?.monsterSecond ? 2 : 1}</b> of 2</div>;
   } else if (s.mode === 'boss') {

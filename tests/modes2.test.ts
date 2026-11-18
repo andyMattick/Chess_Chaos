@@ -242,3 +242,29 @@ describe('card chess', () => {
     fuzz(start('card-chess'), 120);
   });
 });
+
+describe('owner tweaks', () => {
+  it('progressive: runs stop growing at 5, and you can end a run early', () => {
+    let s = start('progressive');
+    s = go(s, 'e4', 'e5', 'd5');
+    expect(progressOf(s)).toEqual({ quota: 3, left: 3 });
+    expect(() => play(s, { t: 'buff', by: 'p1', id: 'STOP' })).toThrow(/at least one/);
+    s = go(s, 'Nf3');
+    s = play(s, { t: 'buff', by: 'p1', id: 'STOP' });
+    expect(s.turn).toBe('p2');
+    expect(progressOf(s)).toEqual({ quota: 4, left: 4 });
+    s = go(s, 'Nc6');
+    s = play(s, { t: 'buff', by: 'p2', id: 'STOP' });
+    expect(progressOf(s).quota).toBe(5);
+    s = go(s, 'a3');
+    s = play(s, { t: 'buff', by: 'p1', id: 'STOP' });
+    expect(progressOf(s).quota).toBe(5); // capped
+  });
+  it('card chess: you can throw a card away more than once', () => {
+    let s = start('card-chess');
+    s = play(s, { t: 'buff', by: 'p1', id: 'DRAW', target: 0 });
+    s = play(s, { t: 'buff', by: 'p2', id: 'DRAW', target: 0 });
+    s = play(s, { t: 'buff', by: 'p1', id: 'DRAW', target: 1 });
+    expect(s.turn).toBe('p2');
+  });
+});

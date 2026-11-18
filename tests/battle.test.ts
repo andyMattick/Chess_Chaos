@@ -155,7 +155,7 @@ describe('bots understand the hill', () => {
   });
 });
 
-import { newRecord, initialState, flagSquare, rolledType, diceRoll, diceOptions, fromFEN, MODE_INFO } from '../src/core';
+import { newRecord, initialState, flagSquare, rolledType, diceRoll, diceOptions, MODE_INFO } from '../src/core';
 describe('party modes', () => {
   const start = (mode: string) => initialState(newRecord(7, {}, undefined, mode));
   it('MODE-03 three-check: third check wins', () => {

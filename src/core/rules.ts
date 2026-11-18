@@ -26,6 +26,8 @@ export interface RuleModule {
   applyBuff?(s: GameState, a: Extract<Action, { t: 'buff' }>): GameState;
   /** Modes where bare kings are not a draw (Atomic, Giveaway, Horde…). */
   noMaterialDraw?: boolean;
+  /** A mode action you can take again and again (Card chess discards, ending a Progressive run). */
+  repeatable?: boolean;
   /** Modes with several moves in a turn, where positions repeat inside one turn (Progressive, Monster). */
   noRepetitionDraw?: boolean;
 }
@@ -155,9 +157,9 @@ export function play(s: GameState, action: Action): GameState {
     const mod = modulesFor(s).find((m) => m.id === `${action.id}@${action.by}` && m.applyBuff);
     if (!mod) throw new Error(`No buff ${action.id} for ${action.by}`);
     const used = (s.modeData?.usedBuffs as Record<string, string[]> | undefined) ?? {};
-    if (used[action.by]?.includes(action.id)) throw new Error('Buff already used');
+    if (!mod.repeatable && used[action.by]?.includes(action.id)) throw new Error('Buff already used');
     let n = mod.applyBuff!(s, action);
-    n = { ...n, modeData: { ...(n.modeData ?? {}), usedBuffs: { ...used, [action.by]: [...(used[action.by] ?? []), action.id] } } };
+    if (!mod.repeatable) n = { ...n, modeData: { ...(n.modeData ?? {}), usedBuffs: { ...used, [action.by]: [...(used[action.by] ?? []), action.id] } } };
     n = afterMove(n, s);
     const key = positionKey(n);
     n = { ...n, positionCounts: { ...s.positionCounts, [key]: (s.positionCounts[key] ?? 0) + 1 } };

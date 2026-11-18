@@ -300,7 +300,7 @@ export const MODE_INFO: ModeInfo[] = [
   { id: 'horde', catalogId: 'MODE-04', name: 'Horde', emoji: '🐜', players: [2], blurb: 'White is 36 pawns and no king! Black wins by taking every pawn. White wins by checkmate.' },
   { id: 'monster', catalogId: 'MODE-24', name: 'Monster', emoji: '👾', players: [2], blurb: 'White has a king and 8 pawns but moves TWICE every turn. Black has a full army.' },
   { id: 'shrinking', catalogId: 'MODE-09', name: 'Shrinking board', emoji: '📉', players: [2], blurb: 'Every 15 moves the outside ring of the board falls away. Pieces left on it are lost (a king jumps to safety inside).' },
-  { id: 'progressive', catalogId: 'MODE-17', name: 'Progressive', emoji: '📈', players: [2], blurb: 'White makes 1 move, Black 2, White 3, and so on. Giving check ends your run at once.' },
+  { id: 'progressive', catalogId: 'MODE-17', name: 'Progressive', emoji: '📈', players: [2], blurb: 'White makes 1 move, Black 2, White 3, and so on, up to 5 a turn. You can stop early; giving check ends your run at once.' },
   { id: 'drop-in', catalogId: 'MODE-14', name: 'Drop-in', emoji: '🪂', players: [2], blurb: 'Pieces you capture join YOUR army. On your turn you can drop one on any empty square instead of moving.' },
   { id: 'boss', catalogId: 'MODE-08', name: 'Boss battle', emoji: '👹', players: [2], blurb: 'One side has a king, pawns and a Boss (queen + knight moves, 3 lives). The other side has the full army. Take the Boss 3 times or checkmate!' },
   { id: 'mystery-army', catalogId: 'MODE-25', name: 'Mystery army', emoji: '🎲', players: [2], blurb: 'Both sides get the same surprise army worth 39 points. Who uses it better?' },

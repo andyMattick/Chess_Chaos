@@ -292,19 +292,40 @@ export interface Progress { quota: number; left: number }
 export function progressOf(s: GameState): Progress {
   return data<Progress>(s, 'prog', { quota: 1, left: 1 });
 }
+/** Owner rule: runs grow 1, 2, 3… up to 5 moves, and you may stop early. */
+export const PROG_CAP = 5;
+const nextQuota = (q: number) => Math.min(PROG_CAP, q + 1);
+
 const progressive: RuleModule = {
   id: 'progressive',
   noRepetitionDraw: true,
   afterMove: (s, prev) => {
-    if (s.ply === prev.ply || !s.last) return s;
+    // Only real moves count (ending your run early is not a move).
+    if (s.ply === prev.ply || !s.last || s.last === prev.last) return s;
     const mover = prev.turn;
     const p = progressOf(prev);
     const left = p.left - 1;
     // Giving check ends the run at once.
     if (left > 0 && !inCheck(s, other(s, mover))) return setData({ ...s, turn: mover, enPassant: null }, 'prog', { quota: p.quota, left });
-    return setData(s, 'prog', { quota: p.quota + 1, left: p.quota + 1 });
+    const q = nextQuota(p.quota);
+    return setData(s, 'prog', { quota: q, left: q });
   },
 };
+
+/** "That's enough": end your run before using every move (at least one move first). */
+function progressiveStop(P: PlayerId): RuleModule {
+  return {
+    id: `STOP@${P}`,
+    repeatable: true,
+    applyBuff: (s) => {
+      const p = progressOf(s);
+      if (s.turn !== P) throw new Error('Not your turn');
+      if (p.left >= p.quota) throw new Error('Make at least one move first');
+      const q = nextQuota(p.quota);
+      return setData({ ...s, ply: s.ply + 1, turn: other(s, P), enPassant: null, halfmoveClock: s.halfmoveClock + 1 }, 'prog', { quota: q, left: q });
+    },
+  };
+}
 
 // ---------- MODE-14 Drop-in ----------
 
@@ -555,7 +576,7 @@ export const MODE_MODULES_2: Record<string, RuleModule[]> = {
   horde: [horde],
   monster: [monster],
   shrinking: [shrinking],
-  progressive: [progressive],
+  progressive: [progressive, progressiveStop('p1'), progressiveStop('p2')],
   'drop-in': [dropIn],
   boss: [bossBattle],
   'mystery-army': [],
@@ -615,6 +636,7 @@ export function cardMoves(s: GameState, moves: MoveAction[], p: PlayerId): MoveA
 function cardChess(P: PlayerId): RuleModule {
   return {
     id: `DRAW@${P}`,
+    repeatable: true,
     filterMoves: (s, moves) => (s.turn === P ? cardMoves(s, moves, P) : moves),
     // Discard one card instead of moving (it uses your turn), then draw back up to 3.
     applyBuff: (s, a) => {
