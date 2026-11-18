@@ -7,12 +7,15 @@
  */
 import { RoomServer, parseClientMsg, type Conn } from '../src/net/room';
 import { relay, relayPath } from '../src/net/chesscomRelay';
-import { handleBox, handleVault, vaultRoute, type VaultBox } from '../src/net/vault';
+import { handleBox, handleVault, playerExists, verifyPlayer, vaultRoute, type VaultBox } from '../src/net/vault';
+import { handleWorld, WORLD_PREFIX, type WorldStore } from '../src/net/world';
 
 interface Env {
   LOBBY: DurableObjectNamespace;
   /** Cloud saves: one Durable Object per player number, holding only locked bytes. */
   VAULT: DurableObjectNamespace;
+  /** World leaderboard and challenges: one Durable Object, numbers only. */
+  WORLD: DurableObjectNamespace;
 }
 
 export default {
@@ -23,8 +26,18 @@ export default {
       const stub = env.LOBBY.get(env.LOBBY.idFromName('lobby'));
       return stub.fetch(req);
     }
+    const openBox = (number: string, r: Request) => env.VAULT.get(env.VAULT.idFromName(number)).fetch(r);
     const vault = vaultRoute(url.pathname);
-    if (vault) return handleVault(req, vault, (number, r) => env.VAULT.get(env.VAULT.idFromName(number)).fetch(r));
+    if (vault) return handleVault(req, vault, openBox);
+    if (url.pathname.startsWith(`${WORLD_PREFIX}/`)) {
+      // Check the player's key here; the World object trusts the x-verified header from this worker only.
+      const n = req.headers.get('x-player') ?? '';
+      const ok = req.method !== 'OPTIONS' && (await verifyPlayer(req, n, openBox));
+      const fwd = new Request(req, { headers: new Headers(req.headers) });
+      fwd.headers.delete('x-verified');
+      if (ok) fwd.headers.set('x-verified', n);
+      return env.WORLD.get(env.WORLD.idFromName('world')).fetch(fwd);
+    }
     const rest = relayPath(url.pathname);
     if (rest) {
       // Cache Chess.com answers at the edge so we stay polite to their API.
@@ -80,8 +93,28 @@ export class Vault {
   }
 }
 
+/** World leaderboard and challenges (numbers only, no names). */
+export class World {
+  store: WorldStore;
+  constructor(state: DurableObjectState, private env: Env) {
+    const st = state.storage;
+    this.store = {
+      get: (k) => st.get<string>(k),
+      put: (k, v) => st.put(k, v),
+      delete: async (k) => { await st.delete(k); },
+      list: async (prefix) => new Map([...(await st.list<string>({ prefix }))]),
+    };
+  }
+
+  fetch(req: Request): Promise<Response> {
+    const origin = new URL(req.url).origin;
+    const openBox = (number: string, r: Request) => this.env.VAULT.get(this.env.VAULT.idFromName(number)).fetch(r);
+    return handleWorld(req, this.store, req.headers.get('x-verified'), (n) => playerExists(origin, n, openBox));
+  }
+}
+
 // Minimal Cloudflare types so this file type-checks without extra packages.
 declare class WebSocketPair { 0: WebSocket; 1: WebSocket; }
-interface DurableObjectState { storage: { get<T>(k: string): Promise<T | undefined>; put(k: string, v: unknown): Promise<void>; deleteAll(): Promise<void> } }
+interface DurableObjectState { storage: { get<T>(k: string): Promise<T | undefined>; put(k: string, v: unknown): Promise<void>; delete(k: string): Promise<boolean>; deleteAll(): Promise<void>; list<T>(o: { prefix: string }): Promise<Map<string, T>> } }
 interface DurableObjectNamespace { idFromName(name: string): unknown; get(id: unknown): { fetch(req: Request): Promise<Response> } }
 declare global { interface WebSocket { accept(): void } interface ResponseInit { webSocket?: WebSocket } }

@@ -34,6 +34,8 @@ import { usePartyLayer } from './partyLayer';
 import { defenceMoves, refereeMission, type PartySetup } from '../systems/party';
 import { strengthFor } from '../ai/strength';
 import { missionById, modifierById } from '../content/party';
+import type { MailGame } from '../net/world';
+import { getGame, resignMail, sendMailMove } from '../storage/world';
 import { moveEvents, shakeFor, type MoveEvents } from './effects';
 import { setSoundEnabled, sfx } from './sound';
 import { useYourTurn } from './yourTurn';
@@ -47,7 +49,9 @@ import { cardsEarned, settleStakes, takePrize, updateCollection } from '../syste
 
 export interface GameConfig {
   /** 'local' is only used to replay saved games. */
-  kind: 'local' | 'bot' | 'online';
+  kind: 'local' | 'bot' | 'online' | 'mail';
+  /** Challenge game by player number, played a move at a time (src/net/world.ts). */
+  mail?: { id: string; game: MailGame };
   /** Game mode for new games (koth, hill-wars…). Default classic. */
   mode?: string;
   /** Mode setup choices (boss side, drafted armies, survival position). */
@@ -109,11 +113,13 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   const nemesis = config.botId === `${NEMESIS_PREFIX}${MIRROR_KEY}` ? activeProfile(save)?.mirror : config.botId?.startsWith(NEMESIS_PREFIX) ? activeProfile(save)?.nemeses?.find((n) => `${NEMESIS_PREFIX}${n.key}` === config.botId) : undefined;
   // Memoised: the bot-move effect depends on it, so it must keep its identity between renders.
   const bot = useMemo(() => (config.botId ? botById(config.botId) ?? (nemesis ? nemesisBot(nemesis) : undefined) : undefined), [config.botId, nemesis?.builtAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  const isMail = config.kind === 'mail' && !!config.mail;
   const me: PlayerId = isOnline ? net.seat ?? 'p1' : config.humanSeat;
   const botSeat: PlayerId | null = config.kind === 'bot' ? other(config.humanSeat) : null;
 
   const [localRec, setLocalRec] = useState<GameRecord>(() => {
     if (reviewRecord) return reviewRecord;
+    if (config.mail) return config.mail.game.record;
     const r = newRecord(newSeed(), config.names, undefined, config.mode ?? 'standard');
     if (config.party) r.setup = { ...r.setup, party: config.party };
     if (config.extra) r.setup = { ...r.setup, extra: config.extra };
@@ -144,8 +150,33 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
 
   function push(a: Action) {
     if (isOnline) online.act(a);
+    else if (isMail) sendMail(a);
     else setLocalRec((r) => ({ ...r, actions: [...r.actions, a] }));
   }
+
+  // Challenge games: show the move at once, then the server's answer is the truth.
+  const [mailNote, setMailNote] = useState<string | null>(null);
+  function sendMail(a: Action) {
+    const id = config.mail!.id;
+    const ply = localRec.actions.length;
+    setLocalRec((r) => ({ ...r, actions: [...r.actions, a] }));
+    setMailNote(null);
+    (a.t === 'resign' ? resignMail(id) : sendMailMove(id, a, ply))
+      .then((g) => setLocalRec(g.record))
+      .catch((e) => {
+        setMailNote(`${(e as Error).message} Your move was not sent.`);
+        getGame(id).then((g) => setLocalRec(g.record)).catch(() => setLocalRec((r) => ({ ...r, actions: r.actions.slice(0, ply) })));
+      });
+  }
+  // Look for the other player's move now and then.
+  useEffect(() => {
+    if (!isMail || reviewRecord) return;
+    const t = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      getGame(config.mail!.id).then((g) => setLocalRec((r) => (g.record.actions.length > r.actions.length ? g.record : r))).catch(() => {});
+    }, 8000);
+    return () => clearInterval(t);
+  }, [isMail]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sanList = useMemo(() => {
     const out: string[] = [];
@@ -361,14 +392,19 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     const drawn = live.result.winners.length === 0;
     if (bot && botSeat) setSpeech({ seat: botSeat, text: pick(won ? bot.lines.lose : !drawn ? bot.lines.win : bot.lines.greet) });
     if (!activeProfile(save)) return;
-    const oppRating = bot?.rating ?? (isOnline ? net.seats[other(me)]?.rating : undefined);
+    const oppRating = bot?.rating ?? (isOnline ? net.seats[other(me)]?.rating : isMail ? config.mail!.game.ratings[other(me) as 'p1' | 'p2'] : undefined);
     update((d) => {
       let p = activeProfile(d)!;
+      // A challenge game counts once, even if you open it again.
+      if (isMail) {
+        if ((p.mailDone ?? []).includes(config.mail!.id)) return d;
+        p = { ...p, mailDone: [config.mail!.id, ...(p.mailDone ?? [])].slice(0, 200) };
+      }
       if (oppRating !== undefined) {
         const firstWin = !!bot && won && (p.botRecords[bot.id]?.w ?? 0) === 0;
         const movesPlayed = rec.actions.filter((a, i) => a.t === 'move' && states[i].turn === me).length;
         const award = coinsFor({
-          kind: config.training ? 'training' : isOnline ? 'online' : 'bot',
+          kind: config.training ? 'training' : isOnline || isMail ? 'online' : 'bot',
           result: won ? 'win' : drawn ? 'draw' : 'loss',
           opponent: oppRating, rating: p.rating, goalsDone: training.goalsDone.length, firstWin, movesPlayed,
         });
@@ -390,6 +426,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
         const oppName = names[other(me)];
         p = noteOpponent(p, bot
           ? { key: `bot:${bot.id}`, name: bot.name, kind: 'bot', rating: bot.rating, score }
+          : isMail ? { key: `mail:${config.mail!.game.players[other(me) as 'p1' | 'p2']}`, name: oppName, kind: 'online', rating: oppRating, score }
           : { key: `online:${oppName.toLowerCase()}`, name: oppName, kind: 'online', rating: oppRating, score });
       }
       if (trainingCfg) {
@@ -517,6 +554,8 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
         />
         <div className="banner-slot">
             {party.banner && !live.result && <div className="banner pink">{party.banner}</div>}
+            {isMail && mailNote && <div className="banner pink">{mailNote}</div>}
+            {isMail && !live.result && !reviewing && live.turn !== me && <div className="banner">📬 Their move. You can leave: it will be here when they play.</div>}
             {training.banner && !reviewing && !live.result && <div className={`banner ${training.banner.tone ?? ''}`}>{training.banner.text}</div>}
             {retrying && fix && (
               <div className={`banner ${retry!.solved ? '' : 'blue'}`}>
@@ -671,6 +710,8 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
                   <button className="btn primary" onClick={() => online.rematch(hand)} disabled={iVotedRematch}>
                     {iVotedRematch ? 'Waiting for them…' : theyVotedRematch ? 'They want a rematch! Go!' : 'Rematch'}
                   </button>
+                ) : isMail ? (
+                  <button className="btn primary" onClick={onExit}>📬 Back to challenges</button>
                 ) : (
                   <button className="btn primary" onClick={() => onRematch({ ...config, humanSeat: other(config.humanSeat) })}>Play again</button>
                 )}
@@ -789,7 +830,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           </div>
         ) : (
           <div className="row wrap">
-            {!isOnline && <button className="btn small" onClick={undo} disabled={!rec.actions.length || !!live.result || thinking}>↩ Take back</button>}
+            {!isOnline && !isMail && <button className="btn small" onClick={undo} disabled={!rec.actions.length || !!live.result || thinking}>↩ Take back</button>}
             <button className="btn small" onClick={() => setFlipped((f) => !f)}>⇅ Flip</button>
             <button className="btn small danger" onClick={resign} disabled={!!live.result}>🏳 Give up</button>
           </div>

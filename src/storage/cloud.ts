@@ -66,6 +66,8 @@ export async function uploadNow(p: Profile | undefined = activeProfile()): Promi
     const res = await call('PUT', `${VAULT_PREFIX}/${p.cloud.number}`, p.cloud.key, await lock(text, p.cloud.key));
     if (!res.ok) throw new Error(res.status === 404 ? 'This player number was deleted.' : 'The cloud did not answer. We will try again.');
     noteSynced(p.cloud.number, text.length);
+    // Keep the world leaderboard up to date too (numbers only).
+    void import('./world').then((w) => w.postBoard(p)).catch(() => {});
     setStatus({ busy: false, savedAt: Date.now(), error: null });
   } catch (e) {
     setStatus({ busy: false, error: e instanceof Error ? e.message : 'No internet right now. We will try again.' });

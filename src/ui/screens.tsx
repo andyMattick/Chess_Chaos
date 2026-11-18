@@ -6,6 +6,7 @@ import { activeProfile, exportSave, findLostSave, importSave, newProfile, update
 import { buildMirror, linesFromRecords, nemesisBot, nemesisStrength } from '../systems/nemesis';
 import { NemesisCard } from './Nemesis';
 import { CloudRestore, CloudSaveCard } from './CloudSave';
+import { useMailCount } from './Challenges';
 import { useSave } from './store';
 import { currentStreak, EMPTY_PROGRESS } from '../systems/puzzle';
 import type { GameConfig } from './GameScreen';
@@ -25,7 +26,8 @@ export function ProfileChip({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train' | 'chesscom' | 'battle' | 'leaderboard' | 'party' | 'puzzles' | 'cards' | 'modes') => void }) {
+export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train' | 'chesscom' | 'battle' | 'leaderboard' | 'party' | 'puzzles' | 'cards' | 'modes' | 'challenges' | 'minis') => void }) {
+  const mail = useMailCount();
   const save = useSave();
   const p = activeProfile(save);
   return (
@@ -61,6 +63,7 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
       <div className="tiles">
         <Tile emoji="🎮" title="Game modes" sub="25 ways to play" c="#36c5c5" onClick={() => go('modes')} disabled={!p} />
         <Tile emoji="⚔️" title="Battles" sub="3 and 4 players" c="#ff5a3c" onClick={() => go('battle')} disabled={!p} />
+        <Tile emoji="📬" title="Challenges" sub={mail ? `${mail} waiting for you!` : 'Play a friend, a move at a time'} c="#5bd17a" onClick={() => go('challenges')} disabled={!p} />
         <Tile emoji="🎓" title="Train" sub="Alerts and hints" c="#ffc93c" onClick={() => go('train')} disabled={!p} />
         <Tile emoji="🧩" title="Puzzles" sub={p && currentStreak({ ...EMPTY_PROGRESS, ...p.puzzles }) > 0 ? `🔥 ${currentStreak({ ...EMPTY_PROGRESS, ...p.puzzles })}-day streak` : 'Daily, gauntlet'} c="#ff7a59" onClick={() => go('puzzles')} disabled={!p} />
       </div>

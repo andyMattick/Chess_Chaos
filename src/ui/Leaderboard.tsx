@@ -1,3 +1,6 @@
+import { useEffect, useState } from 'react';
+import { vaultBase } from '../storage/cloud';
+import { fetchBoard, postBoard, setOnBoard, type Board } from '../storage/world';
 import { activeProfile, type Opponent } from '../storage/storage';
 import { BOTS } from '../content/bots';
 import type { GameRecord } from '../core/record';
@@ -11,7 +14,9 @@ import { useSave } from './store';
 export function Leaderboard({ back }: { back: () => void }) {
   const save = useSave();
   const p = activeProfile(save);
+  const [tab, setTab] = useState<'mine' | 'world'>('mine');
   if (!p) return null;
+  if (tab === 'world') return <WorldBoard back={back} mine={() => setTab('mine')} />;
   const rows = [
     { key: 'me', name: p.nickname, kind: 'you' as const, rating: p.rating, w: 0, l: 0, d: 0, last: Date.now() },
     ...Object.entries(withHistory(p.opponents ?? {}, p.botRecords ?? {}, save.games[p.id] ?? [], p.nickname)).map(([key, o]) => ({ key, ...o })),
@@ -22,6 +27,12 @@ export function Leaderboard({ back }: { back: () => void }) {
   return (
     <div className="panel taped">
       <h2>Leaderboard <span className="scribble">who's on top?</span></h2>
+      {vaultBase() && (
+        <div className="tabs">
+          <button className="chip on">📱 People I've played</button>
+          <button className="chip" onClick={() => setTab('world')}>🌍 World</button>
+        </div>
+      )}
       <p className="muted small">Everyone you've played, ranked by rating. Ratings are from your last game with each one. Saved on this device.</p>
       {rows.length === 1 && <p className="muted">Play some bots or friends online and they'll show up here.</p>}
       <ol className="leaderboard">
@@ -69,4 +80,60 @@ function withHistory(known: Record<string, Opponent>, botRecords: Record<string,
     }
   }
   return out;
+}
+
+
+/** The world leaderboard: player numbers only, others masked. */
+function WorldBoard({ back, mine }: { back: () => void; mine: () => void }) {
+  const save = useSave();
+  const p = activeProfile(save);
+  const [board, setBoard] = useState<Board | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const number = p?.cloud?.number;
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        if (p?.cloud && p.worldBoard !== false) await postBoard(p);
+        const b = await fetchBoard(number);
+        if (live) setBoard(b);
+      } catch (e) { if (live) setErr((e as Error).message); }
+    })();
+    return () => { live = false; };
+  }, [number, p?.worldBoard]); // eslint-disable-line react-hooks/exhaustive-deps
+  const medal = ['🥇', '🥈', '🥉'];
+  return (
+    <div className="panel taped">
+      <h2>Leaderboard <span className="scribble">the whole world</span></h2>
+      <div className="tabs">
+        <button className="chip" onClick={mine}>📱 People I've played</button>
+        <button className="chip on">🌍 World</button>
+      </div>
+      <p className="muted small">Everyone with a player number. No names here: other players show as ••••1234.</p>
+      {!p?.cloud && <p className="rescue-card">Get a player number to join: ⚙️ Settings → ☁️ Cloud save.</p>}
+      {p?.cloud && (
+        <label className="small"><input type="checkbox" checked={p.worldBoard !== false} onChange={(e) => void setOnBoard(e.target.checked).catch(() => {})} /> Show me on the world leaderboard</label>
+      )}
+      {err && <p className="warn">{err}</p>}
+      {!board && !err && <p className="muted">Loading…</p>}
+      {board && (
+        <>
+          <p className="muted small">{board.players} {board.players === 1 ? 'player' : 'players'}{board.me ? ` · you are #${board.me.rank}` : ''}</p>
+          <ol className="leaderboard">
+            {board.top.map((r) => (
+              <li key={`${r.rank}-${r.n}`} className={r.me ? 'me' : ''}>
+                <span className="place">{medal[r.rank - 1] ?? r.rank}</span>
+                <span className="lb-name"><b>{r.me ? `${p?.nickname} (you)` : r.n}</b><small>{r.g} games</small></span>
+                <span className="bot-rating">★ {r.r}</span>
+              </li>
+            ))}
+            {board.me && board.me.rank > board.top.length && (
+              <li className="me"><span className="place">{board.me.rank}</span><span className="lb-name"><b>{p?.nickname} (you)</b><small>{board.me.g} games</small></span><span className="bot-rating">★ {board.me.r}</span></li>
+            )}
+          </ol>
+        </>
+      )}
+      <button className="btn" onClick={back}>← Home</button>
+    </div>
+  );
 }

@@ -4,9 +4,12 @@
  */
 import { RoomServer, parseClientMsg, type Conn } from '../src/net/room';
 import { relay, relayPath } from '../src/net/chesscomRelay';
-import { handleBox, handleVault, memoryBoxes, vaultRoute } from '../src/net/vault';
+import { handleBox, handleVault, memoryBoxes, playerExists, verifyPlayer, vaultRoute } from '../src/net/vault';
+import { handleWorld, memoryWorld, WORLD_PREFIX } from '../src/net/world';
 
 const boxes = memoryBoxes();
+const world = memoryWorld();
+const openBox = async (number: string, r: Request) => handleBox(r, boxes(number));
 
 const rooms = new RoomServer();
 setInterval(() => rooms.tick(), 500);
@@ -24,7 +27,14 @@ const server = Bun.serve<Data, never>({
       return ok ? undefined : new Response('Upgrade failed', { status: 400 });
     }
     const vault = vaultRoute(url.pathname);
-    if (vault) return handleVault(req, vault, async (number, r) => handleBox(r, boxes(number)));
+    if (vault) return handleVault(req, vault, openBox);
+    if (url.pathname.startsWith(`${WORLD_PREFIX}/`)) {
+      return (async () => {
+        const n = req.headers.get('x-player') ?? '';
+        const who = req.method !== 'OPTIONS' && (await verifyPlayer(req, n, openBox)) ? n : null;
+        return handleWorld(req, world, who, (x) => playerExists(url.origin, x, openBox));
+      })();
+    }
     const rest = relayPath(url.pathname);
     if (rest) return relay(rest);
     return new Response('Chess Chaos room server', { headers: { 'access-control-allow-origin': '*' } });

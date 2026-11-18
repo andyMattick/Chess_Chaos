@@ -20,7 +20,7 @@ export const LOCK_MS = 60 * 60 * 1000;
 const CORS = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'GET, PUT, POST, DELETE, OPTIONS',
-  'access-control-allow-headers': 'authorization, content-type',
+  'access-control-allow-headers': 'authorization, content-type, x-player',
   'cache-control': 'no-store',
 };
 
@@ -48,7 +48,7 @@ export function newNumber(rand: () => number = Math.random): string {
 export function vaultRoute(pathname: string): { kind: 'create' } | { kind: 'box'; number: string } | { kind: 'bad' } | null {
   if (pathname === VAULT_PREFIX || pathname === `${VAULT_PREFIX}/`) return { kind: 'create' };
   if (!pathname.startsWith(`${VAULT_PREFIX}/`)) return null;
-  const rest = pathname.slice(VAULT_PREFIX.length + 1).replace(/\/claim$/, '');
+  const rest = pathname.slice(VAULT_PREFIX.length + 1).replace(/\/(claim|check|exists)$/, '');
   return isNumber(rest) ? { kind: 'box', number: rest } : { kind: 'bad' };
 }
 
@@ -68,6 +68,9 @@ function bearer(req: Request): string | null {
  */
 export async function handleBox(req: Request, box: VaultBox, now = Date.now()): Promise<Response> {
   if (req.method === 'OPTIONS') return vaultResponse(null, 204);
+  const path = new URL(req.url).pathname;
+  // Is this a real player number? (For challenges. Says nothing else.)
+  if (path.endsWith('/exists')) return vaultResponse(JSON.stringify({ ok: !!(await box.get('auth')) }), (await box.get('auth')) ? 200 : 404);
   const token = bearer(req);
   if (!token) return vaultResponse('{"error":"no key"}', 401);
   const claim = req.method === 'POST' && new URL(req.url).pathname.endsWith('/claim');
@@ -88,6 +91,8 @@ export async function handleBox(req: Request, box: VaultBox, now = Date.now()): 
     return vaultResponse('{"error":"wrong key"}', 403);
   }
   if (fails) await box.put('fails', '0');
+  // The key matches (used by the world leaderboard and challenges).
+  if (path.endsWith('/check')) return vaultResponse('{"ok":true}');
 
   if (req.method === 'GET') {
     const n = Number((await box.get('n')) ?? 0);
@@ -129,6 +134,20 @@ export async function handleVault(req: Request, route: NonNullable<ReturnType<ty
     if (res.status !== 409) return res;
   }
   return vaultResponse('{"error":"busy"}', 503);
+}
+
+/** Is this request really from player `number`? Asks that number's box. */
+export async function verifyPlayer(req: Request, number: string, open: (number: string, req: Request) => Promise<Response>): Promise<boolean> {
+  const auth = req.headers.get('authorization');
+  if (!auth || !isNumber(number)) return false;
+  const origin = new URL(req.url).origin;
+  const res = await open(number, new Request(`${origin}${VAULT_PREFIX}/${number}/check`, { method: 'GET', headers: { authorization: auth } }));
+  return res.ok;
+}
+
+export async function playerExists(origin: string, number: string, open: (number: string, req: Request) => Promise<Response>): Promise<boolean> {
+  if (!isNumber(number)) return false;
+  return (await open(number, new Request(`${origin}${VAULT_PREFIX}/${number}/exists`))).ok;
 }
 
 /** In-memory boxes for the local dev server and tests. */

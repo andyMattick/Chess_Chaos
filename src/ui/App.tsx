@@ -17,6 +17,7 @@ import { ModesScreen } from './ModesScreen';
 import { BattleSetup } from './BattleSetup';
 import { BattleScreen, type LocalBattle } from './BattleScreen';
 import { useSave } from './store';
+import { Challenges } from './Challenges';
 import { setShakeEnabled, setSoundEnabled } from './sound';
 
 type Screen =
@@ -33,6 +34,8 @@ type Screen =
   | { name: 'puzzles' }
   | { name: 'cards' }
   | { name: 'modes' }
+  | { name: 'challenges' }
+  | { name: 'minis' }
   | { name: 'battle' }
   | { name: 'battle-game'; local: LocalBattle; key: number }
   | { name: 'game'; config: GameConfig; key: number; review?: GameRecord };
@@ -98,8 +101,9 @@ export function App() {
           open={openRecord}
         />
       )}
+      {screen.name === 'challenges' && <Challenges back={home} play={startGame} />}
       {screen.name === 'game' && (
-        <GameScreen key={screen.key} config={screen.config} reviewRecord={screen.review} onExit={home} onRematch={startGame} />
+        <GameScreen key={screen.key} config={screen.config} reviewRecord={screen.review} onExit={screen.config.kind === 'mail' ? () => setScreen({ name: 'challenges' }) : home} onRematch={startGame} />
       )}
     </main>
   );

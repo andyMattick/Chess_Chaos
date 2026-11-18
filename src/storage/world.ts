@@ -1,0 +1,93 @@
+import { authToken } from '../net/vault';
+import type { MailGame } from '../net/world';
+import type { RoomGame } from '../net/protocol';
+import type { Action } from '../core/types';
+import { vaultBase } from './cloud';
+import { activeProfile, updateProfile, type Profile } from './storage';
+
+/**
+ * World leaderboard and challenges (owner, 2026-11-18). Need a player number
+ * (cloud save). Only numbers go to the server: no names, no messages.
+ */
+
+export interface BoardRow { rank: number; n: string; r: number; g: number; me: boolean }
+export interface Board { players: number; top: BoardRow[]; me: BoardRow | null }
+
+async function call(p: Profile, method: string, path: string, body?: unknown): Promise<Response> {
+  const base = vaultBase();
+  if (!base || !p.cloud) throw new Error('Get a player number first (⚙️ Settings → Cloud save).');
+  return fetch(`${base}/world${path}`, {
+    method,
+    body: body === undefined ? undefined : JSON.stringify(body),
+    headers: { authorization: `Bearer ${await authToken(p.cloud.key)}`, 'x-player': p.cloud.number, 'content-type': 'application/json' },
+  });
+}
+
+async function answer<T>(res: Response): Promise<T> {
+  const data = (await res.json().catch(() => ({}))) as T & { error?: string };
+  if (!res.ok && res.status !== 409) throw new Error(data.error ?? 'The server did not answer. Try again soon.');
+  return data;
+}
+
+export async function fetchBoard(me?: string): Promise<Board> {
+  const base = vaultBase();
+  if (!base) throw new Error('No server here.');
+  const res = await fetch(`${base}/world/board${me ? `?me=${me}` : ''}`);
+  return answer<Board>(res);
+}
+
+/** Put (or keep) this player on the world leaderboard, unless they switched it off. */
+export async function postBoard(p: Profile | undefined = activeProfile()): Promise<void> {
+  if (!p?.cloud) return;
+  if (p.worldBoard === false) return;
+  await call(p, 'POST', `/board/${p.cloud.number}`, { rating: p.rating, games: p.gamesPlayed });
+}
+
+export async function setOnBoard(on: boolean): Promise<void> {
+  const p = activeProfile();
+  if (!p?.cloud) return;
+  updateProfile((x) => ({ ...x, worldBoard: on }));
+  if (on) await postBoard({ ...p, worldBoard: true });
+  else await call(p, 'DELETE', `/board/${p.cloud.number}`);
+}
+
+export async function myGames(): Promise<MailGame[]> {
+  const p = activeProfile();
+  if (!p) return [];
+  return (await answer<{ games: MailGame[] }>(await call(p, 'GET', '/games'))).games;
+}
+
+export async function challenge(to: string, game: RoomGame, colour: 'p1' | 'p2' | 'random'): Promise<MailGame> {
+  const p = activeProfile()!;
+  return (await answer<{ game: MailGame }>(await call(p, 'POST', '/games', { to, game, colour, rating: p.rating }))).game;
+}
+
+export async function answerChallenge(id: string, act: 'accept' | 'decline' | 'cancel'): Promise<MailGame> {
+  const p = activeProfile()!;
+  return (await answer<{ game: MailGame }>(await call(p, 'POST', `/games/${id}/${act}`, { rating: p.rating }))).game;
+}
+
+export async function getGame(id: string): Promise<MailGame> {
+  const p = activeProfile()!;
+  return (await answer<{ game: MailGame }>(await call(p, 'GET', `/games/${id}`))).game;
+}
+
+/** Send a move. `ply` is how many actions the game had before it (guards against sending twice). */
+export async function sendMailMove(id: string, action: Action, ply: number): Promise<MailGame> {
+  const p = activeProfile()!;
+  return (await answer<{ game: MailGame }>(await call(p, 'POST', `/games/${id}/move`, { action, ply }))).game;
+}
+
+export async function resignMail(id: string): Promise<MailGame> {
+  const p = activeProfile()!;
+  return (await answer<{ game: MailGame }>(await call(p, 'POST', `/games/${id}/resign`))).game;
+}
+
+/** Name a player number on this phone only ("Grandpa"). Never sent anywhere. */
+export function nameNumber(n: string, name: string) {
+  updateProfile((x) => ({ ...x, contacts: { ...(x.contacts ?? {}), [n]: name.trim().slice(0, 16) } }));
+}
+
+export function labelFor(p: Profile | undefined, n: string): string {
+  return p?.contacts?.[n] || `Player ${n.slice(0, 4)} ${n.slice(4)}`;
+}

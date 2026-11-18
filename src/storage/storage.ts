@@ -44,6 +44,12 @@ export interface Profile {
   mirror?: Nemesis;
   /** Cloud save: player number and the save key that locks it (src/storage/cloud.ts). */
   cloud?: { number: string; key: string };
+  /** On the world leaderboard (on unless switched off). */
+  worldBoard?: boolean;
+  /** Names this player gave to player numbers, on this device only. */
+  contacts?: Record<string, string>;
+  /** Challenge games whose result was already counted here. */
+  mailDone?: string[];
   /** Power cards picked for the next party match (only cards still in the collection count). */
   partyHand?: string[];
   /** How often each mode should come up in Party matches, 0 (never) to 3 (favourite). */

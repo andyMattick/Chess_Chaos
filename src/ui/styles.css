@@ -676,3 +676,8 @@ body[data-calm] .die { animation: none; }
 .warn-card { background: #ffe9d6 !important; }
 .mission-card.warn-card, .mission-card.warn-card b, .mission-card.warn-card small, .mission-card.warn-card h3, .mission-card.warn-card p { color: var(--ink); }
 .extras-vote .extras-row { display: grid; gap: 4px; margin: 6px 0; text-align: left; } .mission-toggle { margin: 8px 0; } .mission-toggle label { font-weight: 800; }
+.mail-list { list-style: none; padding: 0; margin: 6px 0 12px; display: grid; gap: 8px; }
+.mail-row { display: grid; gap: 4px; padding: 8px 10px; background: var(--card); border: 2.5px solid var(--ink); border-radius: var(--wonky2); }
+.mail-form { display: grid; gap: 8px; max-width: 360px; }
+.big-number { font-size: 1.4em; font-weight: 800; letter-spacing: 2px; }
+.link-btn { background: none; border: 0; padding: 0 4px; cursor: pointer; font-size: 0.95em; }

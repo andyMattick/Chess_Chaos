@@ -18,3 +18,12 @@ class_name = "Vault"
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["Vault"]
+
+# World leaderboard and challenges: one SQLite-backed Durable Object, player numbers only.
+[[durable_objects.bindings]]
+name = "WORLD"
+class_name = "World"
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["World"]
