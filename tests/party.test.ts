@@ -145,11 +145,11 @@ describe('secret missions', () => {
   });
   it('a shown mission that still stands after the defender\'s turns wins', () => {
     const rec = partyFen('k7/8/8/8/3P4/8/8/K7 w - - 0 1', { p1: 'MISSION-17', p2: 'MISSION-23' });
-    const g = go(rec, 'd5 Kb7 Ka2 Kc7');
+    // It must stand until the end of Black's next turn.
+    expect(go(rec, 'd5').last.result).toBeFalsy();
+    const g = go(rec, 'd5 Kb7');
     expect(g.added.map((a) => a.t === 'mission' && a.stage)).toEqual(['reveal', 'win']);
     expect(g.last.result).toEqual({ reason: 'mission', winners: ['p1'] });
-    // Not yet after only one defender move.
-    expect(go(rec, 'd5 Kb7 Ka2').last.result).toBeFalsy();
   });
   it('a board mission is undone when the position changes', () => {
     const rec = partyFen('8/8/8/2k5/3P4/8/8/R6K w - - 0 1', { p1: 'MISSION-17', p2: 'MISSION-23' });
@@ -246,12 +246,32 @@ describe('mission advantage for the weaker player', () => {
     expect(missionDefence(800, 1200)).toEqual({ p1: MISSION_DEFENCE_TURNS_VS_UNDERDOG, p2: MISSION_DEFENCE_TURNS });
     expect(missionDefence(1200, 800)).toEqual({ p1: MISSION_DEFENCE_TURNS, p2: MISSION_DEFENCE_TURNS_VS_UNDERDOG });
     expect(missionDefence(800, 850)).toEqual({ p1: MISSION_DEFENCE_TURNS, p2: MISSION_DEFENCE_TURNS });
-    expect(setupParty({ mode: 'standard', online: false, players: { p1: { rating: 600, bot: false }, p2: { rating: 900, bot: true } } }, seeded(3)).defence?.p1).toBe(1);
+    expect(setupParty({ mode: 'standard', online: false, players: { p1: { rating: 600, bot: false }, p2: { rating: 900, bot: true } } }, seeded(3)).defence?.p1).toBe(0);
   });
-  it('a shown mission with 1 defence turn wins after one reply', () => {
+  it('the weaker player\'s mission is shown to everyone and wins at once', () => {
     const rec = partyFen('k7/8/8/8/3P4/8/8/K7 w - - 0 1', { p1: 'MISSION-17', p2: 'MISSION-23' });
-    rec.setup.party!.defence = { p1: 1, p2: 2 };
-    const g = go(rec, 'd5 Kb7');
-    expect(g.added.map((a) => a.t === 'mission' && a.stage)).toEqual(['reveal', 'win']);
+    rec.setup.party!.defence = { p1: 0, p2: 1 };
+    expect(redactParty(rec.setup.party!, 'p2').missions).toEqual({ p1: 'MISSION-17', p2: 'MISSION-23' });
+    expect(redactParty(rec.setup.party!, 'p1').missions).toEqual({ p1: 'MISSION-17', p2: '?' });
+    const g = go(rec, 'd5');
+    expect(g.added.map((a) => a.t === 'mission' && a.stage)).toEqual(['win']);
+    expect(g.last.result).toEqual({ reason: 'mission', winners: ['p1'] });
+  });
+});
+
+describe('missions and modifiers fit the mode', () => {
+  it('Pawn wars never deals a mission or buff for pieces that are not there', () => {
+    for (let i = 0; i < 60; i++) {
+      const o = { mode: 'pawn-wars', online: false, players: { p1: { rating: 600, bot: false }, p2: { rating: 1200, bot: false } } };
+      const m = dealMissions(o, seeded(i + 1));
+      for (const id of Object.values(m)) {
+        const tags = MISSIONS.find((x) => x.id === id)!.tags ?? [];
+        expect(tags.some((t) => ['needsKnights', 'needsBishops', 'needsRooks', 'needsQueen'].includes(t))).toBe(false);
+      }
+      for (const id of [...pickModifiers(o, seeded(i + 7)).p1, ...pickModifiers(o, seeded(i + 7)).p2]) {
+        const tags = MODIFIERS.find((x) => x.id === id)!.tags ?? [];
+        expect(tags.some((t) => ['needsKnights', 'needsBishops', 'needsRooks', 'needsQueen', 'needsStandardArmy'].includes(t))).toBe(false);
+      }
+    }
   });
 });

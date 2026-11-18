@@ -242,7 +242,7 @@ describe('room extras', () => {
 });
 
 describe('online party rooms', () => {
-  it('deals a mode, modifiers and missions when both are seated, and hides the other mission', () => {
+  it('deals a mode, modifiers and missions when both are seated; hides the stronger player\'s mission, shows the weaker player\'s', () => {
     const server = new RoomServer(() => 0);
     const a = client('a'), b = client('b');
     server.handle(a.conn, { t: 'create', name: 'Ava', rating: 400, colour: 'p1', game: 'party' });
@@ -252,7 +252,9 @@ describe('online party rooms', () => {
     const pb = b.last('room')!.record.setup.party!;
     expect(pa.missions.p1).not.toBe('?');
     expect(pa.missions.p2).toBe('?');
-    expect(pb.missions.p1).toBe('?');
+    // Ava (★400) is the weaker player: her mission is open to Ben and wins at once.
+    expect(pb.missions.p1).toBe(pa.missions.p1);
+    expect(pa.defence).toEqual({ p1: 0, p2: 1 });
     expect(pb.missions.p2).not.toBe('?');
     expect(pa.modifiers.p1!.length).toBe(2); // 600-point gap: major + minor buff
     expect(pa.modifiers.p2!.length).toBe(1); // and a major handicap

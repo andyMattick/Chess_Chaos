@@ -84,10 +84,17 @@ export interface MissionDef {
   stop: string;
 }
 
-/** Turns the other player gets to undo a shown mission (owner rule, 2026-11-18). */
-export const MISSION_DEFENCE_TURNS = 2;
-/** The weaker player's mission is harder to stop: the stronger player gets only this many turns (owner, 2026-11-18). */
-export const MISSION_DEFENCE_TURNS_VS_UNDERDOG = 1;
+/**
+ * Owner rules (2026-11-18). A hidden mission, once done, is shown and must
+ * stand until the end of the other player's next turn (that player gets this
+ * many turns to undo it).
+ */
+export const MISSION_DEFENCE_TURNS = 1;
+/**
+ * The weaker player's mission (rating gap of MISSION_UNDERDOG_GAP or more):
+ * shown to the opponent from the start, but doing it wins at once (0 turns to undo).
+ */
+export const MISSION_DEFENCE_TURNS_VS_UNDERDOG = 0;
 /** Rating gap from which the weaker player gets that advantage. */
 export const MISSION_UNDERDOG_GAP = 100;
 

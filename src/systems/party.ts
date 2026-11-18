@@ -31,7 +31,8 @@ const MODE_REMOVES: Record<string, string[]> = {
   boss: ['needsStandardArmy'],
   'mystery-army': ['needsStandardArmy', 'needsCastling'],
   shrinking: ['needsStandardBoard'],
-  'pawn-wars': ['needsStandardArmy', 'needsCastling'],
+  // Kings and pawns only.
+  'pawn-wars': ['needsStandardArmy', 'needsCastling', 'needsKnights', 'needsBishops', 'needsRooks', 'needsQueen'],
 };
 
 /**
@@ -143,7 +144,13 @@ export function pickModifiers(o: PartyOptions, rand: () => number): Record<'p1' 
 
 /** docs/02 s5: Medium for both when close; Hard for the favourite when the gap is 200+. Never the same mission twice. */
 export function dealMissions(o: PartyOptions, rand: () => number): Record<'p1' | 'p2', string> {
-  const pool = (cat: 'Medium' | 'Hard') => MISSIONS.filter((m) => m.category === cat && !(o.mode === 'three-check' && m.id === 'MISSION-12'));
+  // Missions follow the same tags as modifiers: no bishop mission in a mode without bishops.
+  const removed = MODE_REMOVES[o.mode] ?? [];
+  const pool = (cat: 'Medium' | 'Hard') => {
+    const all = MISSIONS.filter((m) => m.category === cat && !(o.mode === 'three-check' && m.id === 'MISSION-12'));
+    const fits = all.filter((m) => !(m.tags ?? []).some((t) => removed.includes(t)));
+    return fits.length >= 2 ? fits : all;
+  };
   const gap = Math.abs(o.players.p1.rating - o.players.p2.rating);
   const favourite = o.players.p1.rating > o.players.p2.rating ? 'p1' : 'p2';
   const first = (p: 'p1' | 'p2') => (gap >= 200 && p === favourite ? 'Hard' : 'Medium');
@@ -163,6 +170,11 @@ export function setupParty(o: PartyOptions, rand: () => number): PartySetup {
   return { modifiers: pickModifiers(o, rand), missions: dealMissions(o, rand), gate: { p1: gate, p2: gate }, defence: missionDefence(o.players.p1.rating, o.players.p2.rating) };
 }
 
+/** The weaker player's mission: shown from the start, wins at once. */
+export function missionIsOpen(p: PartySetup, player: PlayerId): boolean {
+  return p.defence?.[player] === 0;
+}
+
 /** Turns to undo each player's shown mission: fewer against the weaker player's mission when the gap is big enough. */
 export function missionDefence(p1: number, p2: number): Record<'p1' | 'p2', number> {
   const out = { p1: MISSION_DEFENCE_TURNS, p2: MISSION_DEFENCE_TURNS };
@@ -173,7 +185,8 @@ export function missionDefence(p1: number, p2: number): Record<'p1' | 'p2', numb
 /** Hide the other player's mission (online, and on screen). */
 export function redactParty(p: PartySetup, viewer: PlayerId | null): PartySetup {
   const missions: PartySetup['missions'] = {};
-  for (const [k, v] of Object.entries(p.missions)) missions[k as PlayerId] = k === viewer ? v : '?';
+  // The weaker player's mission is open (everyone sees it); others are secret.
+  for (const [k, v] of Object.entries(p.missions)) missions[k as PlayerId] = k === viewer || missionIsOpen(p, k as PlayerId) ? v : '?';
   return { ...p, missions };
 }
 
@@ -206,6 +219,8 @@ export function refereeMission(states: GameState[], actions: Action[], party: Pa
   if (made <= (party.gate[player] ?? 10)) return null;
   const ctx = { states, ply, move: a as MoveAction, player, movesMade: made };
   if (!missionDone(id, ctx)) return null;
+  // The weaker player's open mission wins at once.
+  if (missionIsOpen(party, player)) return { t: 'mission', by: player, id, stage: 'win' };
   return { t: 'mission', by: player, id, stage: 'reveal', target: missionTarget(id, ctx), turns: party.defence?.[player] ?? MISSION_DEFENCE_TURNS };
 }
 

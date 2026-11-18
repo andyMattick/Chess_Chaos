@@ -673,3 +673,5 @@ body[data-calm] .die { animation: none; }
 /* Rotated cards must never make the page scroll sideways on phones (first-visit check, 2026-11-18). */
 .app { overflow-x: clip; }
 .welcome { margin-bottom: 8px; } .welcome h1 { margin: 0 0 4px; font-size: 1.8rem; } .welcome p { margin: 4px 0; }
+.warn-card { background: #ffe9d6 !important; }
+.mission-card.warn-card, .mission-card.warn-card b, .mission-card.warn-card small, .mission-card.warn-card h3, .mission-card.warn-card p { color: var(--ink); }

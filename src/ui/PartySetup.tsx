@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { BOTS } from '../content/bots';
-import { MISSION_DEFENCE_TURNS, missionById, modifierById } from '../content/party';
+import { missionById, modifierById } from '../content/party';
 import { MODE_INFO } from '../core/modes';
 import { activeProfile, updateProfile } from '../storage/storage';
 import { PATH, unlockedCount } from '../systems/coins';
-import { drawMode, setupParty } from '../systems/party';
+import { drawMode, missionIsOpen, setupParty } from '../systems/party';
 import type { GameConfig } from './GameScreen';
 import { useSave } from './store';
 import { CardTile, HandPicker, useHand } from './Cards';
@@ -40,6 +40,7 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
   const mine = setup.modifiers[humanSeat] ?? [];
   const theirs = setup.modifiers[botSeat] ?? [];
   const mission = missionById(setup.missions[humanSeat]!);
+  const theirMission = missionById(setup.missions[botSeat]!);
 
   const go = () => {
     updateProfile((x) => ({ ...x, modeDeck: draw.deck, partyMatches: x.partyMatches + 1 }));
@@ -69,9 +70,22 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
           <h3>{bot.emoji} {bot.name}'s extras</h3>
           {modRow(theirs)}
         </div>
-        <button className={`reveal-card mission-card big ${peek ? 'open' : ''}`} onPointerDown={() => setPeek(true)} onPointerUp={() => setPeek(false)} onPointerLeave={() => setPeek(false)} aria-label="Hold to see your secret mission">
-          {peek && mission ? <><div className="reveal-emoji">🎯</div><h3>{mission.name}</h3><p>{mission.blurb}</p><small>Do it after your move {setup.gate[humanSeat]}. Then everyone sees it, and the other player gets {turnsText(setup.defence?.[humanSeat] ?? MISSION_DEFENCE_TURNS)} to undo it. If it still stands, you win!</small></> : <><div className="reveal-emoji">🤫</div><h3>Secret mission</h3><p>Hold to peek. Don't let anyone see!</p></>}
-        </button>
+        {missionIsOpen(setup, humanSeat) && mission ? (
+          <div className="reveal-card mission-card big open">
+            <div className="reveal-emoji">🎯</div><h3>{mission.name}</h3><p>{mission.blurb}</p>
+            <small>You're the underdog, so your mission is open: {bot.name} can see it. But if you do it (after your move {setup.gate[humanSeat]}), you win at once!</small>
+          </div>
+        ) : (
+          <button className={`reveal-card mission-card big ${peek ? 'open' : ''}`} onPointerDown={() => setPeek(true)} onPointerUp={() => setPeek(false)} onPointerLeave={() => setPeek(false)} aria-label="Hold to see your secret mission">
+            {peek && mission ? <><div className="reveal-emoji">🎯</div><h3>{mission.name}</h3><p>{mission.blurb}</p><small>Do it after your move {setup.gate[humanSeat]}. Then everyone sees it, and you must keep it standing until {bot.name}'s next turn is over. If it still stands, you win!</small></> : <><div className="reveal-emoji">🤫</div><h3>Secret mission</h3><p>Hold to peek. Don't let anyone see!</p></>}
+          </button>
+        )}
+        {missionIsOpen(setup, botSeat) && theirMission && (
+          <div className="reveal-card mission-card big open warn-card">
+            <div className="reveal-emoji">⚠️</div><h3>{bot.name}'s mission: {theirMission.name}</h3><p>{theirMission.blurb}</p>
+            <small>{bot.name} is the underdog, so you can see it. If they do it, they win at once. Stop them!</small>
+          </div>
+        )}
       </div>
       <HandPicker />
       <div className="stakes">
@@ -97,6 +111,3 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
   );
 }
 
-function turnsText(n: number): string {
-  return n === 1 ? 'just 1 turn' : `${n} turns`;
-}
