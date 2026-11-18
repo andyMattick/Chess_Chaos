@@ -691,3 +691,4 @@ body[data-calm] .die { animation: none; }
 .sprint-bar { font-size: 1.1rem; }
 .mini-play .board-wrap { width: 100%; max-width: 520px; margin: 8px auto; }
 .friend-suggest { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 8px; } .add-friend { margin-bottom: 12px; }
+.leaderboard li.friend { background: #eaf6ff; } .leaderboard li.off { opacity: 0.6; } .stats-line { display: block; font-size: 0.82rem; } .stats-line .vs { color: #7a5cc8; font-weight: 700; }

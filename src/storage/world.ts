@@ -10,8 +10,9 @@ import { activeProfile, updateProfile, type Profile } from './storage';
  * (cloud save). Only numbers go to the server: no names, no messages.
  */
 
-export interface BoardRow { rank: number; n: string; r: number; g: number; me: boolean }
-export interface Board { players: number; top: BoardRow[]; me: BoardRow | null }
+import type { BoardRow } from '../net/world';
+export type { BoardRow };
+export interface Board { players: number; top: BoardRow[]; me: BoardRow | null; friends: BoardRow[] }
 
 async function call(p: Profile, method: string, path: string, body?: unknown): Promise<Response> {
   const base = vaultBase();
@@ -29,10 +30,13 @@ async function answer<T>(res: Response): Promise<T> {
   return data;
 }
 
-export async function fetchBoard(me?: string): Promise<Board> {
+export async function fetchBoard(me?: string, friends: string[] = []): Promise<Board> {
   const base = vaultBase();
   if (!base) throw new Error('No server here.');
-  const res = await fetch(`${base}/world/board${me ? `?me=${me}` : ''}`);
+  const q = new URLSearchParams();
+  if (me) q.set('me', me);
+  if (friends.length) q.set('look', friends.slice(0, 100).join(','));
+  const res = await fetch(`${base}/world/board?${q}`);
   return answer<Board>(res);
 }
 
@@ -40,7 +44,7 @@ export async function fetchBoard(me?: string): Promise<Board> {
 export async function postBoard(p: Profile | undefined = activeProfile()): Promise<void> {
   if (!p?.cloud) return;
   if (p.worldBoard === false) return;
-  await call(p, 'POST', `/board/${p.cloud.number}`, { rating: p.rating, games: p.gamesPlayed });
+  await call(p, 'POST', `/board/${p.cloud.number}`, { rating: p.rating, games: p.gamesPlayed, ...myRecord(p) });
 }
 
 export async function setOnBoard(on: boolean): Promise<void> {
@@ -105,4 +109,17 @@ export function addFriend(n: string, name?: string) {
 
 export function removeFriend(n: string) {
   updateProfile((x) => ({ ...x, friends: (x.friends ?? []).filter((f) => f !== n) }));
+}
+
+/** Overall wins, losses and draws: every rated game against bots, online players and challenges. */
+export function myRecord(p: Profile): { w: number; l: number; d: number } {
+  const out = { w: 0, l: 0, d: 0 };
+  for (const o of Object.values(p.opponents ?? {})) { out.w += o.w; out.l += o.l; out.d += o.d; }
+  return out;
+}
+
+/** Your record against one player number (challenge games). */
+export function recordVs(p: Profile | undefined, n: string): { w: number; l: number; d: number } | null {
+  const o = p?.opponents?.[`mail:${n}`];
+  return o ? { w: o.w, l: o.l, d: o.d } : null;
 }

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { vaultBase } from '../storage/cloud';
-import { fetchBoard, postBoard, setOnBoard, type Board } from '../storage/world';
+import { labelFor, setOnBoard, type BoardRow } from '../storage/world';
+import { StatsLine, useWorldBoard } from './FriendStats';
 import { activeProfile, type Opponent } from '../storage/storage';
 import { BOTS } from '../content/bots';
 import type { GameRecord } from '../core/record';
@@ -83,25 +84,22 @@ function withHistory(known: Record<string, Opponent>, botRecords: Record<string,
 }
 
 
-/** The world leaderboard: player numbers only, others masked. */
+/** The world leaderboard: player numbers only. Others are masked; your friends show with the names you gave them. */
 function WorldBoard({ back, mine }: { back: () => void; mine: () => void }) {
   const save = useSave();
   const p = activeProfile(save);
-  const [board, setBoard] = useState<Board | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const number = p?.cloud?.number;
-  useEffect(() => {
-    let live = true;
-    (async () => {
-      try {
-        if (p?.cloud && p.worldBoard !== false) await postBoard(p);
-        const b = await fetchBoard(number);
-        if (live) setBoard(b);
-      } catch (e) { if (live) setErr((e as Error).message); }
-    })();
-    return () => { live = false; };
-  }, [number, p?.worldBoard]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { board, err } = useWorldBoard();
+  const [view, setView] = useState<'top' | 'friends'>('top');
   const medal = ['🥇', '🥈', '🥉'];
+  const friends = p?.friends ?? [];
+  const nameOf = (r: BoardRow) => (r.me ? `${p?.nickname} (you)` : friends.includes(r.n) ? `👫 ${labelFor(p, r.n)}` : r.n);
+  const row = (r: BoardRow) => (
+    <li key={`${r.rank}-${r.n}`} className={r.me ? 'me' : friends.includes(r.n) ? 'friend' : ''}>
+      <span className="place">{medal[r.rank - 1] ?? r.rank}</span>
+      <span className="lb-name"><b>{nameOf(r)}</b><small>W {r.w} · L {r.l} · D {r.d} · {r.g} games</small></span>
+      <span className="bot-rating">★ {r.r}</span>
+    </li>
+  );
   return (
     <div className="panel taped">
       <h2>Leaderboard <span className="scribble">the whole world</span></h2>
@@ -109,29 +107,45 @@ function WorldBoard({ back, mine }: { back: () => void; mine: () => void }) {
         <button className="chip" onClick={mine}>📱 People I've played</button>
         <button className="chip on">🌍 World</button>
       </div>
-      <p className="muted small">Everyone with a player number. No names here: other players show as ••••1234.</p>
+      <p className="muted small">Everyone with a player number. No names here: other players show as ••••1234. Your friends show with the names you gave them (only you see those).</p>
       {!p?.cloud && <p className="rescue-card">Get a player number to join: ⚙️ Settings → ☁️ Cloud save.</p>}
       {p?.cloud && (
         <label className="small"><input type="checkbox" checked={p.worldBoard !== false} onChange={(e) => void setOnBoard(e.target.checked).catch(() => {})} /> Show me on the world leaderboard</label>
       )}
+      <div className="clock-chips">
+        <button className={`chip ${view === 'top' ? 'on' : ''}`} onClick={() => setView('top')}>🏆 Top 50</button>
+        <button className={`chip ${view === 'friends' ? 'on' : ''}`} onClick={() => setView('friends')}>👫 My friends ({friends.length})</button>
+      </div>
       {err && <p className="warn">{err}</p>}
       {!board && !err && <p className="muted">Loading…</p>}
-      {board && (
+      {board && view === 'top' && (
         <>
           <p className="muted small">{board.players} {board.players === 1 ? 'player' : 'players'}{board.me ? ` · you are #${board.me.rank}` : ''}</p>
           <ol className="leaderboard">
-            {board.top.map((r) => (
-              <li key={`${r.rank}-${r.n}`} className={r.me ? 'me' : ''}>
-                <span className="place">{medal[r.rank - 1] ?? r.rank}</span>
-                <span className="lb-name"><b>{r.me ? `${p?.nickname} (you)` : r.n}</b><small>{r.g} games</small></span>
+            {board.top.map(row)}
+            {board.me && board.me.rank > board.top.length && row(board.me)}
+          </ol>
+        </>
+      )}
+      {board && view === 'friends' && (
+        friends.length === 0 ? <p className="muted">No friends yet. Add them in 📬 Challenges.</p> : (
+          <ol className="leaderboard">
+            {[...(board.me ? [board.me] : []), ...board.friends].sort((a, b) => a.rank - b.rank).map((r) => (
+              <li key={r.n} className={r.me ? 'me' : 'friend'}>
+                <span className="place">{r.rank}</span>
+                <span className="lb-name"><b>{nameOf(r)}</b><StatsLine row={r} n={r.me ? undefined : r.n} /></span>
                 <span className="bot-rating">★ {r.r}</span>
               </li>
             ))}
-            {board.me && board.me.rank > board.top.length && (
-              <li className="me"><span className="place">{board.me.rank}</span><span className="lb-name"><b>{p?.nickname} (you)</b><small>{board.me.g} games</small></span><span className="bot-rating">★ {board.me.r}</span></li>
-            )}
+            {friends.filter((n) => !board.friends.some((r) => r.n === n)).map((n) => (
+              <li key={n} className="friend off">
+                <span className="place">–</span>
+                <span className="lb-name"><b>👫 {labelFor(p, n)}</b><small className="muted">Not on the world leaderboard</small></span>
+                <span />
+              </li>
+            ))}
           </ol>
-        </>
+        )
       )}
       <button className="btn" onClick={back}>← Home</button>
     </div>

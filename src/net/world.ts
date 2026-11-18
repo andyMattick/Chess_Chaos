@@ -32,7 +32,9 @@ export interface WorldStore {
   list(prefix: string): Promise<Map<string, string>>;
 }
 
-export interface BoardEntry { r: number; g: number; at: number }
+/** A leaderboard entry: rating, games, and the player's overall wins, losses and draws. */
+export interface BoardEntry { r: number; g: number; w?: number; l?: number; d?: number; at: number }
+export interface BoardRow { rank: number; n: string; r: number; g: number; w: number; l: number; d: number; me: boolean }
 export interface MailGame {
   id: string;
   /** Player numbers: p1 is White. */
@@ -88,27 +90,32 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
   if (parts[0] === 'board') {
     if (req.method === 'GET') {
       const all = await store.list('b:');
-      const rows: { n: string; r: number; g: number }[] = [];
+      const rows: (BoardEntry & { n: string })[] = [];
       for (const [k, v] of all) {
         const e = JSON.parse(v) as BoardEntry;
         if (now - e.at > BOARD_STALE_MS) { await store.delete(k); continue; }
-        rows.push({ n: k.slice(2), r: e.r, g: e.g });
+        rows.push({ ...e, n: k.slice(2) });
       }
       rows.sort((a, b) => b.r - a.r || b.g - a.g || a.n.localeCompare(b.n));
       const me = url.searchParams.get('me');
+      // Friends: numbers the asker already knows in full (max 100). Shown in full, so the phone can put its own names on them.
+      const look = new Set((url.searchParams.get('look') ?? '').split(',').filter(isNumber).slice(0, 100));
+      const known = (n: string) => n === me || look.has(n);
+      const show = (x: BoardEntry & { n: string }, i: number): BoardRow => ({ rank: i + 1, n: known(x.n) ? x.n : maskNumber(x.n), r: x.r, g: x.g, w: x.w ?? 0, l: x.l ?? 0, d: x.d ?? 0, me: x.n === me });
       const mine = me ? rows.findIndex((x) => x.n === me) : -1;
-      const show = (x: { n: string; r: number; g: number }, i: number) => ({ rank: i + 1, n: x.n === me ? x.n : maskNumber(x.n), r: x.r, g: x.g, me: x.n === me });
-      return json({ players: rows.length, top: rows.slice(0, BOARD_TOP).map(show), me: mine >= 0 ? show(rows[mine], mine) : null });
+      const friends = rows.map((x, i) => [x, i] as const).filter(([x]) => look.has(x.n)).map(([x, i]) => show(x, i));
+      return json({ players: rows.length, top: rows.slice(0, BOARD_TOP).map(show), me: mine >= 0 ? show(rows[mine], mine) : null, friends });
     }
     const n = parts[1];
     if (!n || !isNumber(n) || who !== n) return bad('wrong player', 403);
     if (req.method === 'DELETE') { await store.delete(`b:${n}`); return json({ ok: true }); }
     if (req.method === 'POST') {
-      const body = (await req.json().catch(() => null)) as { rating?: number; games?: number } | null;
+      const body = (await req.json().catch(() => null)) as { rating?: number; games?: number; w?: number; l?: number; d?: number } | null;
       const r = Math.round(Number(body?.rating));
       const g = Math.round(Number(body?.games));
       if (!Number.isFinite(r) || !Number.isFinite(g)) return bad('bad entry');
-      const entry: BoardEntry = { r: Math.max(100, Math.min(3000, r)), g: Math.max(0, Math.min(100000, g)), at: now };
+      const count = (x: unknown) => Math.max(0, Math.min(100000, Math.round(Number(x)) || 0));
+      const entry: BoardEntry = { r: Math.max(100, Math.min(3000, r)), g: count(g), w: count(body?.w), l: count(body?.l), d: count(body?.d), at: now };
       await store.put(`b:${n}`, JSON.stringify(entry));
       return json({ ok: true });
     }

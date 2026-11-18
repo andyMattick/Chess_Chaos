@@ -32,7 +32,7 @@ describe('world leaderboard', () => {
   it('ranks players by number only, masks the others, and needs the key to post', async () => {
     const sv = server();
     const a = await sv.player(), b = await sv.player();
-    expect((await a.call('POST', `/board/${a.number}`, { rating: 900, games: 12 })).status).toBe(200);
+    expect((await a.call('POST', `/board/${a.number}`, { rating: 900, games: 12, w: 7, l: 4, d: 1 })).status).toBe(200);
     expect((await b.call('POST', `/board/${b.number}`, { rating: 1100, games: 3 })).status).toBe(200);
     // Posting for someone else is refused.
     expect((await a.call('POST', `/board/${b.number}`, { rating: 3000, games: 1 })).status).toBe(403);
@@ -41,10 +41,14 @@ describe('world leaderboard', () => {
     expect(forged.status).toBe(403);
     const board = await (await sv.fetch(new Request(`https://x.dev/world/board?me=${a.number}`))).json();
     expect(board.players).toBe(2);
-    expect(board.top[0]).toEqual({ rank: 1, n: maskNumber(b.number), r: 1100, g: 3, me: false });
-    expect(board.top[1]).toEqual({ rank: 2, n: a.number, r: 900, g: 12, me: true });
+    expect(board.top[0]).toEqual({ rank: 1, n: maskNumber(b.number), r: 1100, g: 3, w: 0, l: 0, d: 0, me: false });
+    expect(board.top[1]).toEqual({ rank: 2, n: a.number, r: 900, g: 12, w: 7, l: 4, d: 1, me: true });
     expect(board.me.rank).toBe(2);
     expect(JSON.stringify(board)).not.toContain(b.number);
+    // A friend's number you already know comes back in full, with their rank and record.
+    const withFriend = await (await sv.fetch(new Request(`https://x.dev/world/board?me=${a.number}&look=${b.number},99999999`))).json();
+    expect(withFriend.friends).toEqual([{ rank: 1, n: b.number, r: 1100, g: 3, w: 0, l: 0, d: 0, me: false }]);
+    expect(withFriend.top[0].n).toBe(b.number);
     // Leaving the board.
     await b.call('DELETE', `/board/${b.number}`);
     expect((await (await sv.fetch(new Request('https://x.dev/world/board'))).json()).players).toBe(1);

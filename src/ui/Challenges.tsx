@@ -8,6 +8,7 @@ import { activeProfile } from '../storage/storage';
 import { addFriend, answerChallenge, challenge, labelFor, myGames, nameNumber, removeFriend } from '../storage/world';
 import { showNumber as fmt } from '../net/vault';
 import { CloudSaveCard } from './CloudSave';
+import { StatsLine, useWorldBoard } from './FriendStats';
 import type { GameConfig } from './GameScreen';
 import { useSave } from './store';
 
@@ -30,6 +31,7 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
   const [addNo, setAddNo] = useState('');
   const [addName, setAddName] = useState('');
   const number = p?.cloud?.number;
+  const { board } = useWorldBoard();
 
   const refresh = () => myGames().then((g) => { setGames(g); setErr(null); }).catch((e) => setErr((e as Error).message));
   useEffect(() => {
@@ -129,6 +131,7 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
               <span><b>{label(n)}</b> <button className="link-btn" aria-label="Rename" onClick={() => { setNaming(n); setNameText(p.contacts?.[n] ?? ''); }}>✏️</button></span>
             )}
             <small className="muted">{fmt(n)}</small>
+            <small><StatsLine row={board?.friends.find((r) => r.n === n)} n={n} /></small>
             <span className="row wrap">
               <button className="btn small primary" onClick={() => { setTo(n); document.querySelector('.mail-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>⚔️ Challenge</button>
               <button className="btn small" onClick={() => removeFriend(n)}>Remove</button>
