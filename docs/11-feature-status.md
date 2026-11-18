@@ -192,15 +192,15 @@ Built so far: Classic, King of the hill, Hill wars (2 and 4 players), 3-way, 4-w
 
 | ID | Name | Status | Where |
 |---|---|---|---|
-| MINI-01 | Pawn wars | Planned | Later phase |
-| MINI-02 | Piece mazes | Planned | Later phase |
-| MINI-03 | Capture the candy | Planned | Later phase |
-| MINI-04 | Checkmate ladder | Planned | Later phase |
-| MINI-05 | Mate in one sprint | Planned | Later phase |
-| MINI-06 | Guard duty | Planned | Later phase |
-| MINI-07 | Trade or no trade | Planned | Later phase |
-| MINI-08 | Spotlight | Planned | Later phase |
-| MINI-09 | Handicap ladder | Planned | Later phase |
+| MINI-01 | Pawn wars | Built | 2026-11-18, Mini-games screen |
+| MINI-02 | Piece mazes | Built | 2026-11-18, Mini-games screen |
+| MINI-03 | Capture the candy | Built | 2026-11-18, Mini-games screen |
+| MINI-04 | Checkmate ladder | Built | 2026-11-18, Mini-games screen |
+| MINI-05 | Mate in one sprint | Built | 2026-11-18, Mini-games screen |
+| MINI-06 | Guard duty | Built | 2026-11-18, Mini-games screen |
+| MINI-07 | Trade or no trade | Built | 2026-11-18, Mini-games screen |
+| MINI-08 | Spotlight | Built | 2026-11-18, Mini-games screen |
+| MINI-09 | Handicap ladder | Built | 2026-11-18, Mini-games screen |
 
 ## Everything else
 

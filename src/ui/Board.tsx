@@ -27,6 +27,8 @@ export interface BoardOverlays {
   arrows?: { from: number; to: number; label?: string; color?: string }[];
   /** Small emoji on a square (your hidden queen…). */
   badges?: Map<number, string>;
+  /** Draw blocked squares as brick walls (mini-game mazes) instead of holes. */
+  walls?: boolean;
   /** Colour per destination square for the selected piece (hot and cold). */
   targetColors?: Map<number, string>;
 }
@@ -84,10 +86,22 @@ export function Board({ state, bottom, selected, targets, lastMove, showCoordina
   for (const m of targets) targetSquares.set(m.to, state.sq[m.to] >= 0 || (!!state.enPassant && state.enPassant.square === m.to && state.pieces[m.piece].type === 'pawn'));
 
   // The landscape layer only changes with the landscape or orientation.
+  const wallsOn = !!overlays?.walls;
   const ground = useMemo(() => {
     const out = [];
     for (let sq = 0; sq < b.width * b.height; sq++) {
-      if (b.blocked[sq]) continue;
+      if (b.blocked[sq]) {
+        if (wallsOn) {
+          const { x, y } = pos(sq);
+          out.push(
+            <g key={sq} transform={`translate(${x} ${y})`} className="wall">
+              <rect width={SIZE + 0.5} height={SIZE + 0.5} fill="#9c5a3c" stroke="#5a2e1c" strokeWidth={4} />
+              <path d={`M0 33H${SIZE}M0 66H${SIZE}M50 0V33M25 33V66M75 33V66M50 66V${SIZE}`} stroke="#5a2e1c" strokeWidth={3} />
+            </g>,
+          );
+        }
+        continue;
+      }
       const { x, y } = pos(sq);
       const light = isLightSquare(b, sq);
       out.push(
@@ -98,7 +112,7 @@ export function Board({ state, bottom, selected, targets, lastMove, showCoordina
       );
     }
     return out;
-  }, [land, bottom, flip, b]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [land, bottom, flip, b, wallsOn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const marks = [];
   for (let sq = 0; sq < b.width * b.height; sq++) {

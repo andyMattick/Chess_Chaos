@@ -18,6 +18,7 @@ import { BattleSetup } from './BattleSetup';
 import { BattleScreen, type LocalBattle } from './BattleScreen';
 import { useSave } from './store';
 import { Challenges } from './Challenges';
+import { MinisScreen } from './Minis';
 import { setShakeEnabled, setSoundEnabled } from './sound';
 
 type Screen =
@@ -102,8 +103,9 @@ export function App() {
         />
       )}
       {screen.name === 'challenges' && <Challenges back={home} play={startGame} />}
+      {screen.name === 'minis' && <MinisScreen back={home} play={startGame} />}
       {screen.name === 'game' && (
-        <GameScreen key={screen.key} config={screen.config} reviewRecord={screen.review} onExit={screen.config.kind === 'mail' ? () => setScreen({ name: 'challenges' }) : home} onRematch={startGame} />
+        <GameScreen key={screen.key} config={screen.config} reviewRecord={screen.review} onExit={screen.config.kind === 'mail' ? () => setScreen({ name: 'challenges' }) : screen.config.mini || screen.config.mode === 'pawn-wars' ? () => setScreen({ name: 'minis' }) : home} onRematch={startGame} />
       )}
     </main>
   );

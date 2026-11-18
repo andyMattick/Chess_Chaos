@@ -50,6 +50,10 @@ import { cardsEarned, settleStakes, takePrize, updateCollection } from '../syste
 export interface GameConfig {
   /** 'local' is only used to replay saved games. */
   kind: 'local' | 'bot' | 'online' | 'mail';
+  /** Start from this position (mini-game ladders). */
+  fen?: string;
+  /** A mini-game ladder step: winning it opens the next (content/minis.ts). */
+  mini?: { id: string; level: number };
   /** Challenge game by player number, played a move at a time (src/net/world.ts). */
   mail?: { id: string; game: MailGame };
   /** Game mode for new games (koth, hill-wars…). Default classic. */
@@ -120,7 +124,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   const [localRec, setLocalRec] = useState<GameRecord>(() => {
     if (reviewRecord) return reviewRecord;
     if (config.mail) return config.mail.game.record;
-    const r = newRecord(newSeed(), config.names, undefined, config.mode ?? 'standard');
+    const r = newRecord(newSeed(), config.names, config.fen, config.mode ?? 'standard');
     if (config.party) r.setup = { ...r.setup, party: config.party };
     if (config.extra) r.setup = { ...r.setup, extra: config.extra };
     return r;
@@ -395,6 +399,12 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     const oppRating = bot?.rating ?? (isOnline ? net.seats[other(me)]?.rating : isMail ? config.mail!.game.ratings[other(me) as 'p1' | 'p2'] : undefined);
     update((d) => {
       let p = activeProfile(d)!;
+      // Mini-game ladders: a win opens the next step.
+      if (config.mini && won) {
+        const { id, level } = config.mini;
+        const g = p.minis?.[id] ?? {};
+        p = { ...p, minis: { ...(p.minis ?? {}), [id]: { ...g, level: Math.max(g.level ?? 0, level + 1) } } };
+      }
       // A challenge game counts once, even if you open it again.
       if (isMail) {
         if ((p.mailDone ?? []).includes(config.mail!.id)) return d;

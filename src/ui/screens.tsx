@@ -64,6 +64,7 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
         <Tile emoji="🎮" title="Game modes" sub="25 ways to play" c="#36c5c5" onClick={() => go('modes')} disabled={!p} />
         <Tile emoji="⚔️" title="Battles" sub="3 and 4 players" c="#ff5a3c" onClick={() => go('battle')} disabled={!p} />
         <Tile emoji="📬" title="Challenges" sub={mail ? `${mail} waiting for you!` : 'Play a friend, a move at a time'} c="#5bd17a" onClick={() => go('challenges')} disabled={!p} />
+        <Tile emoji="🌀" title="Mini-games" sub="Mazes, sprints, ladders" c="#8fd16a" onClick={() => go('minis')} disabled={!p} />
         <Tile emoji="🎓" title="Train" sub="Alerts and hints" c="#ffc93c" onClick={() => go('train')} disabled={!p} />
         <Tile emoji="🧩" title="Puzzles" sub={p && currentStreak({ ...EMPTY_PROGRESS, ...p.puzzles }) > 0 ? `🔥 ${currentStreak({ ...EMPTY_PROGRESS, ...p.puzzles })}-day streak` : 'Daily, gauntlet'} c="#ff7a59" onClick={() => go('puzzles')} disabled={!p} />
       </div>
