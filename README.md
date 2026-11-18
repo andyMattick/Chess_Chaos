@@ -69,6 +69,7 @@ All art is drawn in code (SVG), so it can be edited directly.
 | `docs/08-decisions-and-open-questions.md` | Calls already made, and questions for the owner |
 | `docs/09-multiplayer-and-roles.md` | Online rooms, 3 and 4 player chess, territory modes, hidden roles |
 | `docs/10-idea-index.md` | Every idea from planning, its status, and where it is specified |
+| `docs/11-feature-status.md` | What is built, partly built and planned, item by item |
 
 ## Status
 

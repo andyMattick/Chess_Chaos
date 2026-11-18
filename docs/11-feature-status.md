@@ -1,0 +1,233 @@
+# 11. Feature status
+
+Where every planned feature stands. **Built** = in the live game. **Partly** = some of it is built. **Planned** = fully written up in the docs, not built yet.
+
+Rules for each item are in `docs/03-content-catalog.md` (and `docs/09-multiplayer-and-roles.md` for MODE-25 to 31 and roles).
+
+
+## Training alerts (10)
+
+| ID | Name | Status | Where |
+|---|---|---|---|
+| ALERT-01 | Danger squares | Built | Train mode (`src/ui/training.tsx`) |
+| ALERT-02 | Hanging alarm | Built | Train mode (`src/ui/training.tsx`) |
+| ALERT-03 | Best piece glow | Built | Train mode (`src/ui/training.tsx`) |
+| ALERT-04 | Best square glow | Built | Train mode (`src/ui/training.tsx`) |
+| ALERT-05 | Pick from three | Built | Train mode (`src/ui/training.tsx`) |
+| ALERT-06 | Hot and cold | Built | Train mode (`src/ui/training.tsx`) |
+| ALERT-07 | Name the idea | Built | Train mode (`src/ui/training.tsx`) |
+| ALERT-08 | What does that move want? | Built | Train mode (`src/ui/training.tsx`) |
+| ALERT-09 | Second look | Built | Train mode (`src/ui/training.tsx`) |
+| ALERT-10 | Count the fight | Built | Train mode (`src/ui/training.tsx`) |
+
+## Game modes (32)
+
+Includes King of the hill (MODE-02), Hill wars territory mode (MODE-29), Three-way (MODE-26), Four-way (MODE-27) and Four-way teams (MODE-28). The engine already supports 3 and 4 players and odd board shapes; these modes themselves are not built.
+
+| ID | Name | Status | Where |
+|---|---|---|---|
+| MODE-00 | Standard | Built | Bots, online, Train |
+| MODE-01 | Random piece | Planned | Party match (not built yet) |
+| MODE-02 | King of the hill | Planned | Party match (not built yet) |
+| MODE-03 | Three-check | Planned | Party match (not built yet) |
+| MODE-04 | Horde | Planned | Party match (not built yet) |
+| MODE-05 | Shuffle start | Planned | Party match (not built yet) |
+| MODE-06 | Capture race | Planned | Party match (not built yet) |
+| MODE-07 | Draft | Planned | Party match (not built yet) |
+| MODE-08 | Boss battle | Planned | Party match (not built yet) |
+| MODE-09 | Shrinking board | Planned | Party match (not built yet) |
+| MODE-10 | Tag team | Planned | Party match (not built yet) |
+| MODE-11 | Puzzle gauntlet | Planned | Party match (not built yet) |
+| MODE-12 | Endgame survival | Planned | Party match (not built yet) |
+| MODE-13 | Atomic | Planned | Party match (not built yet) |
+| MODE-14 | Drop-in | Planned | Party match (not built yet) |
+| MODE-15 | Giveaway | Planned | Party match (not built yet) |
+| MODE-16 | Racing kings | Planned | Party match (not built yet) |
+| MODE-17 | Progressive | Planned | Party match (not built yet) |
+| MODE-18 | Wrap-around | Planned | Party match (not built yet) |
+| MODE-19 | Hidden queen | Planned | Party match (not built yet) |
+| MODE-20 | Capture the flag | Planned | Party match (not built yet) |
+| MODE-21 | Lava squares | Planned | Party match (not built yet) |
+| MODE-22 | Truce | Planned | Party match (not built yet) |
+| MODE-23 | Mini board | Planned | Party match (not built yet) |
+| MODE-24 | Monster | Planned | Party match (not built yet) |
+| MODE-25 | Mystery army | Planned | Party match (not built yet) |
+| MODE-26 | Three-way | Planned | Party match (not built yet) |
+| MODE-27 | Four-way | Planned | Party match (not built yet) |
+| MODE-28 | Four-way teams | Planned | Party match (not built yet) |
+| MODE-29 | Hill wars | Planned | Party match (not built yet) |
+| MODE-30 | Paint the board | Planned | Party match (not built yet) |
+| MODE-31 | Contract | Planned | Party match (not built yet) |
+
+## Buffs (positive modifiers) (24)
+
+| ID | Name | Status | Where |
+|---|---|---|---|
+| BUFF-01 | Double step | Planned | Party match |
+| BUFF-02 | Shield | Planned | Party match |
+| BUFF-03 | Take-back | Planned | Party match |
+| BUFF-04 | Scout | Planned | Party match |
+| BUFF-05 | Pawn sprint | Planned | Party match |
+| BUFF-06 | Second wind | Planned | Party match |
+| BUFF-07 | Long jump | Planned | Party match |
+| BUFF-08 | Early crown | Planned | Party match |
+| BUFF-09 | Safe king | Planned | Party match |
+| BUFF-10 | Backpedal | Planned | Party match |
+| BUFF-11 | Swap | Planned | Party match |
+| BUFF-12 | Bonus hint | Planned | Party match |
+| BUFF-13 | Rally | Planned | Party match |
+| BUFF-14 | Reinforcements | Planned | Party match |
+| BUFF-15 | Freeze ray | Planned | Party match |
+| BUFF-16 | Royal dash | Planned | Party match |
+| BUFF-17 | Sidestep | Planned | Party match |
+| BUFF-18 | Knight's blessing | Planned | Party match |
+| BUFF-19 | X-ray | Planned | Party match |
+| BUFF-20 | Recall | Planned | Party match |
+| BUFF-21 | Home guard | Planned | Party match |
+| BUFF-22 | Time bank | Planned | Party match |
+| BUFF-23 | Peek | Planned | Party match |
+| BUFF-24 | Safety net | Planned | Party match |
+
+## Handicaps (negative modifiers) (24)
+
+| ID | Name | Status | Where |
+|---|---|---|---|
+| HCAP-01 | Fog | Planned | Party match |
+| HCAP-02 | Frozen piece | Planned | Party match |
+| HCAP-03 | Tired queen | Planned | Party match |
+| HCAP-04 | Butterfingers | Planned | Party match |
+| HCAP-05 | Slow pawns | Planned | Party match |
+| HCAP-06 | No castling | Planned | Party match |
+| HCAP-07 | Short clock | Planned | Party match |
+| HCAP-08 | Blind spot | Planned | Party match |
+| HCAP-09 | Heavy rooks | Planned | Party match |
+| HCAP-10 | Tax | Planned | Party match |
+| HCAP-11 | Mirror | Planned | Party match |
+| HCAP-12 | Homesick king | Planned | Party match |
+| HCAP-13 | Forced capture | Planned | Party match |
+| HCAP-14 | Missing pawn | Planned | Party match |
+| HCAP-15 | Sleepy start | Planned | Party match |
+| HCAP-16 | Silent board | Planned | Party match |
+| HCAP-17 | Rusty crown | Planned | Party match |
+| HCAP-18 | Slippery board | Planned | Party match |
+| HCAP-19 | One-way rooks | Planned | Party match |
+| HCAP-20 | Peaceful bishops | Planned | Party match |
+| HCAP-21 | Costume party | Planned | Party match |
+| HCAP-22 | Restless king | Planned | Party match |
+| HCAP-23 | Toll road | Planned | Party match |
+| HCAP-24 | No take-backs | Planned | Party match |
+
+## Secret missions (24)
+
+| ID | Name | Status | Where |
+|---|---|---|---|
+| MISSION-01 | Castle before move 8 | Partly | Built as a Train mode goal; not yet a secret mission |
+| MISSION-02 | Capture with a knight | Partly | Built as a Train mode goal; not yet a secret mission |
+| MISSION-03 | Win without losing your queen | Planned | Party match |
+| MISSION-04 | Promote a pawn | Planned | Party match |
+| MISSION-05 | Deliver a fork | Partly | The fork detector is built (used for alerts, badges, coins); not yet a secret mission |
+| MISSION-06 | Pin a piece to the king | Partly | The pin detector is built (used for alerts, badges, coins); not yet a secret mission |
+| MISSION-07 | Rook on the seventh | Planned | Party match |
+| MISSION-08 | Nothing left hanging | Partly | Built as a Train mode goal; not yet a secret mission |
+| MISSION-09 | Mate with a minor piece | Planned | Party match |
+| MISSION-10 | Own the centre | Planned | Party match |
+| MISSION-11 | Trade queens while ahead | Planned | Party match |
+| MISSION-12 | Check three times | Planned | Party match |
+| MISSION-13 | Develop the minors | Partly | Built as a Train mode goal; not yet a secret mission |
+| MISSION-14 | Discovered attack | Partly | The sneak-attack detector is built (used for alerts, badges, coins); not yet a secret mission |
+| MISSION-15 | Land a skewer | Partly | The skewer detector is built (used for alerts, badges, coins); not yet a secret mission |
+| MISSION-16 | En passant | Planned | Party match |
+| MISSION-17 | Passed pawn | Planned | Party match |
+| MISSION-18 | Double their pawns | Planned | Party match |
+| MISSION-19 | Keep the bishop pair | Planned | Party match |
+| MISSION-20 | Back-rank mate | Planned | Party match |
+| MISSION-21 | Knight outpost | Planned | Party match |
+| MISSION-22 | Connect the rooks | Partly | Built as a Train mode goal; not yet a secret mission |
+| MISSION-23 | Stack the rooks | Planned | Party match |
+| MISSION-24 | Sacrifice and win | Planned | Party match |
+
+## Power-up cards (24)
+
+| ID | Name | Status | Where |
+|---|---|---|---|
+| CARD-01 | Chancellor | Planned | Party match |
+| CARD-02 | Archbishop | Planned | Party match |
+| CARD-03 | Amazon | Planned | Party match |
+| CARD-04 | Super pawn | Planned | Party match |
+| CARD-05 | Jumper rook | Planned | Party match |
+| CARD-06 | Ghost bishop | Planned | Party match |
+| CARD-07 | Nightrider | Planned | Party match |
+| CARD-08 | Bodyguard | Planned | Party match |
+| CARD-09 | Cannon | Planned | Party match |
+| CARD-10 | Wall | Planned | Party match |
+| CARD-11 | Teleporter | Planned | Party match |
+| CARD-12 | Twin | Planned | Party match |
+| CARD-13 | Camel | Planned | Party match |
+| CARD-14 | Grasshopper | Planned | Party match |
+| CARD-15 | Dragon rook | Planned | Party match |
+| CARD-16 | Dragon bishop | Planned | Party match |
+| CARD-17 | Lance | Planned | Party match |
+| CARD-18 | Phoenix | Planned | Party match |
+| CARD-19 | Bomb pawn | Planned | Party match |
+| CARD-20 | Magnet | Planned | Party match |
+| CARD-21 | Battering ram | Planned | Party match |
+| CARD-22 | Medic | Planned | Party match |
+| CARD-23 | Decoy king | Planned | Party match |
+| CARD-24 | Guard | Planned | Party match |
+
+## Hidden roles (assassins, saboteurs, last pawn…) (8)
+
+| ID | Name | Status | Where |
+|---|---|---|---|
+| ROLE-01 | Assassin | Planned | Party match, online |
+| ROLE-02 | Last pawn | Planned | Party match, online |
+| ROLE-03 | Saboteur | Planned | Party match, online |
+| ROLE-04 | Spy | Planned | Party match, online |
+| ROLE-05 | Bodyguard | Planned | Party match, online |
+| ROLE-06 | Sleeper | Planned | Party match, online |
+| ROLE-07 | Turncoat | Planned | Party match, online |
+| ROLE-08 | Decoy | Planned | Party match, online |
+
+## Tutor mini-games (9)
+
+| ID | Name | Status | Where |
+|---|---|---|---|
+| MINI-01 | Pawn wars | Planned | Later phase |
+| MINI-02 | Piece mazes | Planned | Later phase |
+| MINI-03 | Capture the candy | Planned | Later phase |
+| MINI-04 | Checkmate ladder | Planned | Later phase |
+| MINI-05 | Mate in one sprint | Planned | Later phase |
+| MINI-06 | Guard duty | Planned | Later phase |
+| MINI-07 | Trade or no trade | Planned | Later phase |
+| MINI-08 | Spotlight | Planned | Later phase |
+| MINI-09 | Handicap ladder | Planned | Later phase |
+
+## Everything else
+
+| Feature | Status | Where |
+|---|---|---|
+| Rules engine (2 to 4 players, any board shape) | Built | `src/core` |
+| 18 opening bots, own chess engine after the opening | Built | Bot Path |
+| Bot Path (beat one to unlock the next) | Built | Play the bots |
+| Online play by room code, share link, text it | Built | Play online |
+| Online chess clock (3, 5, 10 min or none) | Built (needs `wrangler deploy`) | Play online |
+| Emotes, reconnect, bot takes over if someone leaves, rematch | Built | Play online |
+| Win of the game / one fix with retry | Built | After every bot game |
+| Miss map (what you keep missing) | Built | Steers Train mode alerts |
+| Three-move goals | Built (5 goals) | Train mode |
+| Badges | Partly (counted, no badge screen yet) | Saved on profile |
+| Coins and shop | Built | Result card, Wardrobe |
+| 14 piece skins, per army or per piece | Built | Wardrobe |
+| 7 board landscapes | Built | Wardrobe |
+| Capture/check/mate effects and sounds | Built | Every game |
+| Profiles, ratings, saved games and replay | Built | Home, My games |
+| Chess.com player lookup and game download | Built (relay needs `wrangler deploy`) | Chess.com corner |
+| Chess.com daily puzzle | Planned | Puzzles |
+| Nemesis bot (plays like any Chess.com player) | Planned | Chess.com corner |
+| Blunder replay puzzles from your games | Planned | Chess.com corner |
+| Opening trainer | Planned | Later phase |
+| Arcade duel mode | Planned | Later phase |
+| Teacher dashboard, accounts | Not planned yet | Needs a privacy review |
+| Pass-and-play | Removed (owner) | — |
+| AI coach | Removed (owner: no AI) | — |
+
