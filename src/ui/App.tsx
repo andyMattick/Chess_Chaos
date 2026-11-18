@@ -73,8 +73,22 @@ export function App() {
   // after that, only the things that need a number ask again.
   const askP = activeProfile(save);
   const [askOpen, setAskOpen] = useState(false);
+  // Opened from a friend's invite link (?friend=12345678): remember the number, go to Challenges once there is a player.
+  const [invite] = useState(() => {
+    try {
+      const n = new URLSearchParams(location.search).get('friend')?.replace(/\D/g, '') ?? '';
+      if (n.length === 8) {
+        sessionStorage.setItem('chess-chaos:invite', n);
+        history.replaceState(null, '', location.pathname);
+        return n;
+      }
+    } catch { /* no storage: ignore the invite */ }
+    return '';
+  });
+  const [inviteShown, setInviteShown] = useState(false);
   useEffect(() => {
-    if (screen.name === 'home' && askP && !askP.cloud && !askP.numberDeclined && vaultBase()) setAskOpen(true);
+    if (invite && askP && !inviteShown && screen.name === 'home') { setInviteShown(true); setScreen({ name: 'challenges' }); return; }
+    if (screen.name === 'home' && askP && !askP.cloud && !askP.numberDeclined && vaultBase() && !(invite && !inviteShown)) setAskOpen(true);
   }, [screen.name, askP?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sound and shake settings apply everywhere.

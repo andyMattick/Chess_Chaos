@@ -7,7 +7,7 @@ import { legalActions } from '../core/rules';
 import type { GameState, MoveAction } from '../core/types';
 import { hanging } from '../tactics/attacks';
 import { guardsAll, isMate, isSpotlightBest, pathMoves, pathPar, pathStars, pathState, pathStep, shuffled, sqOf, tradeMove } from '../systems/minis';
-import { activeProfile, lookOf, updateProfile, type MiniProgress } from '../storage/storage';
+import { activeProfile, boardSkins, lookOf, updateProfile, type MiniProgress } from '../storage/storage';
 import { Board, type BoardOverlays } from './Board';
 import type { GameConfig } from './GameScreen';
 import { sfx } from './sound';
@@ -86,7 +86,7 @@ function record(id: string, f: (g: MiniProgress) => MiniProgress) {
 
 function useBoardLook() {
   const save = useSave();
-  return { showCoordinates: save.settings.showCoordinates, landscape: lookOf(save).landscape, skins: lookOf(save).skins };
+  return { showCoordinates: save.settings.showCoordinates, landscape: lookOf(save).landscape, skins: boardSkins(save) };
 }
 
 /** Tap a piece, tap a square. `only` limits which piece may move. */

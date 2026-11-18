@@ -96,6 +96,8 @@ export interface Settings {
   chesscomEnabled: boolean;
   /** Board shake, nudges and phone buzz. */
   shake: boolean;
+  /** Plain chess pieces on the board instead of skins (owner, 2026-11-18). */
+  plainPieces?: boolean;
 }
 
 export interface SaveData {
@@ -260,6 +262,14 @@ export function newProfile(nickname: string, colour: string): Profile {
 export function lookOf(d: SaveData = load()): { skins: SkinChoice; landscape: LandscapeId } {
   const p = activeProfile(d);
   return p?.look ?? { skins: d.settings.skins, landscape: d.settings.landscape };
+}
+
+/** Plain chess pieces for both sides, no characters. */
+export const PLAIN_SKINS: SkinChoice = { armies: { p1: 'classic', p2: 'classic' }, pieces: { p1: {}, p2: {} }, badges: false };
+
+/** The skins to draw on a board: plain pieces when that setting is on. */
+export function boardSkins(d: SaveData, skins: SkinChoice = lookOf(d).skins): SkinChoice {
+  return d.settings.plainPieces ? PLAIN_SKINS : skins;
 }
 
 /** Record a finished game against someone, for the leaderboard. */

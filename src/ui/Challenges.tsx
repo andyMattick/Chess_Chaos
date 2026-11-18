@@ -32,6 +32,9 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
   const [nameText, setNameText] = useState('');
   const [addNo, setAddNo] = useState('');
   const [addName, setAddName] = useState('');
+  // Opened from a friend's invite link: their number is filled in.
+  const [invitedBy] = useState(() => { try { return sessionStorage.getItem('chess-chaos:invite') ?? ''; } catch { return ''; } });
+  const [shared, setShared] = useState<string | null>(null);
   const [tours, setTours] = useState<Tournament[]>([]);
   const [tPick, setTPick] = useState<string[]>([]);
   const [tGame, setTGame] = useState<RoomGame>('standard');
@@ -174,6 +177,13 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
           </div>
         );
       })()}
+      <div className="row wrap invite-row">
+        <button className="btn small primary" onClick={() => invite(number).then(setShared)}>📨 Invite a friend to Chess Chaos</button>
+        {shared && <small className="muted">{shared}</small>}
+      </div>
+      {invitedBy && !(p.friends ?? []).includes(invitedBy) && addNo === '' && (
+        <p className="banner">📨 You were invited by player {showNumber(invitedBy)}. <button className="btn small" onClick={() => setAddNo(invitedBy)}>Fill in their number</button></p>
+      )}
       <div className="mail-form add-friend">
         <input aria-label="New friend's player number" inputMode="numeric" placeholder="Friend's player number" value={addNo} onChange={(e) => setAddNo(e.target.value)} />
         <input aria-label="New friend's name" placeholder="Their name (only you see it)" maxLength={16} value={addName} onChange={(e) => setAddName(e.target.value)} />
@@ -284,6 +294,22 @@ function TournamentCard({ t, me, label, games, open, act }: { t: Tournament; me:
       {t.status === 'cancelled' && <p className="small muted">Cancelled.</p>}
     </div>
   );
+}
+
+/**
+ * Invite someone to the game without a challenge (owner, 2026-11-18): a link to
+ * the app that carries your player number, so they can add you as a friend.
+ * No names go in the message. Uses the phone's share sheet, or copies the link.
+ */
+export async function invite(number: string): Promise<string> {
+  const url = `${location.origin}/?friend=${number}`;
+  const text = 'Come and play Chess Chaos with me! Open the link to add me as a friend:';
+  try {
+    if (navigator.share) { await navigator.share({ title: 'Chess Chaos', text, url }); return 'Invite sent!'; }
+  } catch (e) {
+    if ((e as Error).name === 'AbortError') return '';
+  }
+  try { await navigator.clipboard.writeText(`${text} ${url}`); return 'Link copied: paste it in a message to your friend.'; } catch { return `Send them this link: ${url}`; }
 }
 
 /** How many challenge games wait for this player (for the Home tile). */

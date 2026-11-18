@@ -728,3 +728,17 @@ body[data-calm] .die { animation: none; }
 .number-modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgba(30, 25, 40, 0.45); }
 .number-modal > div { max-width: 440px; width: 100%; display: grid; gap: 8px; }
 .number-modal .cloud-card { box-shadow: 4px 6px 0 var(--ink); background: #fffaf0; }
+.suit-counts { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+.suit-count { display: grid; justify-items: center; min-width: 54px; padding: 4px 6px; background: var(--card); border: 3px solid var(--ink); border-radius: 12px; box-shadow: 2px 3px 0 var(--ink); line-height: 1.1; }
+.suit-count .suit-icon { font-size: 1.5rem; }
+.suit-count b { font-size: 1.2rem; }
+.suit-count small { font-size: 0.7rem; }
+.suit-count.none { opacity: 0.45; }
+.suit-group { margin: 8px 0; }
+.suit-group > summary { cursor: pointer; font-size: 1.1rem; padding: 4px 0; }
+.suit-group .suit-icon { font-size: 1.4rem; }
+.pc-suit { position: absolute; top: 4px; left: 6px; font-size: 1.3rem; line-height: 1; }
+.power-card { position: relative; }
+.set-pieces .set-have { font-size: 0.7rem; font-weight: 800; margin-left: 1px; vertical-align: super; }
+.ready-dot { color: #2f8f4e; font-weight: 800; }
+.invite-row { align-items: center; gap: 8px; margin: 6px 0; }

@@ -8,7 +8,7 @@ import { PARTY_MODES, drawMode, missionIsOpen, setupParty } from '../systems/par
 import type { GameConfig } from './GameScreen';
 import { useSave } from './store';
 import { CardTile, HandPicker, useHand } from './Cards';
-import { cardById } from '../content/cards';
+import { cardById, POWER_CARDS } from '../content/cards';
 import { botPrize } from '../systems/cards';
 
 /**
@@ -55,7 +55,7 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
       kind: 'bot', botId, humanSeat, mode: modeId,
       // Boss battle: the stronger player is the Boss (the Boss side is the harder one), like online.
       ...(modeId === 'boss' ? { extra: { boss: p.rating > bot.rating ? humanSeat : botSeat } } : {}),
-      party: { ...setup, cards: { [humanSeat]: hand, [botSeat]: [prize] } },
+      party: POWER_CARDS ? { ...setup, cards: { [humanSeat]: hand, [botSeat]: [prize] } } : setup,
       names: humanSeat === 'p1' ? { p1: p.nickname, p2: bot.name } : { p1: bot.name, p2: p.nickname },
     });
   };
@@ -100,7 +100,7 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
         )}
       </div>
       <HandPicker />
-      <div className="stakes">
+      {POWER_CARDS && <div className="stakes">
         <h3>🃏 Cards at stake</h3>
         <div className="hand-row">
           {hand.map((id) => <CardTile key={id} c={cardById(id)!} small><span className="pc-kind">yours</span></CardTile>)}
@@ -109,7 +109,7 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
           <CardTile c={cardById(prize)!} small><span className="pc-kind">{bot.name}'s</span></CardTile>
         </div>
         <p className="muted small">Win and you take one of their cards. Every other card brought in is used up, win or lose.</p>
-      </div>
+      </div>}
       <h3>Mode</h3>
       <div className="clock-chips">
         <button className={`chip ${pick === 'surprise' ? 'on' : ''}`} onClick={() => setPick('surprise')}>🎲 Surprise me</button>

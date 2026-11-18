@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CARDS, HAND_SIZE, SUIT_ICON, cardById, type CardDef } from '../content/cards';
+import { CARDS, HAND_SIZE, POWER_CARDS, SUITS, SUIT_ICON, SUIT_NAME, cardById, type CardDef, type Suit } from '../content/cards';
 import { COLLECTIONS, SELL_PRICE, SET_SKIN_PRICE, type CollectionSet, type SetRarity } from '../content/collections';
 import { redeemSet, sellCard, setProgress } from '../systems/collections';
 import { Character, skinInfo } from './skins';
@@ -18,12 +18,16 @@ export function CardTile({ c, count, on, onClick, children, small }: { c: CardDe
   const Tag = onClick ? 'button' : 'div';
   return (
     <Tag className={`power-card ${c.rarity.toLowerCase()} ${owned ? '' : 'unowned'} ${on ? 'on' : ''} ${small ? 'small' : ''}`} onClick={onClick} aria-pressed={onClick ? !!on : undefined}>
+      {!POWER_CARDS && <span className="pc-suit" title={`${SUIT_NAME[c.suit]} card`}>{SUIT_ICON[c.suit]}</span>}
       <span className="pc-emoji">{owned ? c.emoji : '❔'}</span>
       <span className="pc-name">{c.name}</span>
-      {!small && <span className="pc-kind">{SUIT_ICON[c.suit]} {c.kind} · {c.rarity}{c.usesMove ? ' · uses your move' : ' · free action'}</span>}
-      {!small && <span className="pc-blurb">{c.blurb}</span>}
+      {!small && POWER_CARDS && <span className="pc-kind">{SUIT_ICON[c.suit]} {c.kind} · {c.rarity}{c.usesMove ? ' · uses your move' : ' · free action'}</span>}
+      {!small && !POWER_CARDS && <span className="pc-kind">{SUIT_NAME[c.suit]} card · {c.rarity}</span>}
+      {!small && POWER_CARDS && <span className="pc-blurb">{c.blurb}</span>}
       {!small && !owned && <span className="pc-earn">🔓 {c.earn}</span>}
-      {count !== undefined && count > 0 && <span className={`pc-count ${count >= COPIES_TO_PLAY ? 'ready' : ''}`}>{count >= COPIES_TO_PLAY ? `×${count}` : `${count}/${COPIES_TO_PLAY}`}</span>}
+      {count !== undefined && count > 0 && (POWER_CARDS
+        ? <span className={`pc-count ${count >= COPIES_TO_PLAY ? 'ready' : ''}`}>{count >= COPIES_TO_PLAY ? `×${count}` : `${count}/${COPIES_TO_PLAY}`}</span>
+        : <span className="pc-count ready">×{count}</span>)}
       {children}
     </Tag>
   );
@@ -46,7 +50,7 @@ export function CardsScreen({ back }: { back: () => void }) {
   };
   return (
     <div className="panel wide taped">
-      <h2>My power cards <span className="scribble">{owned} of {CARDS.length} found</span></h2>
+      <h2>{POWER_CARDS ? 'My power cards' : 'My cards'} <span className="scribble">{owned} of {CARDS.length} found</span></h2>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'cards'} className={`tab ${tab === 'cards' ? 'on' : ''}`} onClick={() => setTab('cards')}>🃏 My cards</button>
         <button role="tab" aria-selected={tab === 'sets'} className={`tab ${tab === 'sets' ? 'on' : ''}`} onClick={() => setTab('sets')}>🏆 Collections</button>
@@ -54,8 +58,32 @@ export function CardsScreen({ back }: { back: () => void }) {
       {note && <p className="banner">{note}</p>}
       {tab === 'cards' ? (
         <>
-          <p className="muted">Collect <b>3 of the same card</b> to bring it into a Party match (up to {HAND_SIZE} different ones). Playing it uses all 3. Every card also belongs to a piece ({SUIT_ICON.pawn} {SUIT_ICON.rook} {SUIT_ICON.knight} {SUIT_ICON.bishop} {SUIT_ICON.queen} {SUIT_ICON.king}): turn in sets of pieces in <b>Collections</b> to win skins. Spare cards can be sold for coins. 🪙 {p.coins}</p>
+          {POWER_CARDS
+            ? <p className="muted">Collect <b>3 of the same card</b> to bring it into a Party match (up to {HAND_SIZE} different ones). Playing it uses all 3. Every card also belongs to a piece ({SUIT_ICON.pawn} {SUIT_ICON.rook} {SUIT_ICON.knight} {SUIT_ICON.bishop} {SUIT_ICON.queen} {SUIT_ICON.king}): turn in sets of pieces in <b>Collections</b> to win skins. Spare cards can be sold for coins. 🪙 {p.coins}</p>
+            : <p className="muted">You earn cards by playing. Every card belongs to a piece. Turn in one card of each piece in a set (🏆 Collections) to win a skin. Spare cards can be sold for coins. 🪙 {p.coins}</p>}
+          <SuitCounts collection={p.collection} />
           <HandPicker />
+          {!POWER_CARDS ? SUITS.map((suit) => {
+            const cards = CARDS.filter((c) => c.suit === suit && !c.notYet);
+            const n = cards.reduce((a, c) => a + (p.collection[c.id] ?? 0), 0);
+            return (
+              <details key={suit} className="suit-group" open={n > 0}>
+                <summary><span className="suit-icon">{SUIT_ICON[suit]}</span> <b>{SUIT_NAME[suit]} cards: {n}</b></summary>
+                <div className="card-grid">
+                  {cards.map((c) => {
+                    const k = p.collection[c.id] ?? 0;
+                    return (
+                      <CardTile key={c.id} c={c} count={k}>
+                        {k > 0 && (selling === c.id ? (
+                          <span className="row"><button className="btn small danger" onClick={() => sell(c.id)}>Sell 1 for 🪙 {SELL_PRICE[c.rarity]}</button><button className="btn small" onClick={() => setSelling(null)}>Keep</button></span>
+                        ) : <button className="btn small" onClick={() => setSelling(c.id)}>Sell</button>)}
+                      </CardTile>
+                    );
+                  })}
+                </div>
+              </details>
+            );
+          }) : (
           <div className="card-grid">
             {CARDS.map((c) => {
               const n = p.collection[c.id] ?? 0;
@@ -68,9 +96,26 @@ export function CardsScreen({ back }: { back: () => void }) {
               );
             })}
           </div>
+          )}
         </>
       ) : <Collections onNote={setNote} />}
       <button className="btn" onClick={back}>← Home</button>
+    </div>
+  );
+}
+
+/** How many cards you have of each piece: what a set needs. */
+function suitCount(collection: Record<string, number>, suit: Suit): number {
+  return CARDS.filter((c) => c.suit === suit).reduce((a, c) => a + (collection[c.id] ?? 0), 0);
+}
+
+export function SuitCounts({ collection }: { collection: Record<string, number> }) {
+  return (
+    <div className="suit-counts" aria-label="Your cards by piece">
+      {SUITS.map((s) => {
+        const n = suitCount(collection, s);
+        return <span key={s} className={`suit-count ${n ? 'has' : 'none'}`} title={`${SUIT_NAME[s]} cards`}><span className="suit-icon">{SUIT_ICON[s]}</span><b>{n}</b><small>{SUIT_NAME[s]}</small></span>;
+      })}
     </div>
   );
 }
@@ -98,19 +143,23 @@ function Collections({ onNote }: { onNote: (t: string) => void }) {
   };
   const rarities: SetRarity[] = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'];
   const done = (r: SetRarity) => COLLECTIONS.filter((c) => c.rarity === r && owns(c)).length;
+  const isReady = (c: CollectionSet) => !owns(c) && !setProgress(p.collection, c).missing.length;
+  const readyCount = (r: SetRarity) => COLLECTIONS.filter((c) => c.rarity === r && isReady(c)).length;
   return (
     <>
       <p className="muted">Turn in one card of each piece in a set to unlock its skin for good. The cards are used up, so you'd have to collect them again to turn the set in again.</p>
+      <p className="small"><b>Your cards by piece</b> (a set needs one card of each of its pieces; ✨ ready sets share cards, so turning one in can use cards another needs):</p>
+      <SuitCounts collection={p.collection} />
       <div className="clock-chips">
         {rarities.map((r) => (
           <button key={r} className={`chip rarity-${r.toLowerCase()} ${show === r ? 'on' : ''}`} onClick={() => setShow(r)}>
-            {r} <small>{done(r)}/{COLLECTIONS.filter((c) => c.rarity === r).length}</small>
+            {r} <small>{done(r)}/{COLLECTIONS.filter((c) => c.rarity === r).length}</small>{readyCount(r) > 0 && <span className="ready-dot"> ✨{readyCount(r)} ready</span>}
           </button>
         ))}
       </div>
       <p className="muted small">{show}: {RARITY_TEXT[show]}. {show === 'Common' || show === 'Uncommon' ? 'Wins a colour version of a skin.' : show === 'Legendary' ? 'Wins the Chess Chaos Crown army.' : 'Wins a brand-new skin.'}</p>
       <div className="set-grid">
-        {COLLECTIONS.filter((c) => c.rarity === show).map((c) => {
+        {COLLECTIONS.filter((c) => c.rarity === show).sort((a, b) => Number(isReady(b)) - Number(isReady(a)) || Number(owns(a)) - Number(owns(b))).map((c) => {
           const prog = setProgress(p.collection, c);
           const ready = !prog.missing.length;
           const have = owns(c);
@@ -124,7 +173,7 @@ function Collections({ onNote }: { onNote: (t: string) => void }) {
               </svg>
               <b>{c.name}</b>
               <span className="set-pieces">
-                {c.pieces.map((s) => <span key={s} className={prog.have.includes(s) ? 'got' : 'need'} title={s}>{SUIT_ICON[s]}</span>)}
+                {c.pieces.map((s) => <span key={s} className={prog.have.includes(s) ? 'got' : 'need'} title={`${SUIT_NAME[s]}: you have ${suitCount(p.collection, s)}`}>{SUIT_ICON[s]}<small className="set-have">{suitCount(p.collection, s)}</small></span>)}
               </span>
               <small>{info.name === c.name ? info.blurb : info.name}</small>
               {have ? <span className="pc-kind">✅ Unlocked</span> : (
@@ -145,7 +194,7 @@ function Collections({ onNote }: { onNote: (t: string) => void }) {
 export function HandPicker() {
   const save = useSave();
   const p = activeProfile(save);
-  if (!p) return null;
+  if (!p || !POWER_CARDS) return null;
   const options = handOptions(p.collection);
   const hand = currentHand(p.collection, p.partyHand);
   const toggle = (id: string) => {
@@ -174,5 +223,5 @@ export function HandPicker() {
 /** The hand to send with a party game. */
 export function useHand(): string[] {
   const p = activeProfile(useSave());
-  return p ? currentHand(p.collection, p.partyHand) : [];
+  return p && POWER_CARDS ? currentHand(p.collection, p.partyHand) : [];
 }

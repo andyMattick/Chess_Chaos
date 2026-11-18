@@ -6,6 +6,7 @@ import { activeProfile, lookOf } from '../storage/storage';
 import { GameScreen } from './GameScreen';
 import { useSave } from './store';
 import { HandPicker, useHand } from './Cards';
+import { POWER_CARDS } from '../content/cards';
 
 /**
  * Online play: make a room and share its code, or type a friend's code.
@@ -173,7 +174,7 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
             </div>
           </details>
           <p className="game-blurb"><b>{ROOM_GAMES.find((g) => g.id === game)?.label}</b>: {ROOM_GAMES.find((g) => g.id === game)?.blurb}</p>
-          {game === 'party' && (
+          {game === 'party' && POWER_CARDS && (
             <details className="settings">
               <summary>🃏 Power cards for this Party match{hand.length ? ` (${hand.length} picked)` : ''}</summary>
               <HandPicker />
@@ -213,10 +214,10 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
             onKeyDown={(e) => e.key === 'Enter' && code.length === 4 && online.join(code, name, rating, lookFor('p1'), false, hand, p?.modePrefs)}
           />
           <button className="btn primary" disabled={code.length !== 4} onClick={() => online.join(code, name, rating, lookFor('p1'), false, hand, p?.modePrefs)}>Join!</button>
-          <details className="settings">
+          {POWER_CARDS && <details className="settings">
             <summary>🃏 Power cards, in case it's a Party match{hand.length ? ` (${hand.length} picked)` : ''}</summary>
             <HandPicker />
-          </details>
+          </details>}
         </section>
       )}
       <button className="btn" onClick={exit}>← Home</button>

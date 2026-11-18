@@ -7,7 +7,7 @@ import { slipReady, SLIPS_PER_SESSION, type Slip } from '../systems/slips';
 import { mergeMiss } from '../systems/review';
 import { legalActions, play } from '../core/rules';
 import type { GameState, MoveAction } from '../core/types';
-import { activeProfile, load as loadSave, lookOf, updateProfile } from '../storage/storage';
+import { activeProfile, boardSkins, load as loadSave, lookOf, updateProfile } from '../storage/storage';
 import { builtInPuzzles, checkMove, puzzleFrom, currentStreak, EMPTY_PROGRESS, recordSolve, solverMoves, type Puzzle } from '../systems/puzzle';
 import { Board } from './Board';
 import { moveEvents, shakeFor, type MoveEvents } from './effects';
@@ -308,7 +308,7 @@ export function PuzzleScreen({ back, startGame }: { back: () => void; startGame?
               lastMove={lastMove}
               showCoordinates={save.settings.showCoordinates}
               landscape={lookOf(save).landscape}
-              skins={lookOf(save).skins}
+              skins={boardSkins(save)}
               interactive={phase === 'play'}
               onSquare={onSquare}
               fx={fx}

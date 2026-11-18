@@ -89,7 +89,7 @@ export function Wardrobe({ back }: { back: () => void }) {
               );
             })}
           </div>
-          <p className="muted small">🏆 More skins: turn in card sets in 🃏 Power cards → Collections.</p>
+          <p className="muted small">🏆 More skins: turn in card sets in 🃏 My cards → Collections.</p>
           <p className="muted small">Tap a piece to give it its own look:</p>
           <div className="piece-row">
             {TYPES.map((t) => {

@@ -102,3 +102,13 @@ export function cardById(id: string): CardDef | undefined {
 }
 
 export const HAND_SIZE = 3;
+
+/**
+ * Power cards switched off (owner, 2026-11-18: "get rid of power cards for now").
+ * Cards are still earned, but only as collection cards: one per piece, turned in
+ * for skins. Nobody brings cards into a Party match, there are no stakes, and the
+ * card powers are not shown. Set to true to bring the power side back.
+ */
+export const POWER_CARDS = false;
+/** The pieces' names, for counts like "Pawn cards: 4". */
+export const SUIT_NAME: Record<Suit, string> = { pawn: 'Pawn', rook: 'Rook', knight: 'Knight', bishop: 'Bishop', queen: 'Queen', king: 'King' };

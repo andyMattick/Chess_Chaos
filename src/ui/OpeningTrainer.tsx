@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { BOTS, botById, type Bot } from '../content/bots';
 import { legalActions } from '../core/rules';
 import type { GameState, MoveAction } from '../core/types';
-import { activeProfile, lookOf, updateProfile } from '../storage/storage';
+import { activeProfile, boardSkins, lookOf, updateProfile } from '../storage/storage';
 import { MIRROR_KEY, NEMESIS_PREFIX, nemesisBot } from '../systems/nemesis';
 import { cardKey, grade, isLineMove, lineMoves, sessionLines, trainerLines, trainerStats, type Colour } from '../systems/openings';
 import { Board } from './Board';
@@ -184,7 +184,7 @@ export function OpeningTrainer({ back, botId: startBot }: { back: () => void; bo
         <div className="board-wrap">
           {state ? (
             <Board state={state} bottom={mySide} selected={selected} targets={targets} lastMove={lastMove} showCoordinates={save.settings.showCoordinates}
-              landscape={lookOf(save).landscape} skins={lookOf(save).skins} interactive={phase === 'play'} onSquare={onSquare} fx={fx} overlays={overlays} />
+              landscape={lookOf(save).landscape} skins={boardSkins(save)} interactive={phase === 'play'} onSquare={onSquare} fx={fx} overlays={overlays} />
           ) : <div className="puzzle-empty">📖</div>}
           {(phase === 'line-done' || phase === 'done') && (
             <div className="result-card">

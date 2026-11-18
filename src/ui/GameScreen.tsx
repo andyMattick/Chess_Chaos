@@ -17,7 +17,7 @@ import { newSeed } from '../core/rng';
 import type { Action, GameState, MoveAction, PlayerId } from '../core/types';
 import { online, roomSkins, timeLeft } from '../net/client';
 import { EMOTES } from '../net/protocol';
-import { lookOf, activeProfile, addGame, noteOpponent, refreshOpponentRating, update, updateProfile, upsertProfile } from '../storage/storage';
+import { boardSkins, lookOf, activeProfile, addGame, noteOpponent, refreshOpponentRating, update, updateProfile, upsertProfile } from '../storage/storage';
 import { updateRating } from '../systems/rating';
 import { coinsFor, type CoinAward } from '../systems/coins';
 import { Board } from './Board';
@@ -46,7 +46,7 @@ import { AnalysisPanel, noteOverlay } from './Analysis';
 import { ArmyShop } from './ModesScreen';
 import type { Analysis, MoveNote } from '../systems/analysis';
 import { CardTile, useHand } from './Cards';
-import { CARDS, cardById } from '../content/cards';
+import { CARDS, POWER_CARDS, SUIT_ICON, cardById } from '../content/cards';
 import { cardsEarned, settleStakes, takePrize, updateCollection } from '../systems/cards';
 
 export interface GameConfig {
@@ -117,7 +117,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   const net = useSyncExternalStore(online.subscribe, online.get, online.get);
   const isOnline = config.kind === 'online';
   // Online, everyone sees each army the way its owner dressed it.
-  const skinsNow = isOnline ? roomSkins(net, lookOf(save).skins) : lookOf(save).skins;
+  const skinsNow = boardSkins(save, isOnline ? roomSkins(net, lookOf(save).skins) : lookOf(save).skins);
   const nemesis = config.botId === `${NEMESIS_PREFIX}${MIRROR_KEY}` ? activeProfile(save)?.mirror : config.botId?.startsWith(NEMESIS_PREFIX) ? activeProfile(save)?.nemeses?.find((n) => `${NEMESIS_PREFIX}${n.key}` === config.botId) : undefined;
   // Memoised: the bot-move effect depends on it, so it must keep its identity between renders.
   const bot = useMemo(() => config.mailBot ?? (config.botId ? botById(config.botId) ?? (nemesis ? nemesisBot(nemesis) : undefined) : undefined), [config.botId, config.mailBot, nemesis?.builtAt]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -578,7 +578,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           active={shown.turn === top && !shown.result} captured={captured(bottom)} speech={speech?.seat === top ? speech.text : null}
           colour={bot && top === botSeat ? bot.colour : undefined}
           lead={lead(top)} skins={skinsNow}
-          clockMs={isOnline && !reviewing ? timeLeft(net, top) : null} clockRunning={net.clock?.running === top}
+          clockMs={isOnline && !reviewing ? () => timeLeft(net, top) : null} clockRunning={net.clock?.running === top}
           note={isOnline && opp && top !== me ? (opp.botControlled ? '🤖 a bot took over' : !opp.connected ? '📡 reconnecting…' : null) : null}
         />
         <div className="banner-slot">
@@ -725,17 +725,17 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
               {bonusPick && (
                 <div className="new-cards prize" aria-label="Bonus objective">
                   {!bonusPick.done ? <b>{bonusById(bonusPick.id)?.emoji} Bonus "{bonusById(bonusPick.id)?.name}": not this time. Next game!</b>
-                    : bonusPick.taken ? <b>🎁 Bonus done! You took {cardById(bonusPick.taken)?.emoji} {cardById(bonusPick.taken)?.name} (a full set of 3).</b>
+                    : bonusPick.taken ? <b>🎁 Bonus done! You took {cardById(bonusPick.taken)?.emoji} {cardById(bonusPick.taken)?.name}{POWER_CARDS ? ' (a full set of 3)' : ''}.</b>
                     : <b>🎁 Bonus "{bonusById(bonusPick.id)?.name}" done! Pick a card:</b>}
                   {bonusPick.done && !bonusPick.taken && bonusPick.options.map((id) => (
-                    <CardTile key={id} c={cardById(id)!} small onClick={() => { updateProfile((x) => ({ ...x, collection: takePrize(x.collection ?? {}, id) })); setBonusPick({ ...bonusPick, taken: id }); }} />
+                    <CardTile key={id} c={cardById(id)!} small onClick={() => { updateProfile((x) => ({ ...x, collection: POWER_CARDS ? takePrize(x.collection ?? {}, id) : updateCollection(x.collection ?? {}, [id], []) })); setBonusPick({ ...bonusPick, taken: id }); }} />
                   ))}
                 </div>
               )}
               {!won && (partySetup?.cards?.[me]?.length ?? 0) > 0 && <p className="rating-change">🃏 The cards you brought are used up. {live.result?.winners.length ? 'The winner may take one.' : ''}</p>}
               {newCards.length > 0 && (
                 <div className="new-cards" aria-label="New power cards">
-                  <b>🃏 New card{newCards.length > 1 ? 's' : ''}!</b>
+                  <b>🃏 New card{newCards.length > 1 ? 's' : ''}!{POWER_CARDS ? '' : ` For your collections: ${[...new Set(newCards.map((id) => cardById(id)!.suit))].map((s) => SUIT_ICON[s]).join(' ')}`}</b>
                   {newCards.map((id) => <CardTile key={id} c={cardById(id)!} small />)}
                 </div>
               )}
@@ -782,7 +782,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           active={shown.turn === bottom && !shown.result} captured={captured(top)} speech={speech?.seat === bottom ? speech.text : null}
           colour={bot && bottom === botSeat ? bot.colour : undefined}
           lead={lead(bottom)} skins={skinsNow}
-          clockMs={isOnline && !reviewing ? timeLeft(net, bottom) : null} clockRunning={net.clock?.running === bottom}
+          clockMs={isOnline && !reviewing ? () => timeLeft(net, bottom) : null} clockRunning={net.clock?.running === bottom}
         />
       </div>
 
@@ -883,6 +883,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           </div>
         ) : (
           <div className="row wrap">
+            <button className="btn small" aria-pressed={!!save.settings.plainPieces} onClick={() => update((d) => ({ ...d, settings: { ...d.settings, plainPieces: !d.settings.plainPieces } }))}>{save.settings.plainPieces ? '🎨 Show skins' : '♟ Plain pieces'}</button>
             {!isOnline && !isMail && !party.noTakeBacks && <button className="btn small" onClick={undo} disabled={!rec.actions.length || !!live.result || thinking}>↩ Take back</button>}
             <button className="btn small" onClick={() => setFlipped((f) => !f)}>⇅ Flip</button>
             <button className="btn small danger" onClick={resign} disabled={!!live.result}>🏳 Give up</button>
@@ -940,16 +941,17 @@ function MoveCell({ san, idx, view, onPick }: { san?: string; idx: number; view:
 
 function PlayerBar({ name, rating, avatar, active, captured, speech, colour, note, clockMs, clockRunning, lead, skins }: {
   name: string; rating?: number; avatar: ReactNode; active: boolean; captured: GameState['pieces'];
-  speech: string | null; colour?: string; note?: string | null; clockMs?: number | null; clockRunning?: boolean; lead?: number; skins: import('../content/cosmetics').SkinChoice;
+  speech: string | null; colour?: string; note?: string | null; clockMs?: (() => number | null) | null; clockRunning?: boolean; lead?: number; skins: import('../content/cosmetics').SkinChoice;
 }) {
-  // Re-render a few times a second while this clock is running.
+  // Re-render a few times a second while this clock is running; the time is worked out fresh each time.
   const [, tick] = useState(0);
+  const hasClock = !!clockMs;
   useEffect(() => {
-    if (!clockRunning || clockMs === null || clockMs === undefined) return;
+    if (!clockRunning || !hasClock) return;
     const t = setInterval(() => tick((n) => n + 1), 250);
     return () => clearInterval(t);
-  }, [clockRunning, clockMs]);
-  const ms = clockMs ?? null;
+  }, [clockRunning, hasClock]);
+  const ms = clockMs ? clockMs() : null;
   return (
     <div className={`player-bar ${active ? 'active' : ''}`}>
       <div className="avatar" style={{ background: colour ?? '#fff' }}>{avatar}</div>

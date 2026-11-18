@@ -10,6 +10,7 @@ import { useMailCount } from './Challenges';
 import { useSave } from './store';
 import { currentStreak, EMPTY_PROGRESS } from '../systems/puzzle';
 import { dueCount } from '../systems/openings';
+import { POWER_CARDS } from '../content/cards';
 import type { GameConfig } from './GameScreen';
 
 const COLOURS = ['#ff7a59', '#ffc93c', '#5bd17a', '#4aa8ff', '#a77bff', '#ff6fb5'];
@@ -73,7 +74,7 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
       <h3 className="home-section">My stuff</h3>
       <div className="tiles">
         <Tile emoji="🧌" title="Wardrobe" sub="Skins and boards" c="#ff9f43" onClick={() => go('wardrobe')} />
-        <Tile emoji="🃏" title="Power cards" sub={p ? `${Object.values(p.collection ?? {}).reduce((a, n) => a + n, 0)} cards` : 'Earn by playing'} c="#c08cff" onClick={() => go('cards')} disabled={!p} />
+        <Tile emoji="🃏" title={POWER_CARDS ? 'Power cards' : 'My cards'} sub={p ? `${Object.values(p.collection ?? {}).reduce((a, n) => a + n, 0)} cards` : 'Earn by playing'} c="#c08cff" onClick={() => go('cards')} disabled={!p} />
         <Tile emoji="📜" title="My games" sub="Replay and analyse" c="#a77bff" onClick={() => go('history')} disabled={!p} />
         <Tile emoji="🏆" title="Leaderboard" sub="Who's on top" c="#ffb13d" onClick={() => go('leaderboard')} disabled={!p} />
         {save.settings.chesscomEnabled && <Tile emoji="♟️" title="Chess.com" sub="Players, nemesis bots" c="#7fb069" onClick={() => go('chesscom')} disabled={!p} />}
@@ -104,6 +105,7 @@ function Settings() {
       <label><input type="checkbox" checked={s.shake !== false} onChange={(e) => set({ shake: e.target.checked })} /> Board shake and phone buzz</label>
       <label><input type="checkbox" checked={s.chesscomEnabled} onChange={(e) => set({ chesscomEnabled: e.target.checked })} /> Show the Chess.com corner (parents can switch this off)</label>
       <label><input type="checkbox" checked={s.showCoordinates} onChange={(e) => set({ showCoordinates: e.target.checked })} /> Show board letters and numbers</label>
+      <label><input type="checkbox" checked={!!s.plainPieces} onChange={(e) => set({ plainPieces: e.target.checked })} /> ♟ Plain pieces (no skins) on the board</label>
       <CloudSaveCard />
       <BackupButtons />
     </details>
