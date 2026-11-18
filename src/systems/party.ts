@@ -242,6 +242,44 @@ export function missionOff(s: GameState, player: PlayerId): boolean {
   return !!(s.modeData?.missionsOff as Record<string, string> | undefined)?.[player];
 }
 
+/**
+ * Moves that stop the other player's open mission (the weaker player's, which
+ * wins at once) from being done on their very next move. Empty when there is
+ * nothing to block, when every move is already safe, or when no move is.
+ */
+export function blockingMoves(states: GameState[], actions: Action[], party: PartySetup, defender: PlayerId): MoveAction[] {
+  const s = states[states.length - 1];
+  if (!s || s.result || s.turn !== defender) return [];
+  const opp = (Object.keys(party.missions) as PlayerId[]).find((k) => k !== defender);
+  const id = opp ? party.missions[opp] : undefined;
+  if (!opp || !id || id === '?' || !missionIsOpen(party, opp) || missionOff(s, opp)) return [];
+  // Missions only count after the gate.
+  if (movesMade(s, opp) + 1 <= (party.gate[opp] ?? 10)) return [];
+  const mine = legalActions(s);
+  const safe = mine.filter((m) => {
+    let a: GameState;
+    try { a = play(s, m); } catch { return false; }
+    if (a.result || a.turn !== opp) return true;
+    const st1 = [...states, a];
+    const ac1 = [...actions, m];
+    for (const r of legalActions(a)) {
+      let b: GameState;
+      try { b = play(a, r); } catch { continue; }
+      const ctx = { states: [...st1, b], ply: ac1.length, move: r, player: opp, movesMade: movesMade(b, opp) };
+      if (missionDone(id, ctx)) return false;
+    }
+    return true;
+  });
+  return safe.length && safe.length < mine.length ? safe : [];
+}
+
+/** What a bot should limit itself to: undo a shown mission, else block an open one. Empty: play normally. */
+export function defenceMoves(states: GameState[], actions: Action[], party: PartySetup, bot: PlayerId): MoveAction[] {
+  const s = states[states.length - 1];
+  const undo = undoingMoves(s, bot);
+  return undo.length ? undo : blockingMoves(states, actions, party, bot);
+}
+
 /** Moves that undo a shown mission of the other player (for bots, and for hints). */
 export function undoingMoves(s: GameState, defender: PlayerId): MoveAction[] {
   const ch = missionChallenges(s);

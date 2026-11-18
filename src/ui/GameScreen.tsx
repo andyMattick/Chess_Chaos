@@ -31,7 +31,7 @@ import { GoalList, useTraining, type TrainingConfig } from './training';
 import { alertMode, chooseAlert } from '../systems/alerts';
 import { EASY_GOALS, type EasyGoalId } from '../tactics/missions';
 import { usePartyLayer } from './partyLayer';
-import { refereeMission, undoingMoves, type PartySetup } from '../systems/party';
+import { defenceMoves, refereeMission, type PartySetup } from '../systems/party';
 import { strengthFor } from '../ai/strength';
 import { missionById, modifierById } from '../content/party';
 import { moveEvents, shakeFor, type MoveEvents } from './effects';
@@ -315,8 +315,8 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     }
     let cancelled = false;
     setThinking(true);
-    // A shown secret mission of yours: the bot tries to undo it (weaker bots sometimes miss).
-    const undo = partySetup && Math.random() >= strengthFor(bot?.rating ?? 800).weakChance ? undoingMoves(live, botSeat) : [];
+    // Your missions: the bot tries to undo a shown one, or block an open one (weaker bots sometimes miss).
+    const undo = partySetup && Math.random() >= strengthFor(bot?.rating ?? 800).weakChance ? defenceMoves(states, rec.actions, partySetup, botSeat) : [];
     requestMove(live, bot?.rating ?? 800, nemesis && bot ? { id: bot.id, asWhite: bot.asWhite, asBlack: bot.asBlack } : bot?.id, 450, undo.length ? undo : undefined).then((m) => {
       if (cancelled || !m) return;
       setThinking(false);

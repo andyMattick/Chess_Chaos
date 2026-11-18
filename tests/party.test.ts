@@ -2,7 +2,7 @@ import { newRecord, replay, play, parseSAN, initialState, legalActions } from '.
 import type { Action, GameState } from '../src/core';
 import { MISSIONS, MODIFIERS } from '../src/content/party';
 import { IMPLEMENTED } from '../src/core/modifiers';
-import { dealMissions, drawMode, missionDefence, missionOff, pickModifiers, refereeAll, refereeMission, setupParty, slotsForGap, redactParty, undoingMoves, PARTY_DECK } from '../src/systems/party';
+import { blockingMoves, dealMissions, defenceMoves, drawMode, missionDefence, missionOff, pickModifiers, refereeAll, refereeMission, setupParty, slotsForGap, redactParty, undoingMoves, PARTY_DECK } from '../src/systems/party';
 import { missionChallenges } from '../src/core/rules';
 import { MISSION_DEFENCE_TURNS, MISSION_DEFENCE_TURNS_VS_UNDERDOG } from '../src/content/party';
 import { missionDone, MISSION_CHECKS } from '../src/systems/missions';
@@ -273,5 +273,21 @@ describe('missions and modifiers fit the mode', () => {
         expect(tags.some((t) => ['needsKnights', 'needsBishops', 'needsRooks', 'needsQueen', 'needsStandardArmy'].includes(t))).toBe(false);
       }
     }
+  });
+});
+
+describe('bots defend against missions', () => {
+  it('a bot avoids moves that let the weaker player finish their open mission', () => {
+    const rec = partyFen('k7/4p3/8/8/3P4/8/8/K7 b - - 0 1', { p1: 'MISSION-17', p2: 'MISSION-23' });
+    rec.setup.party!.defence = { p1: 0, p2: 1 };
+    const s = initialState(rec);
+    const safe = blockingMoves([s], [], rec.setup.party!, 'p2');
+    expect(safe.length).toBeGreaterThan(0);
+    const e5 = parseSAN(s, 'e5')!;
+    expect(safe.some((m) => m.piece === e5.piece && m.to === e5.to)).toBe(false); // e5 lets d5 make a runaway pawn
+    expect(defenceMoves([s], [], rec.setup.party!, 'p2')).toEqual(safe);
+    // A secret (not open) mission is not blocked: the bot does not know it.
+    rec.setup.party!.defence = { p1: 1, p2: 1 };
+    expect(blockingMoves([s], [], rec.setup.party!, 'p2')).toEqual([]);
   });
 });

@@ -1,7 +1,7 @@
-import { chooseMove } from '../ai/strength';
+import { chooseMove, strengthFor } from '../ai/strength';
 import { newBattleRecord, newRecord, replay, type GameRecord } from '../core/record';
 import { BOTS } from '../content/bots';
-import { cleanPrefs, pickModeFor, redactParty, refereeMission, setupParty } from '../systems/party';
+import { cleanPrefs, defenceMoves, pickModeFor, redactParty, refereeMission, setupParty } from '../systems/party';
 import { play } from '../core/rules';
 import type { Action, GameState, PlayerId } from '../core/types';
 import { cleanArmy, cleanHand, cleanLook, cleanName, EMOTES, ROOM_GAMES, type ArmyLook, type ClientMsg, type ClockSetting, type ClockState, type RoomGame, type SeatInfo, type ServerMsg, type WheelsAsk, type ExtrasVote } from './protocol';
@@ -282,8 +282,11 @@ export class Room {
     if (st.result) return false;
     const seat = this.seats[st.turn];
     if (!seat?.botControlled) return false;
-    // The opponent of an absent player still gets a fair game.
-    const c = chooseMove(st, { rating: Math.min(1400, seat.rating) });
+    // The opponent of an absent player still gets a fair game (and the bot defends against missions).
+    const rating = Math.min(1400, seat.rating);
+    const party = this.record.setup.party;
+    const only = party && Math.random() >= strengthFor(rating).weakChance ? defenceMoves(this.states, this.record.actions, party, st.turn) : [];
+    const c = chooseMove(st, { rating, only: only.length ? only : undefined });
     if (!c) return false;
     this.apply(c.move);
     return true;

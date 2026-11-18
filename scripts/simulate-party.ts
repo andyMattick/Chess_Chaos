@@ -11,7 +11,7 @@
 import { newRecord, initialState } from '../src/core/record';
 import { play } from '../src/core/rules';
 import { chooseMove } from '../src/ai/strength';
-import { PARTY_DECK, setupParty, refereeMission, undoingMoves } from '../src/systems/party';
+import { PARTY_DECK, setupParty, refereeMission, defenceMoves } from '../src/systems/party';
 import { strengthFor } from '../src/ai/strength';
 import type { Action, GameState, PlayerId } from '../src/core/types';
 
@@ -51,8 +51,8 @@ function playOne(mode: string, seed: number): Out {
       if (pawns.length) { push({ t: 'buff', by: s.turn, id: 'MODE-19', piece: pawns[Math.floor(rand() * pawns.length)].id }); continue; }
     }
     const r = rating[s.turn as 'p1' | 'p2'];
-    // Bots try to undo a shown mission (weaker bots sometimes miss it, like in the app).
-    const undo = rand() < strengthFor(r).weakChance ? [] : undoingMoves(s, s.turn);
+    // Bots undo a shown mission or block an open one (weaker bots sometimes miss, like in the app).
+    const undo = rand() < strengthFor(r).weakChance ? [] : defenceMoves(states, actions, party, s.turn);
     const c = chooseMove(s, { rating: r, random: rand, only: undo.length ? undo : undefined });
     if (!c) break;
     push(c.move);
