@@ -1,7 +1,10 @@
 import { hashString, positionKey } from './position';
 import { play } from './rules';
 import { fromFEN, STANDARD_FEN } from './setup';
-import type { Action, GameState } from './types';
+import type { Action, GameState, PlayerId } from './types';
+import { applySetup } from './modifiers';
+import { MODE_SETUP } from './modes';
+import { rngInt } from './rng';
 import { battleStart, type BattleKind } from './variants';
 
 /**
@@ -10,7 +13,10 @@ import { battleStart, type BattleKind } from './variants';
 export interface GameRecord {
   version: 1;
   id: string;
-  setup: { kind: 'fen'; fen: string; mode: string } | { kind: 'battle'; battle: BattleKind; mode: string };
+  setup: ({ kind: 'fen'; fen: string; mode: string } | { kind: 'battle'; battle: BattleKind; mode: string }) & {
+    /** Party match extras: public modifiers and each player's secret mission ('?' when hidden from you). */
+    party?: { modifiers: Partial<Record<PlayerId, string[]>>; missions: Partial<Record<PlayerId, string>>; gate: Partial<Record<PlayerId, number>> };
+  };
   seed: number;
   actions: Action[];
   meta: {
@@ -33,9 +39,14 @@ export function newRecord(seed: number, players: Record<string, string>, fen = S
 }
 
 export function initialState(rec: GameRecord): GameState {
-  if (rec.setup.kind === 'battle') return battleStart(rec.setup.battle, rec.setup.mode, rec.seed);
-  const s = fromFEN(rec.setup.fen, rec.seed);
-  return { ...s, mode: rec.setup.mode };
+  let s: GameState = rec.setup.kind === 'battle' ? battleStart(rec.setup.battle, rec.setup.mode, rec.seed) : { ...fromFEN(rec.setup.fen, rec.seed), mode: rec.setup.mode };
+  // Deterministic picks for setup randomness (shuffled back rank, missing pawn…).
+  let r = rec.seed ^ 0x5bd1e995;
+  const pick = (n: number) => { const [v, next] = rngInt(r, n); r = next; return v; };
+  const modeSetup = MODE_SETUP[s.mode];
+  if (modeSetup) s = modeSetup(s, pick);
+  if (rec.setup.party) s = applySetup(s, rec.setup.party.modifiers, pick);
+  return s;
 }
 
 export function newBattleRecord(seed: number, players: Record<string, string>, battle: BattleKind, mode = 'battle'): GameRecord {

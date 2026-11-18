@@ -1,5 +1,6 @@
 import { fileOf, rankOf } from './board';
-import { activeSeats, eliminate, legalMoves } from './movegen';
+import { activeSeats, eliminate, inCheck, legalMoves } from './movegen';
+import { baseType, pieceType } from './pieces';
 import type { RuleModule } from './rules';
 import type { GameResult, GameState, PlayerId } from './types';
 
@@ -90,7 +91,129 @@ const hillWars: RuleModule = {
   },
 };
 
+/** MODE-03 Three-check: the third check wins. */
+const threeCheck: RuleModule = {
+  id: 'three-check',
+  afterMove: (s, prev) => {
+    if (!s.last || s.ply === prev.ply || !inCheck(s, s.turn)) return s;
+    const c = { ...((s.modeData?.checks as Record<string, number>) ?? {}) };
+    c[s.last.by] = (c[s.last.by] ?? 0) + 1;
+    return { ...s, modeData: { ...(s.modeData ?? {}), checks: c } };
+  },
+  checkEnd: (s) => {
+    const c = (s.modeData?.checks as Record<string, number>) ?? {};
+    const w = Object.entries(c).find(([, n]) => n >= 3);
+    return w ? { reason: 'mode-win', winners: [w[0] as PlayerId] } : undefined;
+  },
+};
+
+/** MODE-06 Capture race: first to 15 points of captured material wins. */
+const captureRace: RuleModule = {
+  id: 'capture-race',
+  afterMove: (s, prev) => {
+    if (!s.last?.captured || s.ply === prev.ply) return s;
+    const pts = { ...((s.modeData?.points as Record<string, number>) ?? {}) };
+    pts[s.last.by] = (pts[s.last.by] ?? 0) + Math.floor(pieceType(baseType(s.last.captured)).value);
+    return { ...s, modeData: { ...(s.modeData ?? {}), points: pts } };
+  },
+  checkEnd: (s) => {
+    const pts = (s.modeData?.points as Record<string, number>) ?? {};
+    const w = Object.entries(pts).find(([, n]) => n >= 15);
+    return w ? { reason: 'mode-win', winners: [w[0] as PlayerId] } : undefined;
+  },
+};
+
+/** Deterministic dice from the game seed and the move number. */
+export function die(s: GameState, sides: number): number {
+  let h = (s.rng ^ Math.imul(s.ply + 1, 0x9e3779b1)) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
+  return ((h ^ (h >>> 16)) >>> 0) % sides;
+}
+
+/** MODE-01 Random piece: the die picks which kind of piece must move this turn. */
+export function rolledType(s: GameState, moves: { piece: number }[]): string | null {
+  if (inCheck(s, s.turn)) return null;
+  const types = [...new Set(moves.map((m) => baseType(s.pieces[m.piece].type)))].sort();
+  if (types.length <= 1) return null;
+  return types[die(s, types.length)];
+}
+const randomPiece: RuleModule = {
+  id: 'random-piece',
+  filterMoves: (s, moves) => {
+    const t = rolledType(s, moves);
+    return t ? moves.filter((m) => baseType(s.pieces[m.piece].type) === t) : moves;
+  },
+};
+
+/** MODE-22 Truce: no captures for each player's first 10 moves. */
+const truce: RuleModule = {
+  id: 'truce',
+  filterMoves: (s, moves) => {
+    if (s.ply >= 20) return moves;
+    const quiet = moves.filter((m) => s.sq[m.to] < 0 && !(baseType(s.pieces[m.piece].type) === 'pawn' && s.enPassant?.square === m.to));
+    return quiet.length ? quiet : moves;
+  },
+};
+
+/** MODE-20 Capture the flag: each side's flag is on its own back rank, files c to f. */
+export function flagSquare(s: GameState, owner: PlayerId): number {
+  const b = s.board;
+  const idx = s.seats.findIndex((x) => x.id === owner);
+  const file = 2 + ((s.rng >>> (idx * 4)) & 3);
+  const rank = s.seats[idx].forward[1] > 0 ? 0 : b.height - 1;
+  return rank * b.width + file;
+}
+const captureTheFlag: RuleModule = {
+  id: 'capture-the-flag',
+  checkEnd: (s) => {
+    // A piece that is still sitting on the enemy flag when its own turn comes round wins.
+    const me = s.turn;
+    for (const seat of s.seats) {
+      if (seat.id === me) continue;
+      const id = s.sq[flagSquare(s, seat.id)];
+      if (id >= 0 && s.pieces[id].owner === me && baseType(s.pieces[id].type) !== 'pawn' && s.pieces[id].type !== 'king') {
+        return { reason: 'mode-win', winners: [me] };
+      }
+    }
+    return undefined;
+  },
+};
+
+/** MODE-05 Shuffle start: no castling (the back rank is shuffled at setup). */
+const shuffle: RuleModule = { id: 'shuffle', filterMoves: (_s, moves) => moves.filter((m) => !m.castle) };
+
+/** Start-of-game changes for modes that rearrange the board. `pick(n)` returns 0..n-1. */
+export const MODE_SETUP: Record<string, (s: GameState, pick: (n: number) => number) => GameState> = {
+  shuffle: (s, pick) => {
+    // Shuffle White's back rank (bishops on opposite colours), mirror it for Black.
+    const files = [0, 1, 2, 3, 4, 5, 6, 7];
+    const take = (list: number[]) => list.splice(pick(list.length), 1)[0];
+    const order: string[] = new Array(8);
+    const dark = files.filter((f) => f % 2 === 0), light = files.filter((f) => f % 2 === 1);
+    const b1 = take(dark), b2 = take(light);
+    order[b1] = 'bishop'; order[b2] = 'bishop';
+    const rest = files.filter((f) => f !== b1 && f !== b2);
+    for (const t of ['queen', 'knight', 'knight', 'rook', 'rook', 'king']) order[take(rest)] = t;
+    const pieces = s.pieces.map((p) => ({ ...p }));
+    for (const p of pieces) {
+      if (p.at < 0 || baseType(p.type) === 'pawn') continue;
+      const r = Math.floor(p.at / 8), f = p.at % 8;
+      if (r !== 0 && r !== 7) continue;
+      p.type = order[f];
+      p.moved = true; // no castling
+    }
+    return { ...s, pieces };
+  },
+};
+
 export const MODE_MODULES: Record<string, RuleModule[]> = {
+  'three-check': [threeCheck],
+  'capture-race': [captureRace],
+  'random-piece': [randomPiece],
+  truce: [truce],
+  'capture-the-flag': [captureTheFlag],
+  shuffle: [shuffle],
   standard: [],
   koth: [kingOfTheHill],
   'hill-wars': [hillWars],
@@ -111,5 +234,11 @@ export const MODE_INFO: ModeInfo[] = [
   { id: 'standard', catalogId: 'MODE-00', name: 'Classic chess', emoji: '♟️', players: [2], blurb: 'Normal chess. Checkmate wins.' },
   { id: 'koth', catalogId: 'MODE-02', name: 'King of the hill', emoji: '⛰️', players: [2], blurb: 'Get your king to one of the 4 middle squares to win, or checkmate.' },
   { id: 'hill-wars', catalogId: 'MODE-29', name: 'Hill wars', emoji: '🚩', players: [2, 3, 4], blurb: 'Hold the middle! Every round you score 1 point per hill square you sit on, 2 for your king. First to the target wins.' },
+  { id: 'three-check', catalogId: 'MODE-03', name: 'Three-check', emoji: '✔️', players: [2], blurb: 'Give check three times to win. Or checkmate.' },
+  { id: 'capture-race', catalogId: 'MODE-06', name: 'Capture race', emoji: '🏁', players: [2], blurb: 'First to capture 15 points wins (pawn 1, knight/bishop 3, rook 5, queen 9).' },
+  { id: 'random-piece', catalogId: 'MODE-01', name: 'Dice chess', emoji: '🎲', players: [2], blurb: 'Each turn the dice picks which kind of piece you must move.' },
+  { id: 'truce', catalogId: 'MODE-22', name: 'Truce', emoji: '🕊️', players: [2], blurb: 'No captures for the first 10 moves each. Build up, then BOOM.' },
+  { id: 'capture-the-flag', catalogId: 'MODE-20', name: 'Capture the flag', emoji: '🏳️', players: [2], blurb: 'Land a piece (not a pawn or king) on the enemy flag and survive one turn to win.' },
+  { id: 'shuffle', catalogId: 'MODE-05', name: 'Shuffle start', emoji: '🔀', players: [2], blurb: 'The back row is shuffled! Same for both sides. No castling.' },
   { id: 'battle', catalogId: 'MODE-26/27/28', name: 'Battle royale', emoji: '⚔️', players: [3, 4], blurb: 'Everyone for themselves (or 2 vs 2). Capture a king to knock that player out. Last king standing wins.' },
 ];

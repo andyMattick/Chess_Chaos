@@ -9,7 +9,7 @@ import { legalActions } from '../core/rules';
 import { toSAN } from '../core/san';
 import { newSeed } from '../core/rng';
 import type { Action, GameState, MoveAction, PlayerId } from '../core/types';
-import { online, timeLeft } from '../net/client';
+import { online, roomSkins, timeLeft } from '../net/client';
 import { EMOTES } from '../net/protocol';
 import { lookOf, activeProfile, addGame, noteOpponent, update, upsertProfile } from '../storage/storage';
 import { updateRating } from '../systems/rating';
@@ -68,6 +68,8 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   const save = useSave();
   const net = useSyncExternalStore(online.subscribe, online.get, online.get);
   const isOnline = config.kind === 'online';
+  // Online, everyone sees each army the way its owner dressed it.
+  const skinsNow = isOnline ? roomSkins(net, lookOf(save).skins) : lookOf(save).skins;
   const bot = config.botId ? botById(config.botId) : undefined;
   const me: PlayerId = isOnline ? net.seat ?? 'p1' : config.humanSeat;
   const botSeat: PlayerId | null = config.kind === 'bot' ? other(config.humanSeat) : null;
@@ -334,7 +336,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     if (bot && seat === botSeat) return <span className="avatar-emoji">{bot.emoji}</span>;
     return (
       <svg viewBox="0 0 100 100">
-        <Character skin={skinFor(lookOf(save).skins, seat, 'king')} type="king" owner={seat} seed={seat === 'p1' ? 3 : 9} />
+        <Character skin={skinFor(skinsNow, seat, 'king')} type="king" owner={seat} seed={seat === 'p1' ? 3 : 9} />
       </svg>
     );
   };
@@ -346,7 +348,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           name={names[top]} rating={bot && top === botSeat ? bot.rating : net.seats[top]?.rating} avatar={avatar(top)}
           active={shown.turn === top && !shown.result} captured={captured(bottom)} speech={speech?.seat === top ? speech.text : null}
           colour={bot && top === botSeat ? bot.colour : undefined}
-          lead={lead(top)}
+          lead={lead(top)} skins={skinsNow}
           clockMs={isOnline && !reviewing ? timeLeft(net, top) : null} clockRunning={net.clock?.running === top}
           note={isOnline && opp && top !== me ? (opp.botControlled ? '🤖 a bot took over' : !opp.connected ? '📡 reconnecting…' : null) : null}
         />
@@ -367,7 +369,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             lastMove={lastMove}
             showCoordinates={save.settings.showCoordinates}
             landscape={lookOf(save).landscape}
-            skins={lookOf(save).skins}
+            skins={skinsNow}
             interactive={(!reviewing && isHumanTurn) || retrying}
             onSquare={onSquare}
             fx={view === null ? fx : null}
@@ -380,7 +382,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
               <div className="promo-row">
                 {promo.map((m) => (
                   <button key={m.promo} className="promo-btn" onClick={() => commit(m)} aria-label={m.promo}>
-                    <svg viewBox="0 0 100 100"><Character skin={skinFor(lookOf(save).skins, me, m.promo!)} type={m.promo!} owner={me} badge /></svg>
+                    <svg viewBox="0 0 100 100"><Character skin={skinFor(skinsNow, me, m.promo!)} type={m.promo!} owner={me} badge /></svg>
                   </button>
                 ))}
               </div>
@@ -441,7 +443,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           name={names[bottom]} rating={bot && bottom === botSeat ? bot.rating : net.seats[bottom]?.rating} avatar={avatar(bottom)}
           active={shown.turn === bottom && !shown.result} captured={captured(top)} speech={speech?.seat === bottom ? speech.text : null}
           colour={bot && bottom === botSeat ? bot.colour : undefined}
-          lead={lead(bottom)}
+          lead={lead(bottom)} skins={skinsNow}
           clockMs={isOnline && !reviewing ? timeLeft(net, bottom) : null} clockRunning={net.clock?.running === bottom}
         />
       </div>
@@ -534,11 +536,10 @@ function MoveCell({ san, idx, view, onPick }: { san?: string; idx: number; view:
   );
 }
 
-function PlayerBar({ name, rating, avatar, active, captured, speech, colour, note, clockMs, clockRunning, lead }: {
+function PlayerBar({ name, rating, avatar, active, captured, speech, colour, note, clockMs, clockRunning, lead, skins }: {
   name: string; rating?: number; avatar: ReactNode; active: boolean; captured: GameState['pieces'];
-  speech: string | null; colour?: string; note?: string | null; clockMs?: number | null; clockRunning?: boolean; lead?: number;
+  speech: string | null; colour?: string; note?: string | null; clockMs?: number | null; clockRunning?: boolean; lead?: number; skins: import('../content/cosmetics').SkinChoice;
 }) {
-  const save = useSave();
   // Re-render a few times a second while this clock is running.
   const [, tick] = useState(0);
   useEffect(() => {
@@ -563,7 +564,7 @@ function PlayerBar({ name, rating, avatar, active, captured, speech, colour, not
       )}
       <div className="captured" aria-label="Captured pieces">
         {captured.map((p) => (
-          <svg key={p.id} viewBox="0 0 100 100"><Character skin={skinFor(lookOf(save).skins, p.owner, p.type)} type={p.type} owner={p.owner} seed={p.id + 1} /></svg>
+          <svg key={p.id} viewBox="0 0 100 100"><Character skin={skinFor(skins, p.owner, p.type)} type={p.type} owner={p.owner} seed={p.id + 1} /></svg>
         ))}
         {!!lead && lead > 0 && <span className="lead">+{lead}</span>}
       </div>

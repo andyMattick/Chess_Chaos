@@ -60,7 +60,7 @@ export function Wardrobe({ back }: { back: () => void }) {
 
       {SIDES.map(({ seat, label }) => (
         <section key={seat} className="army">
-          <h3>{label}</h3>
+          <h3>{label}{seat === 'p1' && <span className="scribble">this is your army online</span>}</h3>
           <div className="skin-row">
             {SKINS.map((s) => {
               const have = owns(s.id);

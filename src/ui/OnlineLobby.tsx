@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { online, roomServerUrl } from '../net/client';
 import { CLOCK_CHOICES, ROOM_GAMES, type RoomGame } from '../net/protocol';
 import { BattleScreen } from './BattleScreen';
-import { activeProfile } from '../storage/storage';
+import { activeProfile, lookOf } from '../storage/storage';
 import { GameScreen } from './GameScreen';
 import { useSave } from './store';
 
@@ -64,6 +64,11 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
   const seatsFor = ROOM_GAMES.find((g) => g.id === game)?.seats ?? 2;
   const clock = CLOCK_CHOICES[clockIdx].setting;
   const name = p?.nickname ?? 'Player';
+  // Your army travels with you: the White army look from your Wardrobe (or Black if you pick Black).
+  const lookFor = (side: 'p1' | 'p2') => {
+    const skins = lookOf(save).skins;
+    return { army: skins.armies[side] ?? 'classic', pieces: Object.fromEntries(Object.entries(skins.pieces[side] ?? {}).filter(([, v]) => !!v)) as Record<string, string> };
+  };
   const rating = p?.rating ?? 600;
 
   // Opened from a shared link: join straight away. Otherwise, coming back mid-game? Rejoin the seat.
@@ -72,7 +77,7 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
     if (joinedRef.current) return;
     joinedRef.current = true;
     if (initialCode && !net.code) {
-      online.join(initialCode, name, rating);
+      online.join(initialCode, name, rating, lookFor('p1'));
       try { history.replaceState(null, '', location.pathname); } catch { /* ignore */ }
     } else if (!net.code && online.saved()) online.resume();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -144,12 +149,12 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
           <div className="row">
             {seatsFor === 2 ? (
               <>
-                <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock, game)}>I'll be White</button>
-                <button className="btn primary dark" onClick={() => online.create(name, rating, 'p2', clock, game)}>I'll be Black</button>
-                <button className="btn" onClick={() => online.create(name, rating, 'random', clock, game)}>🎲 Whatever</button>
+                <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock, game, lookFor('p1'))}>I'll be White</button>
+                <button className="btn primary dark" onClick={() => online.create(name, rating, 'p2', clock, game, lookFor('p2'))}>I'll be Black</button>
+                <button className="btn" onClick={() => online.create(name, rating, 'random', clock, game, lookFor('p1'))}>🎲 Whatever</button>
               </>
             ) : (
-              <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock, game)}>Make the room ({seatsFor} players)</button>
+              <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock, game, lookFor('p1'))}>Make the room ({seatsFor} players)</button>
             )}
           </div>
         </section>
@@ -158,9 +163,9 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
           <input
             className="code-input" aria-label="Room code" placeholder="ABCD" maxLength={4} value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))}
-            onKeyDown={(e) => e.key === 'Enter' && code.length === 4 && online.join(code, name, rating)}
+            onKeyDown={(e) => e.key === 'Enter' && code.length === 4 && online.join(code, name, rating, lookFor('p1'))}
           />
-          <button className="btn primary" disabled={code.length !== 4} onClick={() => online.join(code, name, rating)}>Join!</button>
+          <button className="btn primary" disabled={code.length !== 4} onClick={() => online.join(code, name, rating, lookFor('p1'))}>Join!</button>
         </section>
       </div>
       <button className="btn" onClick={exit}>← Home</button>

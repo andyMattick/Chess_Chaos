@@ -8,7 +8,7 @@ import { newSeed } from '../core/rng';
 import { legalActions } from '../core/rules';
 import type { Action, MoveAction, PlayerId } from '../core/types';
 import type { BattleKind } from '../core/variants';
-import { online, timeLeft } from '../net/client';
+import { online, roomSkins, timeLeft } from '../net/client';
 import { EMOTES } from '../net/protocol';
 import { activeProfile, addGame, lookOf, noteOpponent, update, upsertProfile } from '../storage/storage';
 import { coinsFor, type CoinAward } from '../systems/coins';
@@ -38,7 +38,9 @@ export function BattleScreen({ local, onExit, onAgain }: { local?: LocalBattle; 
   const net = useSyncExternalStore(online.subscribe, online.get, online.get);
   const isOnline = !local;
   const profile = activeProfile(save);
-  const look = lookOf(save);
+  const myLook = lookOf(save);
+  // Online, everyone sees each army the way its owner dressed it.
+  const look = { ...myLook, skins: isOnline ? roomSkins(net, myLook.skins) : myLook.skins };
 
   const bots = useMemo(() => {
     if (!local) return [];

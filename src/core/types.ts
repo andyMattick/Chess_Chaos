@@ -61,7 +61,9 @@ export type EndReason =
   | 'draw-material'
   | 'draw-agreed'
   /** Three or four player games: the last king (or team) standing. */
-  | 'last-standing';
+  | 'last-standing'
+  /** Party match: a secret mission was completed. */
+  | 'mission';
 
 export interface GameResult {
   reason: EndReason;
@@ -85,6 +87,10 @@ export interface GameState {
   rng: number;
   /** Per-mode counters (hill scores, checks given…). JSON only. */
   modeData?: Record<string, unknown>;
+  /** Extra rule modules on top of the mode, e.g. "HCAP-09@p1" (party modifiers). */
+  rules?: string[];
+  /** The last move played (for mirror, effects, missions). */
+  last?: { piece: number; type: string; by: PlayerId; from: number; to: number; captured?: string };
   result: GameResult | null;
 }
 
@@ -101,4 +107,8 @@ export type Action =
   | { t: 'resign'; by: PlayerId }
   /** A player's clock ran out (online games). */
   | { t: 'timeout'; by: PlayerId }
+  /** A one-shot buff (party match). Fields used depend on the buff. */
+  | { t: 'buff'; by: PlayerId; id: string; piece?: number; target?: number; to?: number; to2?: number }
+  /** A secret mission was completed (checked by the referee: server or this device). */
+  | { t: 'mission'; by: PlayerId; id: string }
   | { t: 'draw-agreed' };

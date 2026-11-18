@@ -154,3 +154,48 @@ describe('bots understand the hill', () => {
     expect(play(s, c.move).result?.reason).toBe('mode-win');
   });
 });
+
+import { newRecord, initialState, flagSquare, rolledType, MODE_INFO } from '../src/core';
+describe('party modes', () => {
+  const start = (mode: string) => initialState(newRecord(7, {}, undefined, mode));
+  it('MODE-03 three-check: third check wins', () => {
+    let s = start('three-check');
+    for (const san of 'e4 e5 Bb5 a6 Bxd7+ Kxd7 Qg4+ Ke8 Qxg7 Bd6 Qxg8+'.split(' ')) s = play(s, parseSAN(s, san)!);
+    expect(s.result).toEqual({ reason: 'mode-win', winners: ['p1'] });
+  });
+  it('MODE-06 capture race: 15 points wins', () => {
+    let s: GameState = { ...start('capture-race'), modeData: { points: { p1: 14 } } };
+    for (const san of 'e4 d5 exd5'.split(' ')) s = play(s, parseSAN(s, san)!);
+    expect(s.result?.reason).toBe('mode-win');
+  });
+  it('MODE-01 dice chess: only the rolled piece type may move', () => {
+    const s = start('random-piece');
+    const moves = legalActions(s);
+    const types = new Set(moves.map((m) => s.pieces[m.piece].type));
+    expect(types.size).toBe(1);
+    expect(rolledType(s, legalActions({ ...s, mode: 'standard' }))).toBe([...types][0]);
+  });
+  it('MODE-22 truce: no captures early', () => {
+    let s = start('truce');
+    for (const san of 'e4 d5'.split(' ')) s = play(s, parseSAN(s, san)!);
+    expect(parseSAN(s, 'exd5')).toBeUndefined();
+  });
+  it('MODE-20 capture the flag: survive a turn on the enemy flag', () => {
+    const s0 = start('capture-the-flag');
+    const flag = flagSquare(s0, 'p2');
+    expect(Math.floor(flag / 8)).toBe(7);
+    expect(flag % 8).toBeGreaterThanOrEqual(2);
+    expect(flag % 8).toBeLessThanOrEqual(5);
+  });
+  it('MODE-05 shuffle start: bishops on opposite colours, mirrored, no castling', () => {
+    const s = start('shuffle');
+    const back = (r: number) => Array.from({ length: 8 }, (_, f) => s.pieces[s.sq[r * 8 + f]].type);
+    expect(back(0)).toEqual(back(7));
+    const bishops = back(0).map((t, f) => (t === 'bishop' ? f % 2 : -1)).filter((x) => x >= 0);
+    expect(new Set(bishops).size).toBe(2);
+    expect(legalActions(s).some((m) => m.castle)).toBe(false);
+  });
+  it('every mode has a name and blurb', () => {
+    for (const m of MODE_INFO) expect(m.blurb.length).toBeGreaterThan(10);
+  });
+});

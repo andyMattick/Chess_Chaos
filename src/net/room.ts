@@ -3,7 +3,7 @@ import { newBattleRecord, newRecord, replay, type GameRecord } from '../core/rec
 import { BOTS } from '../content/bots';
 import { play } from '../core/rules';
 import type { Action, GameState, PlayerId } from '../core/types';
-import { cleanName, EMOTES, ROOM_GAMES, type ClientMsg, type ClockSetting, type ClockState, type RoomGame, type SeatInfo, type ServerMsg } from './protocol';
+import { cleanLook, cleanName, EMOTES, ROOM_GAMES, type ArmyLook, type ClientMsg, type ClockSetting, type ClockState, type RoomGame, type SeatInfo, type ServerMsg } from './protocol';
 
 /**
  * Transport-agnostic room server. Adapters (Bun for local dev, Cloudflare
@@ -119,8 +119,8 @@ export class Room {
     return (Object.keys(this.seats) as PlayerId[]).find((k) => this.seats[k]?.conn?.id === conn.id);
   }
 
-  addPlayer(conn: Conn, seat: PlayerId, name: string, rating: number): Seat {
-    const s: Seat = { name: cleanName(name), rating: Math.max(100, Math.min(3000, Math.round(rating) || 600)), connected: true, botControlled: false, token: token(), conn, leftAt: null };
+  addPlayer(conn: Conn, seat: PlayerId, name: string, rating: number, look?: ArmyLook): Seat {
+    const s: Seat = { look: cleanLook(look), name: cleanName(name), rating: Math.max(100, Math.min(3000, Math.round(rating) || 600)), connected: true, botControlled: false, token: token(), conn, leftAt: null };
     this.seats[seat] = s;
     this.host ??= seat;
     this.record.meta.players[seat] = s.name;
@@ -303,8 +303,8 @@ export class Room {
   broadcast() {
     const seats: Partial<Record<PlayerId, SeatInfo>> = {};
     for (const k of Object.keys(this.seats) as PlayerId[]) {
-      const { name, rating, connected, botControlled } = this.seats[k]!;
-      seats[k] = { name, rating, connected, botControlled };
+      const { name, rating, connected, botControlled, look } = this.seats[k]!;
+      seats[k] = { name, rating, connected, botControlled, look };
     }
     // Standard chess has no hidden information. Hidden modes will filter per seat here.
     const msg: ServerMsg = { t: 'room', code: this.code, record: this.record, seats, seatIds: this.seatIds, game: this.game, host: this.host, rematchVotes: [...this.rematchVotes], clock: this.clockSnapshot(), score: this.scoreboard(), gamesPlayed: this.gamesPlayed };
@@ -334,7 +334,7 @@ export class RoomServer {
       this.rooms.set(room.code, room);
       this.connRoom.set(conn.id, room);
       const seat: PlayerId = room.seatIds.length > 2 ? 'p1' : msg.colour === 'random' ? (Math.random() < 0.5 ? 'p1' : 'p2') : msg.colour === 'p2' ? 'p2' : 'p1';
-      room.addPlayer(conn, seat, msg.name, msg.rating);
+      room.addPlayer(conn, seat, msg.name, msg.rating, msg.look);
       return;
     }
     if (msg.t === 'join') {
@@ -351,7 +351,7 @@ export class RoomServer {
       if (!free) return conn.send({ t: 'error', message: 'That room is full.' });
       this.leaveCurrent(conn);
       this.connRoom.set(conn.id, room);
-      room.addPlayer(conn, free, msg.name, msg.rating);
+      room.addPlayer(conn, free, msg.name, msg.rating, msg.look);
       return;
     }
     if (msg.t === 'rejoin') {

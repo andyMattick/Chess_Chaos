@@ -1,6 +1,6 @@
 import { fileOf, rankOf, squareName } from './board';
 import { inCheck, makeMove } from './movegen';
-import { pieceType } from './pieces';
+import { baseType, pieceType } from './pieces';
 import { legalActions } from './rules';
 import type { GameState, MoveAction } from './types';
 
@@ -12,11 +12,12 @@ export function toSAN(s: GameState, m: MoveAction, legal: MoveAction[] = legalAc
   if (m.castle) {
     san = m.castle === 'k' ? 'O-O' : 'O-O-O';
   } else {
-    const isCapture = s.sq[m.to] >= 0 || (p.type === 'pawn' && s.enPassant?.square === m.to);
+    const isPawn = baseType(p.type) === 'pawn';
+    const isCapture = s.sq[m.to] >= 0 || (isPawn && s.enPassant?.square === m.to);
     const dest = squareName(b, m.to);
-    if (p.type === 'pawn') {
+    if (isPawn) {
       san = (isCapture ? `${squareName(b, p.at)[0]}x` : '') + dest;
-      if (m.promo) san += `=${pieceType(m.promo).letter}`;
+      if (m.promo) san += `=${pieceType(baseType(m.promo)).letter}`;
     } else {
       const rivals = legal.filter((o) => o.to === m.to && o.piece !== m.piece && !o.castle && s.pieces[o.piece].type === p.type);
       let dis = '';
@@ -28,7 +29,7 @@ export function toSAN(s: GameState, m: MoveAction, legal: MoveAction[] = legalAc
         else if (!sameRank) dis = from.slice(1);
         else dis = from;
       }
-      san = pieceType(p.type).letter + dis + (isCapture ? 'x' : '') + dest;
+      san = pieceType(baseType(p.type)).letter + dis + (isCapture ? 'x' : '') + dest;
     }
   }
   const after = makeMove(s, m);

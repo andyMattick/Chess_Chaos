@@ -2,6 +2,7 @@ import { isLightSquare } from './board';
 import { activeSeats, eliminate, inCheck, legalMoves, makeMove } from './movegen';
 import { positionKey } from './position';
 import { MODE_MODULES } from './modes';
+import { extraModule } from './modifiers';
 import type { Action, GameResult, GameState, MoveAction, PlayerId } from './types';
 
 /**
@@ -17,6 +18,10 @@ export interface RuleModule {
   checkEnd?(s: GameState, prev: GameState, action: Action): GameResult | undefined;
   /** Adjust the state after every action (scores, skipping stuck players…). */
   afterMove?(s: GameState, prev: GameState): GameState;
+  /** Extra moves this rule allows (checked for legality like normal moves). */
+  extraMoves?(s: GameState): MoveAction[];
+  /** One-shot buffs: apply the buff action, or throw if it is not allowed. */
+  applyBuff?(s: GameState, a: Extract<Action, { t: 'buff' }>): GameState;
 }
 
 const MODULES: Record<string, RuleModule[]> = { ...MODE_MODULES };
@@ -26,12 +31,14 @@ export function registerMode(mode: string, modules: RuleModule[]) {
 }
 
 function modulesFor(s: GameState): RuleModule[] {
-  return MODULES[s.mode] ?? [];
+  const base = MODULES[s.mode] ?? [];
+  if (!s.rules?.length) return base;
+  return [...base, ...s.rules.map(extraModule).filter((m): m is RuleModule => !!m)];
 }
 
 /** True when some module filters moves, so search must use the full legal list. */
 export function hasMoveFilters(s: GameState): boolean {
-  return modulesFor(s).some((m) => m.filterMoves);
+  return modulesFor(s).some((m) => m.filterMoves || m.extraMoves);
 }
 
 export function isCheckEnforced(s: GameState): boolean {
@@ -41,8 +48,14 @@ export function isCheckEnforced(s: GameState): boolean {
 /** Legal moves for the side to move, after every rule module's filter. */
 export function legalActions(s: GameState): MoveAction[] {
   if (s.result) return [];
-  let moves = legalMoves(s, isCheckEnforced(s));
-  for (const m of modulesFor(s)) if (m.filterMoves) moves = m.filterMoves(s, moves);
+  const checks = isCheckEnforced(s);
+  let moves = legalMoves(s, checks);
+  const mods = modulesFor(s);
+  for (const m of mods) {
+    if (!m.extraMoves) continue;
+    for (const x of m.extraMoves(s)) if (!checks || !inCheck(makeMove(s, x), s.turn)) moves.push(x);
+  }
+  for (const m of mods) if (m.filterMoves) moves = m.filterMoves(s, moves);
   return moves;
 }
 
@@ -125,6 +138,25 @@ export function play(s: GameState, action: Action): GameState {
     const canMate = s.pieces.some((p) => p.at >= 0 && others.includes(p.owner) && p.type !== 'king' && !(p.type === 'knight' || p.type === 'bishop'))
       || s.pieces.filter((p) => p.at >= 0 && others.includes(p.owner) && p.type !== 'king').length >= 2;
     return { ...s, result: { reason: 'time', winners: canMate ? others : [] } };
+  }
+  if (action.t === 'mission') {
+    const team = s.seats.find((x) => x.id === action.by)?.team;
+    const winners = team ? s.seats.filter((x) => x.team === team).map((x) => x.id) : [action.by];
+    return { ...s, result: { reason: 'mission', winners }, modeData: { ...(s.modeData ?? {}), missionWin: action.id } };
+  }
+  if (action.t === 'buff') {
+    if (action.by !== s.turn) throw new Error('Buffs are used on your own turn');
+    const mod = modulesFor(s).find((m) => m.id === `${action.id}@${action.by}` && m.applyBuff);
+    if (!mod) throw new Error(`No buff ${action.id} for ${action.by}`);
+    const used = (s.modeData?.usedBuffs as Record<string, string[]> | undefined) ?? {};
+    if (used[action.by]?.includes(action.id)) throw new Error('Buff already used');
+    let n = mod.applyBuff!(s, action);
+    n = { ...n, modeData: { ...(n.modeData ?? {}), usedBuffs: { ...used, [action.by]: [...(used[action.by] ?? []), action.id] } } };
+    n = afterMove(n, s);
+    const key = positionKey(n);
+    n = { ...n, positionCounts: { ...s.positionCounts, [key]: (s.positionCounts[key] ?? 0) + 1 } };
+    const result = n.turn === s.turn ? null : detectEnd(n, s, action, s.turn);
+    return result ? { ...n, result } : n;
   }
   if (action.t === 'draw-agreed') {
     return { ...s, result: { reason: 'draw-agreed', winners: [] } };

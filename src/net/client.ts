@@ -1,6 +1,6 @@
 import type { GameRecord } from '../core/record';
 import type { Action, PlayerId } from '../core/types';
-import type { ClientMsg, ClockSetting, ClockState, EmoteId, RoomGame, SeatInfo, ServerMsg } from './protocol';
+import type { ArmyLook, ClientMsg, ClockSetting, ClockState, EmoteId, RoomGame, SeatInfo, ServerMsg } from './protocol';
 
 /**
  * Browser side of online play. Keeps one WebSocket, reconnects with the seat
@@ -119,20 +119,20 @@ class OnlineSession {
     try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
   }
 
-  create(name: string, rating: number, colour: 'p1' | 'p2' | 'random', clock: ClockSetting | null = null, game: RoomGame = 'standard') {
+  create(name: string, rating: number, colour: 'p1' | 'p2' | 'random', clock: ClockSetting | null = null, game: RoomGame = 'standard', look?: ArmyLook) {
     this.forget();
     this.set({ record: null, code: null, seat: null, seats: {}, error: null, clock: null });
-    this.send({ t: 'create', name, rating, colour, clock, game });
+    this.send({ t: 'create', name, rating, colour, clock, game, look });
   }
 
   fillBots() {
     this.send({ t: 'fill-bots' });
   }
 
-  join(code: string, name: string, rating: number) {
+  join(code: string, name: string, rating: number, look?: ArmyLook) {
     this.forget();
     this.set({ record: null, code: null, seat: null, seats: {}, error: null });
-    this.send({ t: 'join', code: code.toUpperCase(), name, rating });
+    this.send({ t: 'join', code: code.toUpperCase(), name, rating, look });
   }
 
   resume() {
@@ -154,6 +154,21 @@ class OnlineSession {
 }
 
 export const online = new OnlineSession();
+
+/**
+ * Everyone's army as they dressed it: each seat that sent a look uses it;
+ * seats without one fall back to this device's own choices.
+ */
+export function roomSkins(snap: OnlineSnapshot, mine: { armies: Record<string, string>; pieces: Record<string, Partial<Record<string, string>>>; badges: boolean }) {
+  const armies = { ...mine.armies };
+  const pieces = { ...mine.pieces };
+  for (const [seat, info] of Object.entries(snap.seats)) {
+    if (!info?.look) continue;
+    armies[seat] = info.look.army;
+    pieces[seat] = info.look.pieces;
+  }
+  return { ...mine, armies, pieces };
+}
 
 /** Milliseconds left for a seat right now, counting down locally between server updates. */
 export function timeLeft(snap: OnlineSnapshot, seat: PlayerId, now = Date.now()): number | null {

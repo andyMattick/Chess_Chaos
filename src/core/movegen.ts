@@ -29,6 +29,7 @@ export function pieceAttacks(s: GameState, p: Piece, target: number): boolean {
   const df = fileOf(b, target) - fileOf(b, p.at);
   const dr = rankOf(b, target) - rankOf(b, p.at);
   for (const m of t.moves) {
+    if ('noCapture' in m && m.noCapture) continue;
     if (m.kind === 'leap') {
       for (const [x, y] of m.offsets) if (step(b, p.at, x, y) === target) return true;
     } else if (m.kind === 'ride') {
@@ -103,7 +104,8 @@ export function pseudoMovesFor(s: GameState, p: Piece, out: MoveAction[] = []): 
     if (m.kind === 'leap') {
       for (const [x, y] of m.offsets) {
         const to = step(b, p.at, x, y);
-        if (to >= 0 && canLandOn(s, p, to)) out.push({ t: 'move', piece: p.id, to });
+        const land = to >= 0 ? canLandOn(s, p, to) : null;
+        if (land && !(m.noCapture && land === 'capture')) out.push({ t: 'move', piece: p.id, to });
       }
     } else if (m.kind === 'ride') {
       for (const [x, y] of m.dirs) {
@@ -112,7 +114,7 @@ export function pseudoMovesFor(s: GameState, p: Piece, out: MoveAction[] = []): 
           sq = step(b, sq, x, y);
           if (sq < 0 || sq === p.at) break;
           const land = canLandOn(s, p, sq);
-          if (land) out.push({ t: 'move', piece: p.id, to: sq });
+          if (land && !(m.noCapture && land === 'capture')) out.push({ t: 'move', piece: p.id, to: sq });
           if (land !== 'empty') break;
         }
       }
@@ -152,7 +154,7 @@ export function castlingMoves(s: GameState, owner: PlayerId, out: MoveAction[] =
     if (k.moved || k.type !== 'king') continue;
     if (isAttackedBy(s, k.at, owner)) continue;
     for (const r of s.pieces) {
-      if (r.at < 0 || r.owner !== owner || r.type !== 'rook' || r.moved) continue;
+      if (r.at < 0 || r.owner !== owner || pieceType(r.type).base !== 'rook' && r.type !== 'rook' || r.moved) continue;
       // Rook must be on the king's lateral line.
       const dfr = fileOf(b, r.at) - fileOf(b, k.at);
       const drr = rankOf(b, r.at) - rankOf(b, k.at);
@@ -213,6 +215,7 @@ export function makeMove(s: GameState, m: MoveAction): GameState {
   }
 
   const victimId = sq[m.to];
+  const capturedType = victimId >= 0 ? pieces[victimId].type : undefined;
   let seats = s.seats;
   if (victimId >= 0) {
     const victim = pieces[victimId];
@@ -222,7 +225,7 @@ export function makeMove(s: GameState, m: MoveAction): GameState {
     if (pieceType(victim.type).royal && !pieces.some((x) => x.at >= 0 && x.owner === victim.owner && pieceType(x.type).royal)) {
       seats = seats.map((x) => (x.id === victim.owner ? { ...x, status: 'eliminated' as const } : x));
     }
-  } else if (p.type === 'pawn' && s.enPassant && s.enPassant.square === m.to) {
+  } else if (pieceType(p.type).moves.some((x) => x.kind === 'pawn') && s.enPassant && s.enPassant.square === m.to) {
     const vid = sq[s.enPassant.victim];
     if (vid >= 0) {
       pieces[vid] = { ...pieces[vid], at: -1 };
@@ -231,7 +234,7 @@ export function makeMove(s: GameState, m: MoveAction): GameState {
     }
   }
 
-  if (p.type === 'pawn') {
+  if (pieceType(p.type).moves.some((x) => x.kind === 'pawn')) {
     const seat = seatOf(s, p.owner);
     const [fx, fy] = seat.forward;
     const one = step(b, from, fx, fy);
@@ -248,9 +251,10 @@ export function makeMove(s: GameState, m: MoveAction): GameState {
     pieces,
     sq,
     enPassant: ep,
-    halfmoveClock: capture || p.type === 'pawn' ? 0 : s.halfmoveClock + 1,
+    halfmoveClock: capture || pieceType(p.type).base === 'pawn' || p.type === 'pawn' ? 0 : s.halfmoveClock + 1,
     ply: s.ply + 1,
     turn: nextSeat(next, p.owner),
+    last: { piece: p.id, type: p.type, by: p.owner, from, to: m.to, captured: capturedType },
   };
 }
 

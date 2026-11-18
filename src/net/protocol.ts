@@ -18,7 +18,24 @@ export const EMOTES = [
 ] as const;
 export type EmoteId = (typeof EMOTES)[number]['id'];
 
+/** How a player's army looks (their Wardrobe choice), shown to everyone in the room. */
+export interface ArmyLook {
+  army: string;
+  pieces: Record<string, string>;
+}
+
+const SKIN_ID = /^[a-z]{2,12}$/;
+const PIECE_ID = /^(king|queen|rook|bishop|knight|pawn)$/;
+export function cleanLook(raw: unknown): ArmyLook | undefined {
+  const l = raw as ArmyLook | undefined;
+  if (!l || typeof l.army !== 'string' || !SKIN_ID.test(l.army)) return undefined;
+  const pieces: Record<string, string> = {};
+  for (const [k, v] of Object.entries(l.pieces ?? {})) if (PIECE_ID.test(k) && typeof v === 'string' && SKIN_ID.test(v)) pieces[k] = v;
+  return { army: l.army, pieces };
+}
+
 export interface SeatInfo {
+  look?: ArmyLook;
   name: string;
   rating: number;
   connected: boolean;
@@ -57,9 +74,9 @@ export const ROOM_GAMES: { id: RoomGame; label: string; seats: number; blurb: st
 ];
 
 export type ClientMsg =
-  | { t: 'create'; name: string; rating: number; colour: 'p1' | 'p2' | 'random'; clock?: ClockSetting | null; game?: RoomGame }
+  | { t: 'create'; name: string; rating: number; colour: 'p1' | 'p2' | 'random'; clock?: ClockSetting | null; game?: RoomGame; look?: ArmyLook }
   | { t: 'fill-bots' }
-  | { t: 'join'; code: string; name: string; rating: number }
+  | { t: 'join'; code: string; name: string; rating: number; look?: ArmyLook }
   | { t: 'rejoin'; code: string; token: string }
   | { t: 'action'; action: Action }
   | { t: 'emote'; id: EmoteId }
