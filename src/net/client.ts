@@ -1,3 +1,4 @@
+import type { SkinChoice, SkinId } from '../content/cosmetics';
 import type { GameRecord } from '../core/record';
 import type { Action, PlayerId } from '../core/types';
 import type { ArmyLook, ClientMsg, ClockSetting, ClockState, EmoteId, RoomGame, SeatInfo, ServerMsg } from './protocol';
@@ -161,13 +162,13 @@ export const online = new OnlineSession();
  * Everyone's army as they dressed it: each seat that sent a look uses it;
  * seats without one fall back to this device's own choices.
  */
-export function roomSkins(snap: OnlineSnapshot, mine: { armies: Record<string, string>; pieces: Record<string, Partial<Record<string, string>>>; badges: boolean }) {
+export function roomSkins(snap: OnlineSnapshot, mine: SkinChoice): SkinChoice {
   const armies = { ...mine.armies };
   const pieces = { ...mine.pieces };
   for (const [seat, info] of Object.entries(snap.seats)) {
     if (!info?.look) continue;
-    armies[seat] = info.look.army;
-    pieces[seat] = info.look.pieces;
+    armies[seat] = info.look.army as SkinId;
+    pieces[seat] = info.look.pieces as Partial<Record<string, SkinId>>;
   }
   return { ...mine, armies, pieces };
 }

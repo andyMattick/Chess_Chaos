@@ -50,7 +50,7 @@ export function App() {
     <main className="app">
       {screen.name === 'home' && (
         <Home
-          go={(s) => setScreen(s === 'online' ? { name: 'online' } : { name: s })}
+          go={(s) => setScreen((s === 'online' ? { name: 'online' } : { name: s }) as Screen)}
         />
       )}
       {screen.name === 'profiles' && <Profiles done={() => (linkCode ? setScreen({ name: 'online', code: linkCode }) : home())} />}
