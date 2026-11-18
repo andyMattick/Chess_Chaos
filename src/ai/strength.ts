@@ -44,7 +44,7 @@ export interface ChooseOptions {
 
 export interface Choice {
   move: MoveAction;
-  source: 'book' | 'search' | 'weak' | 'forced';
+  source: 'book' | 'search' | 'weak' | 'forced' | 'undo-mission';
 }
 
 export function chooseMove(s: GameState, opts: ChooseOptions): Choice | null {
