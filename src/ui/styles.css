@@ -366,11 +366,11 @@ body[data-land='space'] .player-bar:not(.active) .prating, body[data-land='volca
 /* Bot path */
 .path { position: relative; display: grid; gap: 6px; padding: 10px 0 20px; }
 .path-node { display: flex; align-items: center; gap: 12px; width: min(100%, 520px); }
-.path-node:nth-child(4n + 1) { margin-left: 0; }
-.path-node:nth-child(4n + 2) { margin-left: 18%; }
-.path-node:nth-child(4n + 3) { margin-left: 36%; }
-.path-node:nth-child(4n) { margin-left: 18%; }
-@media (max-width: 640px) { .path-node:nth-child(n) { margin-left: 0; } .path-node:nth-child(even) { margin-left: 12%; } }
+.path > div:nth-child(4n + 2), .path > div:nth-child(4n) { padding-left: 16%; }
+.path > div:nth-child(4n + 3) { padding-left: 32%; }
+.path > div:nth-child(odd) .path-stop { transform: rotate(-6deg); }
+.path > div:nth-child(even) .path-stop { transform: rotate(5deg); }
+@media (max-width: 640px) { .path > div:nth-child(n) { padding-left: 0; } .path > div:nth-child(even) { padding-left: 14%; } }
 .path-stop {
   flex: none; width: 76px; height: 76px; border-radius: 50% 45% 52% 48%; border: 3.5px solid var(--ink); display: grid; place-items: center; font-size: 2.3rem;
   background: color-mix(in srgb, var(--c) 40%, white); box-shadow: 4px 5px 0 var(--ink); position: relative;
@@ -380,4 +380,4 @@ body[data-land='space'] .player-bar:not(.active) .prating, body[data-land='volca
 .path-stop.next { animation: pulse 1.2s ease-in-out infinite; }
 .path-info { display: grid; text-align: left; background: none; border: none; padding: 0; }
 .path-info b { font-family: var(--hand); font-size: 1.2rem; }
-.path-dash { width: 3px; height: 14px; border-left: 4px dashed rgba(36, 31, 51, 0.35); margin-left: 36px; }
+.path-dash { width: 3px; height: 18px; border-left: 4px dashed rgba(36, 31, 51, 0.35); transform: rotate(-20deg); }

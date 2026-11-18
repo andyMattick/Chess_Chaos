@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { BOTS, type Bot } from '../content/bots';
+import { type Bot } from '../content/bots';
+import { PATH, unlockedCount } from '../systems/coins';
 import type { GameRecord } from '../core/record';
 import { activeProfile, newProfile, update, upsertProfile, type Profile } from '../storage/storage';
 import { useSave } from './store';
@@ -44,7 +45,7 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
         <button className="big" style={{ ['--c' as string]: '#5bd17a' }} onClick={() => go('bots')} disabled={!p}>
           <span className="big-emoji">🤖</span>
           <span className="big-title">Play the bots</span>
-          <span className="big-sub">18 bots, each with its own opening</span>
+          <span className="big-sub">A path of 18 bots. Beat one to open the next</span>
         </button>
         <button className="big" style={{ ['--c' as string]: '#4aa8ff' }} onClick={() => go('online')} disabled={!p}>
           <span className="big-emoji">🌐</span>
@@ -162,21 +163,33 @@ export function BotRoster({ start, back }: { start: (c: GameConfig) => void; bac
       </div>
     );
   }
+  const unlocked = unlockedCount(p?.botRecords ?? {});
+  const nextIdx = PATH.findIndex((b, i) => i < unlocked && !(p?.botRecords[b.id]?.w));
   return (
-    <div className="panel wide">
-      <h2>Pick a bot</h2>
-      <p className="muted">Each bot plays its own favourite opening. Your rating: ★ {p?.rating}</p>
-      <div className="bot-grid">
-        {BOTS.map((b) => {
+    <div className="panel wide taped">
+      <h2>The Bot Path <span className="scribble">beat one to open the next</span></h2>
+      <p className="muted">After its favourite opening, each bot plays with the game's own chess engine at its own strength. Your rating: ★ {p?.rating} · 🪙 first win against a bot pays 25 extra coins.</p>
+      <div className="path">
+        {PATH.map((b, i) => {
           const r = p?.botRecords[b.id];
+          const open = i < unlocked;
           return (
-            <button key={b.id} className="bot-card" style={{ ['--c' as string]: b.colour }} onClick={() => setChosen(b)}>
-              <span className="bot-emoji">{b.emoji}</span>
-              <b>{b.name}</b>
-              <span className="bot-rating">★ {b.rating}</span>
-              <span className="bot-opening">{b.opening}</span>
-              {r && <span className="bot-record">W {r.w} · L {r.l} · D {r.d}</span>}
-            </button>
+            <div key={b.id}>
+              {i > 0 && <div className="path-dash" style={{ marginLeft: 36 }} />}
+              <div className="path-node">
+                <button
+                  className={`path-stop ${open ? '' : 'locked'} ${r?.w ? 'beaten' : ''} ${i === nextIdx ? 'next' : ''}`}
+                  style={{ ['--c' as string]: b.colour }} disabled={!open} onClick={() => setChosen(b)} aria-label={`${b.name}${open ? '' : ' (locked)'}`}
+                >
+                  {open ? b.emoji : '🔒'}
+                </button>
+                <button className="path-info" disabled={!open} onClick={() => setChosen(b)}>
+                  <b>{open ? b.name : '???'} <span className="bot-rating">★ {b.rating}</span></b>
+                  <span className="bot-opening">{open ? b.opening : 'Beat the bot before to unlock'}</span>
+                  {r && <span className="bot-record">W {r.w} · L {r.l} · D {r.d}</span>}
+                </button>
+              </div>
+            </div>
           );
         })}
       </div>
