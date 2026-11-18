@@ -628,3 +628,7 @@ body[data-calm] .board-wrap.nudge::before { animation: none !important; }
 .rank-btn { flex: none; width: 28px; height: 26px; padding: 0; font-size: 0.8rem; }
 .rank-label { flex: 1; min-width: 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 640px) { .rank-label { font-size: 0.72rem; } }
+.goal-list-live { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; }
+.goal-list-live .goal { margin: 0; padding: 4px 10px; font-size: 0.95rem; }
+.goal-list-live .goal.now { background: #fff3b8; }
+.result-goals { text-align: left; margin: 6px 0; }

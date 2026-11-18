@@ -24,7 +24,7 @@ import { requestAnalysis, requestReview } from '../ai/client';
 import type { ReviewResult } from '../systems/review';
 import { mergeMiss } from '../systems/review';
 import { sameMove } from '../core/rules';
-import { useTraining, type TrainingConfig } from './training';
+import { GoalList, useTraining, type TrainingConfig } from './training';
 import { alertMode, chooseAlert } from '../systems/alerts';
 import { EASY_GOALS, type EasyGoalId } from '../tactics/missions';
 import { usePartyLayer } from './partyLayer';
@@ -580,6 +580,12 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
                 </div>
               )}
               {!ratingChange && forFun && <p className="rating-change">🚲 Played for fun: your rating stays the same.</p>}
+              {trainingCfg && !reviewRecord && (
+                <div className="result-goals">
+                  <b>🎯 Goals: {training.goalsDone.length} of {trainingCfg.goals.length}</b>
+                  <GoalList goals={trainingCfg.goals} done={training.goalsDone} current={undefined} />
+                </div>
+              )}
               {newCards.length > 0 && (
                 <div className="new-cards" aria-label="New power cards">
                   <b>🃏 New card{newCards.length > 1 ? 's' : ''}!</b>

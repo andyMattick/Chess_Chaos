@@ -244,11 +244,7 @@ export function useTraining({ cfg, live, states, actions, me, isMyTurn, selected
         </button>
       )}
       {id === 'ALERT-06' && <div className="legend"><span style={{ background: '#ff2d2d', color: '#fff' }}>hot</span><span style={{ background: '#ff9a2d' }}>warm</span><span style={{ background: '#7ec8ff' }}>cool</span><span style={{ background: '#2f5bff', color: '#fff' }}>cold</span></div>}
-      {cfg && (
-        <div className={`goal ${nextGoal ? '' : 'done'}`} style={{ marginTop: 8 }}>
-          {nextGoal ? <>🎯 {GOAL_TEXT[nextGoal].title}<small>{GOAL_TEXT[nextGoal].hint}</small></> : <>🎯 All goals done! ({goalsDone.length})</>}
-        </div>
-      )}
+      {cfg && <GoalList goals={cfg.goals} done={goalsDone} current={nextGoal} />}
     </div>
   ) : null;
 
@@ -265,4 +261,22 @@ export function useTraining({ cfg, live, states, actions, me, isMyTurn, selected
     goalsDone,
     hintsUsed: (cfg?.mode.uses ?? 0) - usesLeft,
   };
+}
+
+/** All three goals: done ones ticked, the one to go for now highlighted. */
+export function GoalList({ goals, done, current }: { goals: EasyGoalId[]; done: EasyGoalId[]; current?: EasyGoalId }) {
+  return (
+    <ol className="goal-list-live" aria-label="Your goals">
+      {goals.map((g) => {
+        const isDone = done.includes(g);
+        return (
+          <li key={g} className={`goal ${isDone ? 'done' : ''} ${g === current ? 'now' : ''}`}>
+            {isDone ? '✅' : g === current ? '🎯' : '⬜'} {GOAL_TEXT[g].title}
+            {!isDone && g === current && <small>{GOAL_TEXT[g].hint}</small>}
+          </li>
+        );
+      })}
+      {!current && done.length >= goals.length && <li className="goal done">🎉 All goals done!</li>}
+    </ol>
+  );
 }
