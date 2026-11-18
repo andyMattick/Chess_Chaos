@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { authToken, handleBox, handleVault, memoryBoxes, newSaveKey, playerExists, verifyPlayer, vaultRoute } from '../src/net/vault';
 import { handleWorld, memoryWorld, maskNumber, MAIL_TIMEOUT_MS, BOARD_TOP, type MailGame } from '../src/net/world';
-import { parseSAN, replay } from '../src/core';
+import { legalActions, parseSAN, replay } from '../src/core';
 
 /** A little server like server/dev-bun.ts. */
 function server() {
@@ -179,3 +179,80 @@ describe('what everyone likes', () => {
     expect(r.modes.some((m: { mode: string }) => m.mode === 'bad mode!')).toBe(false);
   });
 });
+
+describe('tournament bots', () => {
+  const pip = { kind: 'bot', botId: 'BOT-01', rating: 400 };
+  const mirror = { kind: 'mirror', rating: 700, asWhite: [{ line: 'e4 e5 Nf3', weight: 2 }], asBlack: [{ line: 'e4 c5', weight: 1 }] };
+  it('fills seats with bots; you play your bot game, and send its moves too', async () => {
+    const sv = server();
+    const a = await sv.player(), b = await sv.player();
+    const made = await a.call('POST', '/tournaments', { players: [b.number], game: 'standard', rating: 800, bots: [mirror, pip] });
+    expect(made.status).toBe(201);
+    const t0 = (await made.json()).tournament;
+    expect(t0.players).toEqual([a.number, b.number, 'bot-1', 'bot-2']);
+    expect(t0.joined).toContain('bot-2');
+    expect(t0.status).toBe('invited'); // still waiting for the friend
+    const t1 = (await (await b.call('POST', `/tournaments/${t0.id}/join`, { rating: 700 })).json()).tournament;
+    expect(t1.status).toBe('running');
+    expect(t1.bots['bot-1'].asWhite[0].line).toBe('e4 e5 Nf3');
+    // Find a game with a bot in it and play both sides.
+    const r = t1.rounds[0];
+    for (let k = 0; k < r.pairs.length; k++) {
+      const [x, y] = r.pairs[k];
+      const human = [a, b].find((p) => p.number === x || p.number === y);
+      const botIn = [x, y].some((n: string) => n.startsWith('bot-'));
+      if (!human || !botIn || !r.games[k]) continue;
+      const g = (await (await human.call('GET', `/games/${r.games[k]}`)).json()).game as MailGame;
+      const s0 = replay(g.record).at(-1)!;
+      const m = legalActions(s0)[0];
+      expect((await human.call('POST', `/games/${g.id}/move`, { action: m, ply: 0 })).status).toBe(200); // whoever is to move
+      const s1 = replay((await (await human.call('GET', `/games/${g.id}`)).json()).game.record).at(-1)!;
+      expect((await human.call('POST', `/games/${g.id}/move`, { action: legalActions(s1)[0], ply: 1 })).status).toBe(200);
+      // The bot game is in the human's list only.
+      expect(((await (await human.call('GET', '/games')).json()).games as MailGame[]).some((z) => z.id === g.id)).toBe(true);
+    }
+  });
+  it('you against one bot: a game you play on your phone, both sides; strangers cannot move in it', async () => {
+    const sv = server();
+    const a = await sv.player(), c = await sv.player();
+    const t = (await (await a.call('POST', '/tournaments', { players: [], bots: [pip] })).json()).tournament;
+    expect(t.status).toBe('running');
+    const gid = t.rounds[0].games[0];
+    let g = (await (await a.call('GET', `/games/${gid}`)).json()).game as MailGame;
+    for (let ply = 0; ply < 4; ply++) {
+      const s = replay(g.record).at(-1)!;
+      const res = await a.call('POST', `/games/${gid}/move`, { action: legalActions(s)[0], ply });
+      expect(res.status).toBe(200);
+      g = (await res.json()).game;
+    }
+    expect(g.record.actions.length).toBe(4);
+    expect((await c.call('POST', `/games/${gid}/move`, { action: legalActions(replay(g.record).at(-1)!)[0], ply: 4 })).status).toBe(404);
+    // Losing to the bot ends the tournament with the bot as champion.
+    const mySeat = g.players.p1 === a.number ? 'p1' : 'p2';
+    await a.call('POST', `/games/${gid}/resign`);
+    const done = (await (await a.call('GET', `/tournaments/${t.id}`)).json()).tournament;
+    expect(done.status).toBe('done');
+    expect(done.winner).toBe(g.players[mySeat === 'p1' ? 'p2' : 'p1']);
+  });
+  it('only bots: starts at once; two bots meeting are settled by a roll', async () => {
+    const sv = server();
+    const a = await sv.player();
+    const made = await a.call('POST', '/tournaments', { players: [], game: 'standard', bots: [pip, mirror, { kind: 'nemesis', name: 'hikaru', rating: 1400, asWhite: [], asBlack: [] }] });
+    const t = (await made.json()).tournament;
+    expect(t.status).toBe('running');
+    const r = t.rounds[0];
+    expect(r.pairs.length).toBe(2);
+    r.pairs.forEach(([x, y]: [string, string | null], k: number) => {
+      if (y && x.startsWith('bot-') && y.startsWith('bot-')) { expect(r.games[k]).toBeNull(); expect([x, y]).toContain(r.winners[k]); }
+    });
+  });
+  it('refuses bad bots and too many seats', async () => {
+    const sv = server();
+    const a = await sv.player();
+    expect((await a.call('POST', '/tournaments', { players: [], bots: [{ kind: 'bot', botId: 'nope' }] })).status).toBe(400);
+    expect((await a.call('POST', '/tournaments', { players: [], bots: [{ kind: 'nemesis', name: 'a b<script>' }] })).status).toBe(400);
+    expect((await a.call('POST', '/tournaments', { players: [], bots: Array(8).fill(pip) })).status).toBe(400);
+    expect((await a.call('POST', '/tournaments', { players: [] })).status).toBe(400);
+  });
+});
+

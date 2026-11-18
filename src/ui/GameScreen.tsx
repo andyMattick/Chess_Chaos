@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { requestMove } from '../ai/client';
-import { botById } from '../content/bots';
+import { botById, type Bot } from '../content/bots';
 import { addMyLine, buildMirror, learnFromGame, myLineFrom, nemesisBot, MIRROR_KEY, NEMESIS_PREFIX } from '../systems/nemesis';
 import { STANDARD_FEN } from '../core/setup';
 import { skinFor } from '../content/cosmetics';
@@ -56,6 +56,8 @@ export interface GameConfig {
   mini?: { id: string; level: number };
   /** Challenge game by player number, played a move at a time (src/net/world.ts). */
   mail?: { id: string; game: MailGame };
+  /** A tournament game against a bot: this phone plays the bot's moves and sends them. */
+  mailBot?: Bot;
   /** Game mode for new games (koth, hill-wars…). Default classic. */
   mode?: string;
   /** Mode setup choices (boss side, drafted armies, survival position). */
@@ -116,10 +118,10 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   const skinsNow = isOnline ? roomSkins(net, lookOf(save).skins) : lookOf(save).skins;
   const nemesis = config.botId === `${NEMESIS_PREFIX}${MIRROR_KEY}` ? activeProfile(save)?.mirror : config.botId?.startsWith(NEMESIS_PREFIX) ? activeProfile(save)?.nemeses?.find((n) => `${NEMESIS_PREFIX}${n.key}` === config.botId) : undefined;
   // Memoised: the bot-move effect depends on it, so it must keep its identity between renders.
-  const bot = useMemo(() => (config.botId ? botById(config.botId) ?? (nemesis ? nemesisBot(nemesis) : undefined) : undefined), [config.botId, nemesis?.builtAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  const bot = useMemo(() => config.mailBot ?? (config.botId ? botById(config.botId) ?? (nemesis ? nemesisBot(nemesis) : undefined) : undefined), [config.botId, config.mailBot, nemesis?.builtAt]); // eslint-disable-line react-hooks/exhaustive-deps
   const isMail = config.kind === 'mail' && !!config.mail;
   const me: PlayerId = isOnline ? net.seat ?? 'p1' : config.humanSeat;
-  const botSeat: PlayerId | null = config.kind === 'bot' ? other(config.humanSeat) : null;
+  const botSeat: PlayerId | null = config.kind === 'bot' || (isMail && config.mailBot) ? other(config.humanSeat) : null;
 
   const [localRec, setLocalRec] = useState<GameRecord>(() => {
     if (reviewRecord) return reviewRecord;
@@ -160,17 +162,19 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
 
   // Challenge games: show the move at once, then the server's answer is the truth.
   const [mailNote, setMailNote] = useState<string | null>(null);
+  // Sent one after another (against a bot, your move and its answer go close together).
+  const mailQueue = useRef<Promise<unknown>>(Promise.resolve());
   function sendMail(a: Action) {
     const id = config.mail!.id;
     const ply = localRec.actions.length;
     setLocalRec((r) => ({ ...r, actions: [...r.actions, a] }));
     setMailNote(null);
-    (a.t === 'resign' ? resignMail(id) : sendMailMove(id, a, ply))
-      .then((g) => setLocalRec(g.record))
+    mailQueue.current = mailQueue.current.then(() => (a.t === 'resign' ? resignMail(id) : sendMailMove(id, a, ply))
+      .then((g) => setLocalRec((r) => (g.record.actions.length >= r.actions.length || a.t === 'resign' ? g.record : r)))
       .catch((e) => {
         setMailNote(`${(e as Error).message} Your move was not sent.`);
         getGame(id).then((g) => setLocalRec(g.record)).catch(() => setLocalRec((r) => ({ ...r, actions: r.actions.slice(0, ply) })));
-      });
+      }));
   }
   // Look for the other player's move now and then.
   useEffect(() => {
@@ -357,11 +361,11 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     setThinking(true);
     // Your missions: the bot tries to undo a shown one, or block an open one (weaker bots sometimes miss).
     const undo = partySetup && Math.random() >= strengthFor(bot?.rating ?? 800).weakChance ? defenceMoves(states, rec.actions, partySetup, botSeat) : [];
-    requestMove(live, bot?.rating ?? 800, nemesis && bot ? { id: bot.id, asWhite: bot.asWhite, asBlack: bot.asBlack } : bot?.id, 450, undo.length ? undo : undefined).then((m) => {
+    requestMove(live, bot?.rating ?? 800, (nemesis || bot?.id.startsWith(NEMESIS_PREFIX)) && bot ? { id: bot.id, asWhite: bot.asWhite, asBlack: bot.asBlack } : bot?.id, 450, undo.length ? undo : undefined).then((m) => {
       if (cancelled || !m) return;
       setThinking(false);
       if (live.sq[m.to] >= 0 && bot && Math.random() < 0.5) setSpeech({ seat: botSeat, text: pick(bot.lines.capture) });
-      setLocalRec((r) => ({ ...r, actions: [...r.actions, m] }));
+      push(m);
     });
     return () => { cancelled = true; setThinking(false); };
   }, [live, botSeat, bot, reviewing]);
@@ -499,7 +503,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   }, [live.result]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function undo() {
-    if (!rec.actions.length || live.result || isOnline) return;
+    if (!rec.actions.length || live.result || isOnline || isMail) return;
     let n = rec.actions.length - 1;
     if (botSeat) {
       while (n > 0 && states[n].turn !== config.humanSeat) n--;
@@ -570,7 +574,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
         <div className="banner-slot">
             {party.banner && !live.result && <div className="banner pink">{party.banner}</div>}
             {isMail && mailNote && <div className="banner pink">{mailNote}</div>}
-            {isMail && !live.result && !reviewing && live.turn !== me && <div className="banner">📬 Their move. You can leave: it will be here when they play.</div>}
+            {isMail && !botSeat && !live.result && !reviewing && live.turn !== me && <div className="banner">📬 Their move. You can leave: it will be here when they play.</div>}
             {training.banner && !reviewing && !live.result && <div className={`banner ${training.banner.tone ?? ''}`}>{training.banner.text}</div>}
             {retrying && fix && (
               <div className={`banner ${retry!.solved ? '' : 'blue'}`}>

@@ -6,7 +6,8 @@ import { replay } from '../core/record';
 import { vaultBase } from '../storage/cloud';
 import { activeProfile } from '../storage/storage';
 import { addFriend, answerChallenge, challenge, createTournament, labelFor, myGames, myTournaments, nameNumber, removeFriend, tournamentAction, type Tournament } from '../storage/world';
-import { TOURNAMENT_MAX } from '../net/world';
+import { isBotSeat, TOURNAMENT_MAX } from '../net/world';
+import { botForSeat, seatBotLabel, tournamentBots } from '../systems/tournamentBots';
 import { showNumber as fmt } from '../net/vault';
 import { CloudSaveCard } from './CloudSave';
 import { StatsLine, useWorldBoard } from './FriendStats';
@@ -34,6 +35,8 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
   const [tours, setTours] = useState<Tournament[]>([]);
   const [tPick, setTPick] = useState<string[]>([]);
   const [tGame, setTGame] = useState<RoomGame>('standard');
+  /** Bots wanted (null: fill every empty seat). */
+  const [tBotsWanted, setTBotsWanted] = useState<number | null>(null);
   const number = p?.cloud?.number;
   const { board } = useWorldBoard();
 
@@ -61,11 +64,26 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
   const mySeat = (g: MailGame) => (g.players.p1 === number ? 'p1' : 'p2') as 'p1' | 'p2';
   const otherNo = (g: MailGame) => g.players[mySeat(g) === 'p1' ? 'p2' : 'p1'];
   const label = (n: string) => labelFor(p, n);
+  /** A seat in a tournament: a friend, you, or one of the organizer's bots. */
+  const seatName = (n: string, tid?: string) => {
+    if (!isBotSeat(n)) return n === number ? 'You' : label(n);
+    const t = tours.find((x) => x.id === tid);
+    const tb = t?.bots?.[n];
+    return tb && t ? seatBotLabel(tb, t.organizer === number ? 'You' : label(t.organizer)) : '🤖 Bot';
+  };
+  const botOf = (g: MailGame) => {
+    const seat = g.players[mySeat(g) === 'p1' ? 'p2' : 'p1'];
+    const t = tours.find((x) => x.id === g.tournament);
+    const tb = t?.bots?.[seat];
+    return isBotSeat(seat) && tb && t ? botForSeat(t.id, seat, tb, t.organizer === number ? 'You' : label(t.organizer)) : undefined;
+  };
   const turnOf = (g: MailGame) => replay(g.record).at(-1)!.turn;
   const open = (g: MailGame) => {
     const me = mySeat(g);
-    const names = { p1: me === 'p1' ? p.nickname : label(g.players.p1), p2: me === 'p2' ? p.nickname : label(g.players.p2) };
-    play({ kind: 'mail', mail: { id: g.id, game: g }, humanSeat: me, names, mode: g.record.setup.mode });
+    const mailBot = botOf(g);
+    const them = (n: string) => mailBot?.name ?? label(n);
+    const names = { p1: me === 'p1' ? p.nickname : them(g.players.p1), p2: me === 'p2' ? p.nickname : them(g.players.p2) };
+    play({ kind: 'mail', mail: { id: g.id, game: g }, humanSeat: me, names, mode: g.record.setup.mode, mailBot });
   };
   const send = () => {
     setBusy(true); setErr(null);
@@ -77,8 +95,10 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
   const act = (g: MailGame, a: 'accept' | 'decline' | 'cancel') => answerChallenge(g.id, a).then((x) => (a === 'accept' ? open(x) : refresh())).catch((e) => setErr((e as Error).message));
 
   const list = games ?? [];
-  const myTurn = list.filter((g) => g.status === 'playing' && turnOf(g) === mySeat(g));
-  const theirTurn = list.filter((g) => g.status === 'playing' && turnOf(g) !== mySeat(g));
+  // Against a bot it is always your move: your phone plays the bot.
+  const vsBot = (g: MailGame) => isBotSeat(otherNo(g));
+  const myTurn = list.filter((g) => g.status === 'playing' && (turnOf(g) === mySeat(g) || vsBot(g)));
+  const theirTurn = list.filter((g) => g.status === 'playing' && turnOf(g) !== mySeat(g) && !vsBot(g));
   const forMe = list.filter((g) => g.status === 'invited' && g.from !== number);
   const sent = list.filter((g) => g.status === 'invited' && g.from === number);
   const finished = list.filter((g) => ['done', 'declined', 'expired'].includes(g.status)).slice(0, 10);
@@ -91,6 +111,7 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
   };
   const who = (g: MailGame) => {
     const n = otherNo(g);
+    if (isBotSeat(n)) return <span><b>{seatName(n, g.tournament)}</b></span>;
     return naming === n ? (
       <span className="row">
         <input aria-label="Name for this player" autoFocus value={nameText} maxLength={16} placeholder="A name only you see" onChange={(e) => setNameText(e.target.value)} />
@@ -160,21 +181,36 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
       </div>
 
       <h3>🏆 Tournaments <span className="scribble">knockout, a move at a time</span></h3>
-      {tours.map((t) => <TournamentCard key={t.id} t={t} me={number} label={label} games={list} open={open} act={(a) => tournamentAction(t.id, a).then(refresh).catch((e) => setErr((e as Error).message))} />)}
-      {(p.friends ?? []).length > 0 ? (
-        <div className="mail-form">
-          <small className="muted">Pick up to {TOURNAMENT_MAX - 1} friends and a mode. Each round is a challenge game; win to go through. A draw: the player with Black goes through.</small>
-          <div className="clock-chips">
-            {(p.friends ?? []).map((n) => (
-              <button key={n} className={`chip ${tPick.includes(n) ? 'on' : ''}`} onClick={() => setTPick(tPick.includes(n) ? tPick.filter((x) => x !== n) : tPick.length < TOURNAMENT_MAX - 1 ? [...tPick, n] : tPick)}>{tPick.includes(n) ? '✅ ' : ''}{label(n)}</button>
-            ))}
+      {tours.map((t) => <TournamentCard key={t.id} t={t} me={number} label={(n) => seatName(n, t.id)} games={list} open={open} act={(a) => tournamentAction(t.id, a).then(refresh).catch((e) => setErr((e as Error).message))} />)}
+      {(() => {
+        const free = TOURNAMENT_MAX - 1 - tPick.length;
+        const nBots = Math.max(0, Math.min(free, tBotsWanted ?? free));
+        const bots = tournamentBots(p, nBots);
+        const shown = (b: (typeof bots)[number]) => seatBotLabel(b, 'You');
+        return (
+          <div className="mail-form">
+            <small className="muted">Pick friends and a mode. Bots fill the empty seats. Each round is a challenge game; win to go through. A draw: the player with Black goes through.</small>
+            {(p.friends ?? []).length > 0 && (
+              <div className="clock-chips">
+                {(p.friends ?? []).map((n) => (
+                  <button key={n} className={`chip ${tPick.includes(n) ? 'on' : ''}`} onClick={() => setTPick(tPick.includes(n) ? tPick.filter((x) => x !== n) : tPick.length < TOURNAMENT_MAX - 1 ? [...tPick, n] : tPick)}>{tPick.includes(n) ? '✅ ' : ''}{label(n)}</button>
+                ))}
+              </div>
+            )}
+            <div className="row wrap">
+              <span className="small">🤖 Bots: <b>{nBots}</b></span>
+              <button className="btn small" aria-label="Fewer bots" disabled={nBots === 0} onClick={() => setTBotsWanted(nBots - 1)}>−</button>
+              <button className="btn small" aria-label="More bots" disabled={nBots >= free} onClick={() => setTBotsWanted(nBots + 1)}>+</button>
+            </div>
+            {bots.length > 0 && <small className="muted">{bots.map(shown).join(' · ')}</small>}
+            {bots.length > 0 && <small className="muted">You play your bot games on your phone, any time. Two bots meeting: a quick roll, the stronger bot is more likely to win.</small>}
+            <select aria-label="Tournament game" value={tGame} onChange={(e) => setTGame(e.target.value as RoomGame)}>
+              {MAIL_GAMES.map((id) => <option key={id} value={id}>{ROOM_GAMES.find((x) => x.id === id)?.label ?? id}</option>)}
+            </select>
+            <button className="btn primary" disabled={tPick.length + bots.length < 1 || busy} onClick={() => { setBusy(true); createTournament(tPick, tGame, bots).then(() => { setTPick([]); setTBotsWanted(null); return refresh(); }).catch((e) => setErr((e as Error).message)).finally(() => setBusy(false)); }}>🏆 Start a tournament ({tPick.length + bots.length + 1} players)</button>
           </div>
-          <select aria-label="Tournament game" value={tGame} onChange={(e) => setTGame(e.target.value as RoomGame)}>
-            {MAIL_GAMES.map((id) => <option key={id} value={id}>{ROOM_GAMES.find((x) => x.id === id)?.label ?? id}</option>)}
-          </select>
-          <button className="btn primary" disabled={!tPick.length || busy} onClick={() => { setBusy(true); createTournament(tPick, tGame).then(() => { setTPick([]); return refresh(); }).catch((e) => setErr((e as Error).message)).finally(() => setBusy(false)); }}>🏆 Start a tournament ({tPick.length + 1} players)</button>
-        </div>
-      ) : <p className="muted small">Add friends above to start a tournament.</p>}
+        );
+      })()}
 
       <h3>⚔️ Challenge a friend</h3>
       {(p.friends ?? []).length > 0 && (
@@ -215,7 +251,7 @@ function TournamentCard({ t, me, label, games, open, act }: { t: Tournament; me:
   const myGame = t.status === 'running' ? games.find((g) => g.tournament === t.id && g.status === 'playing') : undefined;
   return (
     <div className="tour-card">
-      <b>🏆 {mode} Cup</b> <small className="muted">by {who(t.organizer)} · {t.players.length} invited</small>
+      <b>🏆 {mode} Cup</b> <small className="muted">by {who(t.organizer)} · {t.players.length} players</small>
       {t.status === 'invited' && (
         <>
           <p className="small">Joined: {t.joined.map(who).join(', ')}{t.declined.length ? ` · said no: ${t.declined.map(who).join(', ')}` : ''}</p>
@@ -236,6 +272,7 @@ function TournamentCard({ t, me, label, games, open, act }: { t: Tournament; me:
                   <span className={r.winners[k] === a ? 'won' : ''}>{who(a)}</span>
                   <span className="muted"> vs </span>
                   <span className={r.winners[k] === b ? 'won' : ''}>{who(b)}</span>
+                  {b && !r.games[k] && isBotSeat(a) && isBotSeat(b) && <span className="muted"> 🎲</span>}
                 </div>
               ))}
             </div>

@@ -1,5 +1,5 @@
 import { authToken } from '../net/vault';
-import type { MailGame, Tournament } from '../net/world';
+import type { MailGame, Tournament, TournamentBot } from '../net/world';
 export type { Tournament };
 import type { RoomGame } from '../net/protocol';
 import type { Action } from '../core/types';
@@ -132,9 +132,9 @@ export async function myTournaments(): Promise<Tournament[]> {
   return (await answer<{ tournaments: Tournament[] }>(await call(p, 'GET', '/tournaments'))).tournaments;
 }
 
-export async function createTournament(players: string[], game: RoomGame): Promise<Tournament> {
+export async function createTournament(players: string[], game: RoomGame, bots: TournamentBot[] = []): Promise<Tournament> {
   const p = activeProfile()!;
-  return (await answer<{ tournament: Tournament }>(await call(p, 'POST', '/tournaments', { players, game, rating: p.rating }))).tournament;
+  return (await answer<{ tournament: Tournament }>(await call(p, 'POST', '/tournaments', { players, game, rating: p.rating, bots }))).tournament;
 }
 
 export async function tournamentAction(id: string, act: 'join' | 'decline' | 'start' | 'cancel'): Promise<Tournament> {

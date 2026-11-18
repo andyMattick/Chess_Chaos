@@ -131,8 +131,8 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
     const save = async (g: MailGame) => {
       g.updatedAt = now;
       await store.put(`g:${g.id}`, JSON.stringify(g));
-      await store.put(`i:${g.players.p1}:${g.id}`, '1');
-      await store.put(`i:${g.players.p2}:${g.id}`, '1');
+      if (!isBotSeat(g.players.p1)) await store.put(`i:${g.players.p1}:${g.id}`, '1');
+      if (!isBotSeat(g.players.p2)) await store.put(`i:${g.players.p2}:${g.id}`, '1');
     };
     const mine = async () => {
       const idx = await store.list(`i:${who}:`);
@@ -144,8 +144,10 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
         if (g.status === 'invited' && now - g.updatedAt > MAIL_TIMEOUT_MS) { g.status = 'expired'; await save(g); }
         if (g.status === 'playing' && now - g.updatedAt > MAIL_TIMEOUT_MS) {
           const s = replay(g.record).at(-1)!;
-          g.record = { ...g.record, actions: [...g.record.actions, { t: 'timeout', by: s.turn }] };
-          g.record.meta.result = play(s, { t: 'timeout', by: s.turn }).result;
+          // Against a bot the human plays both sides, so the human is the quiet one.
+          const by: PlayerId = isBotSeat(g.players.p1) ? 'p2' : isBotSeat(g.players.p2) ? 'p1' : s.turn;
+          g.record = { ...g.record, actions: [...g.record.actions, { t: 'timeout', by }] };
+          g.record.meta.result = play(s, { t: 'timeout', by }).result;
           g.status = 'done';
           await save(g);
           if (g.tournament) await stepTournament(store, g.tournament, now);
@@ -217,8 +219,10 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
         if (body.ply !== g.record.actions.length) return json({ game: view(g), stale: true }, 409);
         a = body.action as Action;
         if (!a || (a.t !== 'move' && a.t !== 'buff')) return bad('Not a move.');
-        if (s.turn !== seat) return bad('Not your turn.');
-        if (a.t === 'buff' && a.by !== seat) return bad('Not your turn.');
+        // Against a bot, your phone plays the bot's moves too.
+        const vsBot = isBotSeat(g.players[seat === 'p1' ? 'p2' : 'p1']);
+        if (s.turn !== seat && !vsBot) return bad('Not your turn.');
+        if (a.t === 'buff' && a.by !== s.turn) return bad('Not your turn.');
       }
       let n;
       try { n = play(s, a); } catch { return bad('That move is not allowed.'); }
@@ -247,17 +251,25 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
     };
     if (req.method === 'GET' && parts.length === 1) return json({ tournaments: await mine() });
     if (req.method === 'POST' && parts.length === 1) {
-      const body = (await req.json().catch(() => null)) as { players?: string[]; game?: string; rating?: number } | null;
+      const body = (await req.json().catch(() => null)) as { players?: string[]; game?: string; rating?: number; bots?: unknown[] } | null;
       const others = [...new Set((body?.players ?? []).map((x) => String(x).replace(/\D/g, '')).filter((x) => isNumber(x) && x !== who))];
-      if (others.length < 1 || others.length > TOURNAMENT_MAX - 1) return bad(`Pick 1 to ${TOURNAMENT_MAX - 1} friends.`);
+      const botList = (Array.isArray(body?.bots) ? body!.bots : []).map(cleanBot);
+      if (botList.some((b) => !b)) return bad('A bot was not right.');
+      if (others.length + botList.length < 1 || others.length + botList.length > TOURNAMENT_MAX - 1) return bad(`Pick 1 to ${TOURNAMENT_MAX - 1} friends or bots.`);
       for (const n of others) if (!(await exists(n))) return bad(`No player has the number ${n}.`, 404);
       const game = MAIL_GAMES.includes(body?.game as RoomGame) ? (body!.game as RoomGame) : 'standard';
+      const bots: Record<string, TournamentBot> = {};
+      botList.forEach((b, i) => { bots[`bot-${i + 1}`] = b!; });
+      const botSeats = Object.keys(bots);
       const t: Tournament = {
-        id: newId(), organizer: who, game, players: [who, ...others], joined: [who], declined: [],
-        ratings: { [who]: clampRating(body?.rating) }, status: 'invited', rounds: [], createdAt: now, updatedAt: now,
+        id: newId(), organizer: who, game, players: [who, ...others, ...botSeats], joined: [who, ...botSeats], declined: [],
+        ratings: { [who]: clampRating(body?.rating), ...Object.fromEntries(botSeats.map((k) => [k, bots[k].rating])) },
+        ...(botSeats.length ? { bots } : {}), status: 'invited', rounds: [], createdAt: now, updatedAt: now,
       };
-      await saveT(store, t, now);
-      return json({ tournament: t }, 201);
+      // Only bots: nobody to wait for.
+      if (!others.length) await startTournament(store, t, now);
+      else await saveT(store, t, now);
+      return json({ tournament: (await loadT(store, t.id)) ?? t }, 201);
     }
     const t = parts[1] ? await loadT(store, parts[1]) : null;
     if (!t || !t.players.includes(who)) return bad('No such tournament.', 404);
@@ -271,13 +283,13 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
       // Everyone answered: start by itself.
       if (t.joined.length + t.declined.length === t.players.length && t.joined.length >= 2) await startTournament(store, t, now);
       else await saveT(store, t, now);
-      return json({ tournament: t });
+      return json({ tournament: (await loadT(store, t.id)) ?? t });
     }
     if (act === 'start') {
       if (t.organizer !== who || t.status !== 'invited') return bad('Only the organizer can start it, once.');
       if (t.joined.length < 2) return bad('Wait until at least one friend has joined.');
       await startTournament(store, t, now);
-      return json({ tournament: t });
+      return json({ tournament: (await loadT(store, t.id)) ?? t });
     }
     if (act === 'cancel') {
       if (t.organizer !== who || t.status !== 'invited') return bad('Only the organizer can cancel it before it starts.');
@@ -322,8 +334,50 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
  * Tournaments (owner, 2026-11-18): a knockout bracket of 2 to 8 friends, every
  * game a challenge game. Draw: the player who had Black goes through. A bye
  * goes straight to the next round.
+ *
+ * Bots fill empty seats (owner: Mirror first, then nemeses, then a mix).
+ * The server cannot think, so a human playing a bot plays both sides of that
+ * game on their own phone and sends the bot's moves too. Two bots meeting are
+ * settled at once by a roll weighted by their ratings.
  * ------------------------------------------------------------------------- */
 export const TOURNAMENT_MAX = 8;
+
+/** A bot seat: a path bot by id, or a Mirror/nemesis by its opening book. No player names: the Mirror is shown as "Mirror of <organizer>". */
+export interface TournamentBot {
+  kind: 'bot' | 'mirror' | 'nemesis';
+  rating: number;
+  /** Path bot id (BOT-xx). */
+  botId?: string;
+  /** Nemesis: the Chess.com username it copies (public). */
+  name?: string;
+  asWhite?: { line: string; weight?: number }[];
+  asBlack?: { line: string; weight?: number }[];
+}
+export const BOT_SEAT = /^bot-[1-7]$/;
+export const isBotSeat = (n: string | null | undefined) => !!n && BOT_SEAT.test(n);
+/** Most book lines a tournament bot carries for each colour. */
+const MAX_BOT_LINES = 30;
+
+function cleanBot(x: unknown): TournamentBot | null {
+  const b = x as Partial<TournamentBot> | null;
+  if (!b || !['bot', 'mirror', 'nemesis'].includes(String(b.kind))) return null;
+  const book = (l: unknown) => (Array.isArray(l) ? l : []).slice(0, MAX_BOT_LINES)
+    .filter((y) => y && typeof y.line === 'string' && y.line.length <= 300 && /^[A-Za-z0-9+#=\- ]+$/.test(y.line))
+    .map((y) => ({ line: y.line as string, weight: Math.max(0.05, Math.min(20, Number(y.weight) || 1)) }));
+  const out: TournamentBot = { kind: b.kind as TournamentBot['kind'], rating: clampRating(b.rating) };
+  if (b.kind === 'bot') {
+    if (!/^BOT-\d{2}$/.test(String(b.botId))) return null;
+    out.botId = String(b.botId);
+  } else {
+    out.asWhite = book(b.asWhite);
+    out.asBlack = book(b.asBlack);
+    if (b.kind === 'nemesis') {
+      if (!/^[A-Za-z0-9_-]{1,25}$/.test(String(b.name))) return null;
+      out.name = String(b.name);
+    }
+  }
+  return out;
+}
 
 export interface Tournament {
   id: string;
@@ -334,6 +388,8 @@ export interface Tournament {
   joined: string[];
   declined: string[];
   ratings: Record<string, number>;
+  /** Bot seats ("bot-1"...), already joined. */
+  bots?: Record<string, TournamentBot>;
   status: 'invited' | 'running' | 'done' | 'cancelled';
   /** Each round: pairs of player numbers (null = a bye) and the game for each pair. */
   rounds: { pairs: [string, string | null][]; games: (string | null)[]; winners: (string | null)[] }[];
@@ -351,7 +407,7 @@ async function loadT(store: WorldStore, id: string): Promise<Tournament | null> 
 async function saveT(store: WorldStore, t: Tournament, now: number) {
   t.updatedAt = now;
   await store.put(`t:${t.id}`, JSON.stringify(t));
-  for (const n of t.players) await store.put(`ti:${n}:${t.id}`, '1');
+  for (const n of t.players) if (!isBotSeat(n)) await store.put(`ti:${n}:${t.id}`, '1');
 }
 
 /** Shuffle with a fresh random order (seeding is luck, like drawing names from a hat). */
@@ -368,6 +424,13 @@ async function newRound(store: WorldStore, t: Tournament, players: string[], now
   const winners: (string | null)[] = [];
   for (const [a, b] of pairs) {
     if (!b) { games.push(null); winners.push(a); continue; } // a bye
+    if (isBotSeat(a) && isBotSeat(b)) {
+      // Two bots: a quick roll, the stronger one more likely to win.
+      const ra = t.ratings[a] ?? 600, rb = t.ratings[b] ?? 600;
+      games.push(null);
+      winners.push(Math.random() < 1 / (1 + 10 ** ((rb - ra) / 400)) ? a : b);
+      continue;
+    }
     const white = Math.random() < 0.5 ? a : b;
     const black = white === a ? b : a;
     const mode = t.game === 'standard' ? 'standard' : t.game;
@@ -377,8 +440,8 @@ async function newRound(store: WorldStore, t: Tournament, players: string[], now
       record: newRecord((Math.random() * 0xffffffff) | 0, { p1: `#${white}`, p2: `#${black}` }, undefined, mode), createdAt: now, updatedAt: now,
     };
     await store.put(`g:${g.id}`, JSON.stringify(g));
-    await store.put(`i:${white}:${g.id}`, '1');
-    await store.put(`i:${black}:${g.id}`, '1');
+    if (!isBotSeat(white)) await store.put(`i:${white}:${g.id}`, '1');
+    if (!isBotSeat(black)) await store.put(`i:${black}:${g.id}`, '1');
     games.push(g.id);
     winners.push(null);
   }
