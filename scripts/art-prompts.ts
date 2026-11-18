@@ -4,6 +4,8 @@
  */
 import { writeFileSync } from 'node:fs';
 import { COLLECTIONS, SET_SKINS } from '../src/content/collections';
+import { BASE_SKINS } from '../src/content/cosmetics';
+const SKINS_LINE = BASE_SKINS.map((s) => `\`${s}\``).join(', ');
 
 const STYLE = `Style: bold, rounded, cheerful cartoon characters for a children's chess game. Thick dark outlines (#2d2a3e), flat colours with one soft shade, big friendly eyes, simple shapes that read at small sizes, sticker look. Original characters only: they must not look like any existing cartoon, game or brand character. Nothing scary, no weapons that look real, no text or letters.`;
 
@@ -32,7 +34,22 @@ All 22 skins are already drawn in code (src/ui/setSkins.tsx), light and dark arm
 
 Check the image tool's terms for selling art made with it before release.
 
-## Shared text (already inside every prompt)
+## Improving any skin (originals and new ones)
+
+Every skin has a reference picture in the exact layout the game reads: \`<slug>-light.png\` and \`<slug>-dark.png\`, 1536 x 1024, transparent background, six characters in a 3 x 2 grid (king, queen, rook / bishop, knight, pawn), each in the spot and size the game uses. Upload a reference picture and ask for a nicer version of the same thing.
+
+- **Adobe Firefly:** Text to image → upload the reference under **Composition** (structure) reference, strength high. Aspect ratio Landscape 3:2. Then remove the background in Adobe Express before saving.
+- **ChatGPT:** attach the reference picture and paste the prompt.
+
+Prompt (same for every skin; add one line of what you'd like changed, if anything):
+
+\`\`\`
+Redraw this character sheet with more polish: same six characters, same layout (3 columns by 2 rows: king, queen, rook on top; bishop, knight, pawn below), each character in the same place and the same size in its square, same hats, same colours. Bold rounded cartoon style for a children's game, thick dark outlines, soft shading, big friendly eyes, a little more detail and personality. Transparent background, no text, no grid lines, no floor or shadows.
+\`\`\`
+
+Save the result with the same file name as the reference (for example \`gremlin-light.png\`) and follow the steps above. The originals' slugs: ${SKINS_LINE}.
+
+
 
 - ${STYLE}
 - ${LAYOUT}

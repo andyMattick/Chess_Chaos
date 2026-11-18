@@ -91,6 +91,8 @@ export function Character({ skin: skinId, type, owner, seed = 0, badge = false }
     cw = def?.fallback.colourway;
     sparkle = true;
   }
+  // Original skins can be replaced by art too (public/skins/<skin>-light.png); colour versions stay drawn.
+  if (!parsed.set && !cw && skin !== 'classic' && artReady(skin, side)) return <ArtPiece slug={skin} side={side} type={type} owner={owner} badge={badge} />;
   if (skin === 'classic') {
     const tint = owner === 'p3' ? '#ffcf3a' : owner === 'p4' ? '#45c7a8' : undefined;
     return <PieceGlyph type={type} light={owner === 'p1'} tint={tint} />;
@@ -373,18 +375,21 @@ export function Hat({ type, top, pal }: { type: string; top: number; pal: Palett
 
 /** Cell of each piece in an art sheet: 3 columns by 2 rows (docs/ART-PROMPTS.md). */
 const ART_CELL: Record<string, [number, number]> = { king: [0, 0], queen: [1, 0], rook: [2, 0], bishop: [0, 1], knight: [1, 1], pawn: [2, 1] };
+/**
+ * Each 512 x 512 cell shows the character's usual 100 x 100 box with a margin
+ * (x -6 to 106, y -14 to 98), the same framing as the reference sheets, so the
+ * art stands where the drawn character stands (feet on y = 94).
+ */
+export const ART_FRAME = { x: -6, y: -14, size: 112 };
 
-/** A piece drawn from a collection skin's art sheet. */
+/** A piece drawn from an art sheet (collection skins, or an original skin with new art). */
 function ArtPiece({ slug, side, type, owner, badge }: { slug: string; side: 'p1' | 'p2'; type: string; owner: string; badge: boolean }) {
   const [col, row] = ART_CELL[type] ?? ART_CELL.pawn;
-  const s = SCALE[type] ?? 0.85;
   const hue = owner === 'p3' ? 150 : owner === 'p4' ? 200 : 0;
-  const size = 100 * s;
   return (
     <g>
       {hue > 0 && <defs><filter id={`hue-art-${owner}`}><feColorMatrix type="hueRotate" values={String(hue)} /></filter></defs>}
-      <ellipse cx={50} cy={93} rx={26 * s} ry={4} fill="rgba(0,0,0,0.22)" />
-      <svg x={50 - size / 2} y={94 - size} width={size} height={size} viewBox={`${col} ${row} 1 1`} filter={hue > 0 ? `url(#hue-art-${owner})` : undefined}>
+      <svg x={ART_FRAME.x} y={ART_FRAME.y} width={ART_FRAME.size} height={ART_FRAME.size} viewBox={`${col} ${row} 1 1`} filter={hue > 0 ? `url(#hue-art-${owner})` : undefined}>
         <image href={`/skins/${slug}-${side === 'p1' ? 'light' : 'dark'}.png`} width={3} height={2} preserveAspectRatio="none" />
       </svg>
       {badge && (
