@@ -126,10 +126,12 @@ describe('tournaments', () => {
     const t1 = (await (await c.call('POST', `/tournaments/${t0.id}/join`, { rating: 800 })).json()).tournament;
     expect(t1.status).toBe('running'); // everyone answered: it starts by itself
     expect(t1.rounds[0].pairs.length).toBe(2); // one game and one bye
-    const gid = t1.rounds[0].games.find((x: string | null) => x)!;
+    const k = t1.rounds[0].games.findIndex((x: string | null) => x);
+    const gid = t1.rounds[0].games[k] as string;
     const players = [a, b, c];
-    // Round 1: the game's Black player resigns.
-    let g = (await (await a.call('GET', '/games')).json()).games.find((x: MailGame) => x.id === gid) as MailGame | undefined;
+    // Round 1: the game's Black player resigns. (The shuffle decides who gets the bye.)
+    const someone = players.find((p) => t1.rounds[0].pairs[k].includes(p.number))!;
+    let g = (await (await someone.call('GET', `/games/${gid}`)).json()).game as MailGame | undefined;
     const p1 = players.find((p) => p.number === (g?.players.p1 ?? ''))!;
     const p2 = players.find((p) => p.number === (g?.players.p2 ?? ''))!;
     g = (await (await p2.call('GET', `/games/${gid}`)).json()).game;
