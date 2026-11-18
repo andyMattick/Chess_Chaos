@@ -1,8 +1,8 @@
 import { fileOf, rankOf } from './board';
-import { activeSeats, eliminate, inCheck, legalMoves } from './movegen';
+import { activeSeats, eliminate, inCheck, legalMoves, makeMove } from './movegen';
 import { baseType, pieceType } from './pieces';
 import type { RuleModule } from './rules';
-import type { GameResult, GameState, PlayerId } from './types';
+import type { GameResult, GameState, MoveAction, PlayerId } from './types';
 
 /**
  * Mode rule modules (docs/03 Game modes, docs/09 section 5). Each mode is a
@@ -134,7 +134,9 @@ export function die(s: GameState, sides: number): number {
 /** MODE-01 Random piece: the die picks which kind of piece must move this turn. */
 export function rolledType(s: GameState, moves: { piece: number }[]): string | null {
   if (inCheck(s, s.turn)) return null;
-  const types = [...new Set(moves.map((m) => baseType(s.pieces[m.piece].type)))].sort();
+  // Only roll kinds that really have a legal move (a pinned piece does not count), so the dice never causes a stalemate.
+  const legal = moves.filter((m) => !inCheck(makeMove(s, m as MoveAction), s.turn));
+  const types = [...new Set(legal.map((m) => baseType(s.pieces[m.piece].type)))].sort();
   if (types.length <= 1) return null;
   return types[die(s, types.length)];
 }
@@ -247,11 +249,11 @@ export const MODE_INFO: ModeInfo[] = [
   { id: 'lava', catalogId: 'MODE-21', name: 'Lava squares', emoji: '🌋', players: [2], blurb: 'Every 5 moves, 3 squares turn to lava for 5 moves. Nothing can land on or slide through lava (knights can jump it).' },
   { id: 'mini', catalogId: 'MODE-23', name: 'Mini board', emoji: '🐭', players: [2], blurb: 'A tiny 5 by 5 board. Pawns step one square at a time. Quick and sharp!' },
   { id: 'horde', catalogId: 'MODE-04', name: 'Horde', emoji: '🐜', players: [2], blurb: 'White is 36 pawns and no king! Black wins by taking every pawn. White wins by checkmate.' },
-  { id: 'monster', catalogId: 'MODE-24', name: 'Monster', emoji: '👾', players: [2], blurb: 'White has a king and 4 pawns but moves TWICE every turn. Black has a full army.' },
-  { id: 'shrinking', catalogId: 'MODE-09', name: 'Shrinking board', emoji: '📉', players: [2], blurb: 'Every 10 moves the outside ring of the board falls away. Anything left on it is lost, and a king left there loses!' },
+  { id: 'monster', catalogId: 'MODE-24', name: 'Monster', emoji: '👾', players: [2], blurb: 'White has a king and 8 pawns but moves TWICE every turn. Black has a full army.' },
+  { id: 'shrinking', catalogId: 'MODE-09', name: 'Shrinking board', emoji: '📉', players: [2], blurb: 'Every 15 moves the outside ring of the board falls away. Pieces left on it are lost (a king jumps to safety inside).' },
   { id: 'progressive', catalogId: 'MODE-17', name: 'Progressive', emoji: '📈', players: [2], blurb: 'White makes 1 move, Black 2, White 3, and so on. Giving check ends your run at once.' },
   { id: 'drop-in', catalogId: 'MODE-14', name: 'Drop-in', emoji: '🪂', players: [2], blurb: 'Pieces you capture join YOUR army. On your turn you can drop one on any empty square instead of moving.' },
-  { id: 'boss', catalogId: 'MODE-08', name: 'Boss battle', emoji: '👹', players: [2], blurb: 'One side is a king and a Boss (queen + knight moves, 3 lives). The other side has the full army. Take the Boss 3 times or checkmate!' },
+  { id: 'boss', catalogId: 'MODE-08', name: 'Boss battle', emoji: '👹', players: [2], blurb: 'One side has a king, pawns and a Boss (queen + knight moves, 3 lives). The other side has the full army. Take the Boss 3 times or checkmate!' },
   { id: 'mystery-army', catalogId: 'MODE-25', name: 'Mystery army', emoji: '🎲', players: [2], blurb: 'Both sides get the same surprise army worth 39 points. Who uses it better?' },
   { id: 'hidden-queen', catalogId: 'MODE-19', name: 'Hidden queen', emoji: '🕵️', players: [2], blurb: 'Secretly pick one pawn. It can move like a queen! The first time it does, everyone finds out.' },
   { id: 'draft', catalogId: 'MODE-07', name: 'Draft', emoji: '🛒', players: [2], blurb: 'Spend 30 points to build your own army, then fight with it.' },

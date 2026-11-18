@@ -26,6 +26,8 @@ export interface RuleModule {
   applyBuff?(s: GameState, a: Extract<Action, { t: 'buff' }>): GameState;
   /** Modes where bare kings are not a draw (Atomic, Giveaway, Horde…). */
   noMaterialDraw?: boolean;
+  /** Modes with several moves in a turn, where positions repeat inside one turn (Progressive, Monster). */
+  noRepetitionDraw?: boolean;
 }
 
 const MODULES: Record<string, RuleModule[]> = { ...MODE_MODULES, ...MODE_MODULES_2 };
@@ -174,6 +176,24 @@ export function play(s: GameState, action: Action): GameState {
   return result ? { ...n, result } : n;
 }
 
+/** Modes whose rules change the position after a move (explosions, double moves, drops…) or end the game their own way. */
+export function needsFullRules(s: GameState): boolean {
+  return modulesFor(s).some((m) => m.afterMove || m.checkEnd);
+}
+
+/**
+ * For the AI: make a move and apply the mode's after-move rules and its own
+ * win checks, without the legality check or the draw checks. Much cheaper than play().
+ */
+export function advance(s: GameState, m: MoveAction): GameState {
+  const n = afterMove(makeMove(s, m), s);
+  for (const mod of modulesFor(n)) {
+    const r = mod.checkEnd?.(n, s, m);
+    if (r) return { ...n, result: r };
+  }
+  return n;
+}
+
 function detectEnd(n: GameState, prev: GameState, action: Action, mover: PlayerId): GameResult | null {
   for (const m of modulesFor(n)) {
     const r = m.checkEnd?.(n, prev, action);
@@ -184,7 +204,7 @@ function detectEnd(n: GameState, prev: GameState, action: Action, mover: PlayerI
     if (isCheckEnforced(n) && inCheck(n, n.turn)) return { reason: 'checkmate', winners: [mover] };
     return { reason: 'stalemate', winners: [] };
   }
-  if (Object.values(n.positionCounts).some((c) => c >= 3)) return { reason: 'draw-repetition', winners: [] };
+  if (!modulesFor(n).some((m) => m.noRepetitionDraw) && Object.values(n.positionCounts).some((c) => c >= 3)) return { reason: 'draw-repetition', winners: [] };
   if (n.halfmoveClock >= 100) return { reason: 'draw-50', winners: [] };
   if (!modulesFor(n).some((m) => m.noMaterialDraw) && insufficientMaterial(n)) return { reason: 'draw-material', winners: [] };
   return null;

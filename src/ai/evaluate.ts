@@ -39,6 +39,7 @@ export function evaluate(s: GameState, pov: PlayerId): number {
     if (n >= 2) score += owner === pov ? 30 : -30;
   }
   score += hillTerm(s, pov);
+  score += raceTerm(s, pov);
   return Math.round(score);
 }
 
@@ -125,4 +126,18 @@ function hillTerm(s: GameState, pov: PlayerId): number {
     }
   }
   return score;
+}
+
+/** Racing kings: the further up the board your king is, the better (it is the whole game). */
+function raceTerm(s: GameState, pov: PlayerId): number {
+  if (s.mode !== 'racing-kings') return 0;
+  let t = 0;
+  for (const p of s.pieces) {
+    if (p.at < 0 || p.type !== 'king') continue;
+    const r = Math.floor(p.at / s.board.width);
+    // Steeper near the top: the last rows matter most.
+    const v = r * 60 + (r >= 5 ? (r - 4) * 120 : 0);
+    t += p.owner === pov ? v : -v;
+  }
+  return t;
 }

@@ -64,3 +64,18 @@ describe('earning cards', () => {
     expect(c).toEqual({ 'CARD-07': 1 }); // playing it uses all three
   });
 });
+
+import { botPrize, settleStakes, takePrize } from '../src/systems/cards';
+import { cardById } from '../src/content/cards';
+describe('party stakes', () => {
+  it('brought cards are used up; the winner takes a full set of one', () => {
+    let c = { 'CARD-04': 3, 'CARD-07': 4 };
+    c = settleStakes(c, ['CARD-04', 'CARD-07']);
+    expect(c).toEqual({ 'CARD-07': 1 });
+    c = takePrize(c, 'CARD-10');
+    expect(c['CARD-10']).toBe(3);
+  });
+  it('low bots bring common cards', () => {
+    for (let i = 0; i < 20; i++) expect(cardById(botPrize(500, (n) => (i * 7) % n))!.rarity).toBe('Common');
+  });
+});

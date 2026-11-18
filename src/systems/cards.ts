@@ -154,3 +154,21 @@ export function currentHand(collection: Record<string, number>, picked: string[]
   const ok = new Set(handOptions(collection));
   return [...new Set(picked ?? [])].filter((id) => ok.has(id)).slice(0, 3);
 }
+
+/**
+ * Party stakes (owner rule): everything brought into a Party match is used up
+ * at the end, win or lose. The winner then takes one of the loser's brought
+ * cards (a full set of 3). A draw: nobody takes anything.
+ */
+export function settleStakes(collection: Record<string, number>, brought: string[]): Record<string, number> {
+  return updateCollection(collection, [], brought);
+}
+export function takePrize(collection: Record<string, number>, id: string): Record<string, number> {
+  return { ...collection, [id]: (collection[id] ?? 0) + COPIES_TO_PLAY };
+}
+
+/** A bot brings one card to a Party match, so there is something to win. */
+export function botPrize(botRating: number, pick: (n: number) => number): string {
+  const pool = CARDS.filter((c) => !c.notYet && (botRating >= 900 || c.rarity === 'Common') && (botRating >= 1200 || c.rarity !== 'Epic'));
+  return pool[pick(pool.length)].id;
+}

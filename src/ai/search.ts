@@ -1,7 +1,7 @@
 import { inCheck, makeMove, pseudoMoves } from '../core/movegen';
 import { pieceType } from '../core/pieces';
 import { positionKey } from '../core/position';
-import { hasMoveFilters, isCheckEnforced, legalActions, sameMove } from '../core/rules';
+import { advance, hasMoveFilters, isCheckEnforced, legalActions, needsFullRules, sameMove } from '../core/rules';
 import type { GameState, MoveAction, PlayerId } from '../core/types';
 import { evaluate } from './evaluate';
 
@@ -51,6 +51,19 @@ class Searcher {
     if (++this.nodes % 1024 === 0 && Date.now() > this.deadline) throw new Timeout();
   }
 
+  /** Modes with their own after-move rules are searched with them, so the bot understands explosions, double moves and drops. */
+  full = false;
+  step(s: GameState, m: MoveAction): GameState {
+    return this.full ? advance(s, m) : makeMove(s, m);
+  }
+
+  /** A position the mode has already decided. */
+  decided(s: GameState, ply: number): number | null {
+    if (!s.result) return null;
+    if (!s.result.winners.length) return 0;
+    return s.result.winners.includes(this.root) ? MATE - ply : -MATE + ply;
+  }
+
   order(s: GameState, moves: MoveAction[], ttBest: MoveAction | undefined, ply: number): MoveAction[] {
     const killers = this.killers[ply] ?? [];
     const scored = moves.map((m) => {
@@ -75,6 +88,8 @@ class Searcher {
 
   search(s: GameState, depth: number, alpha: number, beta: number, ply: number, path: Set<string>): number {
     this.tick();
+    const done = this.decided(s, ply);
+    if (done !== null) return done;
     const key = positionKey(s);
     if (ply > 0 && (path.has(key) || (this.history[key] ?? 0) >= 2)) return 0;
     if (s.halfmoveClock >= 100) return 0;
@@ -101,8 +116,8 @@ class Searcher {
     let legalCount = 0;
     path.add(key);
     for (const m of this.order(s, moves, entry?.best, ply)) {
-      const next = makeMove(s, m);
-      if (lazy && checks && inCheck(next, s.turn)) continue;
+      const next = this.step(s, m);
+      if (lazy && checks && !next.result && inCheck(next, s.turn)) continue;
       legalCount++;
       const score = this.search(next, depth - 1, alpha, beta, ply + 1, path);
       if (maximizing ? score > best : score < best) { best = score; bestMove = m; }
@@ -133,6 +148,8 @@ class Searcher {
 
   quiesce(s: GameState, alpha: number, beta: number, ply: number, qd: number): number {
     this.tick();
+    const done = this.decided(s, ply);
+    if (done !== null) return done;
     const maximizing = s.turn === this.root;
     const stand = evaluate(s, this.root);
     const inChk = isCheckEnforced(s) && inCheck(s, s.turn);
@@ -147,8 +164,8 @@ class Searcher {
     const tactical = inChk && qd < 2 ? all : all.filter((m) => s.sq[m.to] >= 0 || m.promo === 'queen' || (s.enPassant?.square === m.to && s.pieces[m.piece].type === 'pawn'));
     let best = inChk ? (maximizing ? -Infinity : Infinity) : stand;
     for (const m of this.order(s, tactical, undefined, ply)) {
-      const next = makeMove(s, m);
-      if (!inChk && checks && inCheck(next, s.turn)) continue;
+      const next = this.step(s, m);
+      if (!inChk && checks && !next.result && inCheck(next, s.turn)) continue;
       const score = this.quiesce(next, alpha, beta, ply + 1, qd + 1);
       if (maximizing) { if (score > best) best = score; alpha = Math.max(alpha, score); }
       else { if (score < best) best = score; beta = Math.min(beta, score); }
@@ -163,6 +180,7 @@ class Searcher {
 export function bestMove(s: GameState, opts: SearchOptions): SearchResult {
   const root = s.turn;
   const searcher = new Searcher(root, opts.quiescence ?? true, opts.timeMs, s.positionCounts);
+  searcher.full = needsFullRules(s);
   const moves = legalActions(s);
   if (moves.length === 0) return { best: null, score: 0, depth: 0, nodes: 0 };
   if (moves.length === 1) return { best: moves[0], score: 0, depth: 0, nodes: 0 };
@@ -179,6 +197,9 @@ export function bestMove(s: GameState, opts: SearchOptions): SearchResult {
     }
   }
   result.nodes = searcher.nodes;
+  // The table is keyed by piece layout only, so in modes that change the board (Shrinking, Lava) a stored
+  // best move could be from a different board. Only ever return a move that is legal here.
+  if (result.best && !moves.some((m) => sameMove(m, result.best!))) result.best = moves[0];
   return result;
 }
 
@@ -189,14 +210,15 @@ export function bestMove(s: GameState, opts: SearchOptions): SearchResult {
 export function rankMoves(s: GameState, depth: number, quiescence = true, timeMs?: number): RankedMove[] {
   const root = s.turn;
   const searcher = new Searcher(root, quiescence, timeMs, s.positionCounts);
+  searcher.full = needsFullRules(s);
   const ranked: RankedMove[] = [];
   for (const m of legalActions(s)) {
     let score: number;
     try {
-      score = searcher.search(makeMove(s, m), depth - 1, -Infinity, Infinity, 1, new Set([positionKey(s)]));
+      score = searcher.search(searcher.step(s, m), depth - 1, -Infinity, Infinity, 1, new Set([positionKey(s)]));
     } catch (e) {
       if (!(e instanceof Timeout)) throw e;
-      score = evaluate(makeMove(s, m), root);
+      score = evaluate(searcher.step(s, m), root);
     }
     ranked.push({ move: m, score });
   }

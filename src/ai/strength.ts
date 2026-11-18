@@ -73,7 +73,9 @@ export function chooseMove(s: GameState, opts: ChooseOptions): Choice | null {
     }
   }
 
-  const res = bestMove(s, { depth: st.depth, quiescence: st.quiescence, timeMs: st.timeMs });
+  // Modes where one side moves twice in a row need one more ply to see the other side's reply.
+  const extra = s.mode === 'monster' && s.turn === s.seats[0].id ? 1 : 0;
+  const res = bestMove(s, { depth: st.depth + extra, quiescence: st.quiescence, timeMs: st.timeMs * (extra ? 2 : 1) });
   let move = res.best ?? legal[0];
   if (freeQueen && opts.rating <= 500 && s.sq[move.to] < 0) {
     const qv = pieceType('queen').value;

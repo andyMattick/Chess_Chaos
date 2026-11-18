@@ -377,7 +377,7 @@ describe('more modes online', () => {
   it('boss battle gives the boss to the higher-rated player', () => {
     const { a } = room('boss');
     const s = replay(a.last('room')!.record)[0];
-    expect(s.pieces.filter((p) => p.at >= 0 && p.owner === 'p2').map((p) => p.type).sort()).toEqual(['boss', 'king']);
+    expect(s.pieces.filter((p) => p.at >= 0 && p.owner === 'p2' && p.type !== 'pawn').map((p) => p.type).sort()).toEqual(['boss', 'king']);
   });
   it('draft waits for both armies', () => {
     const { server, a, b } = room('draft');

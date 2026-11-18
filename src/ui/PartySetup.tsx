@@ -7,7 +7,9 @@ import { PATH, unlockedCount } from '../systems/coins';
 import { drawMode, setupParty } from '../systems/party';
 import type { GameConfig } from './GameScreen';
 import { useSave } from './store';
-import { HandPicker, useHand } from './Cards';
+import { CardTile, HandPicker, useHand } from './Cards';
+import { cardById } from '../content/cards';
+import { botPrize } from '../systems/cards';
 
 /**
  * Party match setup against a bot: the mode comes off your mode deck, the
@@ -22,6 +24,8 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
   const [humanSeat] = useState<'p1' | 'p2'>(() => (Math.random() < 0.5 ? 'p1' : 'p2'));
   const [peek, setPeek] = useState(false);
   const hand = useHand();
+  // The bot brings one card: win and you can take it.
+  const [prize] = useState(() => botPrize(bot.rating, (n) => Math.floor(Math.random() * n)));
 
   // Draw the mode once per visit (and remember the deck).
   const [draw] = useState(() => drawMode(p.modeDeck, undefined, Math.random, p.modePrefs));
@@ -40,7 +44,7 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
   const go = () => {
     updateProfile((x) => ({ ...x, modeDeck: draw.deck, partyMatches: x.partyMatches + 1 }));
     start({
-      kind: 'bot', botId, humanSeat, mode: draw.mode, party: { ...setup, cards: { [humanSeat]: hand } },
+      kind: 'bot', botId, humanSeat, mode: draw.mode, party: { ...setup, cards: { [humanSeat]: hand, [botSeat]: [prize] } },
       names: humanSeat === 'p1' ? { p1: p.nickname, p2: bot.name } : { p1: bot.name, p2: p.nickname },
     });
   };
@@ -70,6 +74,16 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
         </button>
       </div>
       <HandPicker />
+      <div className="stakes">
+        <h3>🃏 Cards at stake</h3>
+        <div className="hand-row">
+          {hand.map((id) => <CardTile key={id} c={cardById(id)!} small><span className="pc-kind">yours</span></CardTile>)}
+          {!hand.length && <span className="muted small">You're not bringing any cards.</span>}
+          <span className="stakes-vs">vs</span>
+          <CardTile c={cardById(prize)!} small><span className="pc-kind">{bot.name}'s</span></CardTile>
+        </div>
+        <p className="muted small">Win and you take one of their cards. Every other card brought in is used up, win or lose.</p>
+      </div>
       <h3>Opponent</h3>
       <div className="clock-chips">
         {open.map((b) => <button key={b.id} className={`chip ${b.id === botId ? 'on' : ''}`} onClick={() => setBotId(b.id)}>{b.emoji} {b.name} ★{b.rating}</button>)}

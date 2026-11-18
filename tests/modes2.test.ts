@@ -105,11 +105,13 @@ describe('more modes', () => {
     fuzz(start('monster'));
   });
 
-  it('shrinking board: the edge falls every 10 full moves', () => {
+  it('shrinking board: the edge falls every 15 full moves', () => {
     let s = start('shrinking');
-    expect(shrinkIn(s)).toBe(20);
-    for (let i = 0; i < 20 && !s.result; i++) s = play(s, legalActions(s)[0]);
+    expect(shrinkIn(s)).toBe(30);
+    for (let i = 0; i < 30 && !s.result; i++) s = play(s, legalActions(s)[0]);
     expect(s.board.blocked.filter(Boolean).length).toBe(28);
+    expect(s.result).toBeNull(); // kings on the edge jump inside instead of losing
+    expect(s.pieces.filter((p) => p.type === 'king' && p.at >= 0).length).toBe(2);
     for (const m of legalActions(s)) expect(s.board.blocked[m.to]).toBe(false);
     fuzz(start('shrinking'), 60);
   });
@@ -141,7 +143,7 @@ describe('more modes', () => {
 
   it('boss battle: the boss has 3 lives', () => {
     let s = start('boss', { boss: 'p2' });
-    expect(s.pieces.filter((p) => p.at >= 0 && p.owner === 'p2').map((p) => p.type).sort()).toEqual(['boss', 'king']);
+    expect(s.pieces.filter((p) => p.at >= 0 && p.owner === 'p2' && p.type !== 'pawn').map((p) => p.type).sort()).toEqual(['boss', 'king']);
     s = fen('boss', '3qk3/8/8/8/8/8/8/3RK3 w - - 0 1');
     s.pieces[s.sq[sq('d8')]].type = 'boss';
     s.modeData = { bossLives: 3 };

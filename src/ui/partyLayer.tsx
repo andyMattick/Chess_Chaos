@@ -282,8 +282,19 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
             </div>
           ) : <p className="muted small">No cards this game.</p>}
           {other && (party.cards?.[other]?.length ?? 0) > 0 && (
-            <p className="muted small">{names[other]} has: {party.cards![other]!.map((id) => `${cardById(id)?.emoji} ${cardById(id)?.name}${playedCards(live, other).includes(id) ? ' (used)' : ''}`).join(' · ')}</p>
+            <>
+              <h4>🃏 {names[other]}'s cards</h4>
+              <div className="hand-row">
+                {party.cards![other]!.map((id) => cardById(id) && (
+                  <CardTile key={id} c={cardById(id)!} small>
+                    <span className="pc-blurb">{cardById(id)!.blurb}</span>
+                    {playedCards(live, other).includes(id) && <span className="pc-kind">🔥 used</span>}
+                  </CardTile>
+                ))}
+              </div>
+            </>
           )}
+          <p className="muted small">At the end, the winner takes one of the loser's cards. All other cards brought in are used up.</p>
         </div>
       )}
       {clockLeft !== null && <div className={`clock running ${clockLeft <= 3 ? 'panic' : 'low'}`}>⏱️ {clockLeft}</div>}

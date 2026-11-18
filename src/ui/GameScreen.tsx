@@ -15,7 +15,7 @@ import { newSeed } from '../core/rng';
 import type { Action, GameState, MoveAction, PlayerId } from '../core/types';
 import { online, roomSkins, timeLeft } from '../net/client';
 import { EMOTES } from '../net/protocol';
-import { lookOf, activeProfile, addGame, noteOpponent, refreshOpponentRating, update, upsertProfile } from '../storage/storage';
+import { lookOf, activeProfile, addGame, noteOpponent, refreshOpponentRating, update, updateProfile, upsertProfile } from '../storage/storage';
 import { updateRating } from '../systems/rating';
 import { coinsFor, type CoinAward } from '../systems/coins';
 import { Board } from './Board';
@@ -40,8 +40,7 @@ import { ArmyShop } from './ModesScreen';
 import type { Analysis, MoveNote } from '../systems/analysis';
 import { CardTile, useHand } from './Cards';
 import { cardById } from '../content/cards';
-import { playedCards } from '../core/cards';
-import { cardsEarned, updateCollection } from '../systems/cards';
+import { cardsEarned, settleStakes, takePrize, updateCollection } from '../systems/cards';
 
 export interface GameConfig {
   /** 'local' is only used to replay saved games. */
@@ -132,6 +131,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   const [ratingChange, setRatingChange] = useState<{ before: number; after: number } | null>(null);
   const [coinAward, setCoinAward] = useState<CoinAward | null>(null);
   const [newCards, setNewCards] = useState<string[]>([]);
+  const [prize, setPrize] = useState<{ options: string[]; taken: string | null } | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | 'loading' | null>(null);
   const [note, setNote] = useState<MoveNote | null>(null);
   const hand = useHand();
@@ -379,8 +379,12 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
       // Power cards: burn the ones played, add the ones earned (docs/02 s6, s8).
       try {
         const earned = cardsEarned({ record: finalRec, states, me, rated: !trainingCfg, missionsCompleted: p.missionsCompleted, rating: p.rating, gamesPlayed: p.gamesPlayed }, p.cardProgress ?? {});
-        p = { ...p, collection: updateCollection(p.collection ?? {}, earned.cards, playedCards(live, me)), cardProgress: earned.progress };
+        // Party stakes: every card you brought is used up, win or lose. The winner takes one of the loser's.
+        const brought = partySetup?.cards?.[me] ?? [];
+        p = { ...p, collection: settleStakes(updateCollection(p.collection ?? {}, earned.cards, []), brought), cardProgress: earned.progress };
         setNewCards(earned.cards);
+        const theirs = won ? partySetup?.cards?.[other(me)] ?? [] : [];
+        setPrize(theirs.length ? { options: theirs, taken: null } : null);
       } catch (e) { console.warn('card check failed', e); }
       if (isOnline) online.shareRating(p.rating);
       return addGame(upsertProfile(d, p), p.id, finalRec);
@@ -587,6 +591,15 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
                   <GoalList goals={trainingCfg.goals} done={training.goalsDone} current={undefined} />
                 </div>
               )}
+              {prize && (
+                <div className="new-cards prize" aria-label="Take a card">
+                  {prize.taken ? <b>🏆 You took {cardById(prize.taken)?.emoji} {cardById(prize.taken)?.name}! (a full set of 3)</b> : <b>🏆 You won! Take one of {names[other(me)]}'s cards:</b>}
+                  {!prize.taken && prize.options.map((id) => (
+                    <CardTile key={id} c={cardById(id)!} small onClick={() => { updateProfile((x) => ({ ...x, collection: takePrize(x.collection ?? {}, id) })); setPrize({ ...prize, taken: id }); }} />
+                  ))}
+                </div>
+              )}
+              {!won && (partySetup?.cards?.[me]?.length ?? 0) > 0 && <p className="rating-change">🃏 The cards you brought are used up. {live.result?.winners.length ? 'The winner may take one.' : ''}</p>}
               {newCards.length > 0 && (
                 <div className="new-cards" aria-label="New power cards">
                   <b>🃏 New card{newCards.length > 1 ? 's' : ''}!</b>

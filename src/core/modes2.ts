@@ -211,10 +211,11 @@ const horde: RuleModule = {
 
 // ---------- MODE-24 Monster ----------
 
-const MONSTER_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/2PPPP2/4K3 w kq - 0 1';
+const MONSTER_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/4K3 w kq - 0 1';
 const monster: RuleModule = {
   id: 'monster',
   noMaterialDraw: true,
+  noRepetitionDraw: true,
   // White never captures the king between its two moves.
   filterMoves: (s, moves) => (s.turn !== 'p1' ? moves : moves.filter((m) => !(s.sq[m.to] >= 0 && s.pieces[s.sq[m.to]].type === 'king'))),
   afterMove: (s, prev) => {
@@ -228,10 +229,12 @@ const monster: RuleModule = {
 // ---------- MODE-09 Shrinking board ----------
 
 /** Plies until the next ring falls (or null when the board is as small as it gets). */
+/** Plies between falls: every 15 full moves. */
+export const SHRINK_EVERY = 30;
 export function shrinkIn(s: GameState): number | null {
   const rings = data<number>(s, 'rings', 0);
   if (s.board.width !== 8 || rings >= 2) return null;
-  return (rings + 1) * 20 - s.ply;
+  return (rings + 1) * SHRINK_EVERY - s.ply;
 }
 export function ringSquares(s: GameState, ring: number): number[] {
   const out: number[] = [];
@@ -247,18 +250,26 @@ const shrinking: RuleModule = {
   afterMove: (s, prev) => {
     if (s.ply === prev.ply) return s;
     const rings = data<number>(s, 'rings', 0);
-    if (rings >= 2 || s.ply !== (rings + 1) * 20) return s;
+    if (rings >= 2 || s.ply !== (rings + 1) * SHRINK_EVERY) return s;
     const gone = ringSquares(s, rings);
+    const goneSet = new Set(gone);
     const blocked = s.board.blocked.slice();
     const lostKings: PlayerId[] = [];
     let n = withPieces(s, (pieces, sq) => {
+      for (const t of gone) blocked[t] = true;
       for (const t of gone) {
-        blocked[t] = true;
         const id = sq[t];
         if (id < 0) continue;
-        if (pieces[id].type === 'king') lostKings.push(pieces[id].owner);
-        pieces[id].at = -1;
         sq[t] = -1;
+        if (pieces[id].type === 'king') {
+          // Kings jump to the nearest free square inside (owner rule from playtesting: no instant losses).
+          const inside = sq.map((x, i) => (x < 0 && !blocked[i] && !goneSet.has(i) ? i : -1)).filter((i) => i >= 0);
+          const d = (i: number) => Math.max(Math.abs(fileOf(s.board, i) - fileOf(s.board, t)), Math.abs(rankOf(s.board, i) - rankOf(s.board, t)));
+          const to = inside.sort((a, b) => d(a) - d(b))[0];
+          if (to !== undefined) { pieces[id].at = to; sq[to] = id; continue; }
+          lostKings.push(pieces[id].owner);
+        }
+        pieces[id].at = -1;
       }
     });
     // Pawns now promote on the new edge.
@@ -283,6 +294,7 @@ export function progressOf(s: GameState): Progress {
 }
 const progressive: RuleModule = {
   id: 'progressive',
+  noRepetitionDraw: true,
   afterMove: (s, prev) => {
     if (s.ply === prev.ply || !s.last) return s;
     const mover = prev.turn;
@@ -471,9 +483,10 @@ function placeArmy(s: GameState, owner: PlayerId, types: string[]) {
 }
 
 /** A random army worth `budget` points (no more than 15 pieces besides the king). */
-export function randomArmy(budget: number, pick: (n: number) => number): string[] {
-  const out: string[] = [];
-  let left = budget;
+export function randomArmy(budget: number, pick: (n: number) => number, minPawns = 0): string[] {
+  // A few pawns first, so the king has a wall (playtesting: armies with no pawns lost in 2 moves).
+  const out: string[] = Array(Math.min(minPawns, budget)).fill('pawn');
+  let left = budget - out.length;
   const kinds = ['queen', 'rook', 'bishop', 'knight', 'pawn'];
   while (left > 0 && out.length < 15) {
     const ok = kinds.filter((k) => VALUE[k] <= left && !(k === 'queen' && out.filter((x) => x === 'queen').length >= 2));
@@ -508,11 +521,12 @@ export const MODE_SETUP_2: Record<string, (s: GameState, pick: (n: number) => nu
     return fresh({ ...n, mode: s.mode, rules: s.rules, modeData: s.modeData });
   },
   boss: (s, _pick, extra) => {
-    // The boss side keeps only its king and the Boss (on the queen's square).
+    // The boss side keeps its king, its pawns and the Boss (on the queen's square).
+    // (Playtesting: a king and a Boss alone won 2 games in 21.)
     const side = extra.boss ?? 'p2';
     const n = withPieces(s, (pieces, sq) => {
       for (const p of pieces) {
-        if (p.owner !== side || p.type === 'king' || p.at < 0) continue;
+        if (p.owner !== side || p.type === 'king' || p.type === 'pawn' || p.at < 0) continue;
         if (p.type === 'queen') { p.type = 'boss'; continue; }
         sq[p.at] = -1;
         p.at = -1;
@@ -521,7 +535,7 @@ export const MODE_SETUP_2: Record<string, (s: GameState, pick: (n: number) => nu
     return fresh(setData(n, 'bossLives', 3));
   },
   'mystery-army': (s, pick) => {
-    const army = randomArmy(39, pick);
+    const army = randomArmy(39, pick, 5);
     return armies(s, { p1: army, p2: army });
   },
   draft: (s, pick, extra) => armies(s, { p1: extra.armies?.p1 ?? randomArmy(DRAFT_BUDGET, pick), p2: extra.armies?.p2 ?? randomArmy(DRAFT_BUDGET, pick) }),
