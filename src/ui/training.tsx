@@ -65,6 +65,15 @@ export function useTraining({ cfg, live, states, actions, me, isMyTurn, selected
   const [goalsDone, setGoalsDone] = useState<EasyGoalId[]>([]);
   const pickRef = useRef<{ ply: number; best?: MoveAction; ok?: MoveAction; bad?: MoveAction } | null>(null);
 
+  // A new game (online rematch, or training wheels switched on) starts the layer fresh.
+  const firstCfg = useRef(cfg);
+  useEffect(() => {
+    if (firstCfg.current === cfg) return;
+    firstCfg.current = cfg;
+    setUsesLeft(cfg?.mode.uses ?? 0); setGoalsDone([]); setHintPly(null); setAnswered(null);
+    setSecondLook(null); setSecondLookUsed(null); setWrongTaps(0); setRanked(null);
+  }, [cfg]);
+
   const onRequest = cfg?.mode.kind === 'on-request';
   const active = !!alert && isMyTurn && (!onRequest || hintPly === ply);
 

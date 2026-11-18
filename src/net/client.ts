@@ -119,26 +119,28 @@ class OnlineSession {
     try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
   }
 
-  create(name: string, rating: number, colour: 'p1' | 'p2' | 'random', clock: ClockSetting | null = null, game: RoomGame = 'standard', look?: ArmyLook) {
+  create(name: string, rating: number, colour: 'p1' | 'p2' | 'random', clock: ClockSetting | null = null, game: RoomGame = 'standard', look?: ArmyLook, wheels = false) {
     this.forget();
     this.set({ record: null, code: null, seat: null, seats: {}, error: null, clock: null });
-    this.send({ t: 'create', name, rating, colour, clock, game, look });
+    this.send({ t: 'create', name, rating, colour, clock, game, look, wheels });
   }
 
   fillBots() {
     this.send({ t: 'fill-bots' });
   }
 
-  join(code: string, name: string, rating: number, look?: ArmyLook) {
+  join(code: string, name: string, rating: number, look?: ArmyLook, wheels = false) {
     this.forget();
     this.set({ record: null, code: null, seat: null, seats: {}, error: null });
-    this.send({ t: 'join', code: code.toUpperCase(), name, rating, look });
+    this.send({ t: 'join', code: code.toUpperCase(), name, rating, look, wheels });
   }
 
   resume() {
     if (this.saved()) this.send({ t: 'rejoin', ...this.saved()! });
   }
 
+  /** Training wheels on or off for my seat (before the first move). */
+  setWheels(on: boolean) { this.send({ t: 'wheels', on }); }
   act(action: Action) { this.send({ t: 'action', action }); }
   emote(id: EmoteId) { this.send({ t: 'emote', id }); }
   rematch() { this.send({ t: 'rematch' }); }

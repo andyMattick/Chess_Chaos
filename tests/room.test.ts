@@ -279,3 +279,39 @@ describe('online buffs', () => {
     expect(b.last('error')!.message).toMatch(/own turn/);
   });
 });
+
+describe('room modes and training wheels', () => {
+  it('runs every 2-player core mode as a room game', () => {
+    for (const game of ['three-check', 'capture-race', 'random-piece', 'truce', 'capture-the-flag', 'shuffle'] as const) {
+      const server = new RoomServer(() => 0);
+      const a = client('a'), b = client('b');
+      server.handle(a.conn, { t: 'create', name: 'Ava', rating: 600, colour: 'p1', game });
+      server.handle(b.conn, { t: 'join', code: a.last('joined')!.code, name: 'Ben', rating: 700 });
+      const room = b.last('room')!;
+      expect(room.game).toBe(game);
+      expect(replay(room.record)[0].mode).toBe(game);
+    }
+  });
+
+  it('shows each seat\'s training wheels, changeable only before the first move', () => {
+    const server = new RoomServer(() => 0);
+    const a = client('a'), b = client('b');
+    server.handle(a.conn, { t: 'create', name: 'Ava', rating: 400, colour: 'p1', wheels: true });
+    server.handle(b.conn, { t: 'join', code: a.last('joined')!.code, name: 'Ben', rating: 900 });
+    expect(b.last('room')!.seats.p1!.wheels).toBe(true);
+    expect(b.last('room')!.seats.p2!.wheels).toBe(false);
+    server.handle(b.conn, { t: 'wheels', on: true });
+    expect(a.last('room')!.seats.p2!.wheels).toBe(true);
+    move(server, a, 'e4');
+    server.handle(b.conn, { t: 'wheels', on: false });
+    expect(b.last('error')!.message).toMatch(/before the first move/);
+    expect(a.last('room')!.seats.p2!.wheels).toBe(true);
+  });
+
+  it('ignores training wheels in 3 and 4 player games', () => {
+    const server = new RoomServer(() => 0);
+    const a = client('a');
+    server.handle(a.conn, { t: 'create', name: 'Ava', rating: 400, colour: 'p1', game: 'battle-3', wheels: true });
+    expect(a.last('room')!.seats.p1!.wheels).toBe(false);
+  });
+});

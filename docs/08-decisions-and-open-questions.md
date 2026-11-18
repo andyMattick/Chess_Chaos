@@ -99,3 +99,11 @@ Implementing agent: add dated entries below when you resolve an ambiguity or rec
 - **Coins:** 8 for the daily, 3 for others, halved with a hint, plus a streak bonus up to 7. Each puzzle pays once. Puzzles never change the rating (doc 02).
 - **Random puzzle rate limit:** the client caches `/puzzle/random` for 20 seconds, so it never asks more often.
 - **No external link** to the puzzle on Chess.com, because the screen is kid-facing; it says "Puzzle from Chess.com" instead.
+
+### 2026-11-17: Training wheels online, every mode online
+
+- **All 2-player modes are room games:** Three-check, Capture race, Dice chess, Truce, Capture the flag and Shuffle start join Classic, King of the hill and Hill wars. The game screen shows a live box for each (checks given, capture points, the dice roll, truce moves left, both flags tinted on the board).
+- **Training wheels (owner decision):** in 1 vs 1 online games each player can switch on their own danger alert, hints and goals, as in Train. Only that player sees them. It is set in the lobby or in the game before the first move; the server refuses changes after that, so the other player always knows before they start.
+- **Rating stays full** for the player using training wheels (owner: it is usually a lower-rated player against a higher one).
+- **The opponent is told** ("Ava has training wheels on") and may untick "Count this game for my rating" before their own first move. Then their rating does not change; coins and the leaderboard record still count. The choice is per game and lives on that player's device.
+- Not in 3 and 4 player games (the alerts assume one opponent).

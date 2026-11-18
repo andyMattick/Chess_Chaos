@@ -79,9 +79,9 @@ export class Room {
       case 'battle-4': return newBattleRecord(seed, players, 'four');
       case 'battle-teams': return newBattleRecord(seed, players, 'teams');
       case 'battle-hill-4': return newBattleRecord(seed, players, 'four', 'battle-hill');
-      case 'koth': return newRecord(seed, players, undefined, 'koth');
-      case 'hill-wars': return newRecord(seed, players, undefined, 'hill-wars');
-      default: return newRecord(seed, players);
+      case 'standard': case 'party': return newRecord(seed, players);
+      // Every other 2-player game is a core mode with the same id.
+      default: return newRecord(seed, players, undefined, this.game);
     }
   }
 
@@ -137,8 +137,8 @@ export class Room {
     return (Object.keys(this.seats) as PlayerId[]).find((k) => this.seats[k]?.conn?.id === conn.id);
   }
 
-  addPlayer(conn: Conn, seat: PlayerId, name: string, rating: number, look?: ArmyLook): Seat {
-    const s: Seat = { look: cleanLook(look), name: cleanName(name), rating: Math.max(100, Math.min(3000, Math.round(rating) || 600)), connected: true, botControlled: false, token: token(), conn, leftAt: null };
+  addPlayer(conn: Conn, seat: PlayerId, name: string, rating: number, look?: ArmyLook, wheels = false): Seat {
+    const s: Seat = { wheels: wheels && this.seatIds.length === 2, look: cleanLook(look), name: cleanName(name), rating: Math.max(100, Math.min(3000, Math.round(rating) || 600)), connected: true, botControlled: false, token: token(), conn, leftAt: null };
     this.seats[seat] = s;
     this.host ??= seat;
     this.maybeStartParty();
@@ -280,6 +280,13 @@ export class Room {
         for (const s of Object.values(this.seats)) s?.conn?.send({ t: 'emote', from: seat, id: msg.id });
         return;
       }
+      case 'wheels': {
+        // Only in 1 vs 1 games, and only before the first move, so the other player always knows before they start.
+        if (this.seatIds.length !== 2 || this.record.actions.length > 0) return conn.send({ t: 'error', message: 'Training wheels can only change before the first move.' });
+        this.seats[seat]!.wheels = !!msg.on;
+        this.broadcast();
+        return;
+      }
       case 'rematch': {
         if (!this.state.result) return;
         this.rematchVotes.add(seat);
@@ -342,8 +349,8 @@ export class Room {
   broadcast() {
     const seats: Partial<Record<PlayerId, SeatInfo>> = {};
     for (const k of Object.keys(this.seats) as PlayerId[]) {
-      const { name, rating, connected, botControlled, look } = this.seats[k]!;
-      seats[k] = { name, rating, connected, botControlled, look };
+      const { name, rating, connected, botControlled, look, wheels } = this.seats[k]!;
+      seats[k] = { name, rating, connected, botControlled, look, wheels: !!wheels };
     }
     const base = { t: 'room' as const, code: this.code, seats, seatIds: this.seatIds, game: this.game, host: this.host, rematchVotes: [...this.rematchVotes], clock: this.clockSnapshot(), score: this.scoreboard(), gamesPlayed: this.gamesPlayed };
     const party = this.record.setup.party;
@@ -379,7 +386,7 @@ export class RoomServer {
       this.rooms.set(room.code, room);
       this.connRoom.set(conn.id, room);
       const seat: PlayerId = room.seatIds.length > 2 ? 'p1' : msg.colour === 'random' ? (Math.random() < 0.5 ? 'p1' : 'p2') : msg.colour === 'p2' ? 'p2' : 'p1';
-      room.addPlayer(conn, seat, msg.name, msg.rating, msg.look);
+      room.addPlayer(conn, seat, msg.name, msg.rating, msg.look, !!msg.wheels);
       return;
     }
     if (msg.t === 'join') {
@@ -396,7 +403,7 @@ export class RoomServer {
       if (!free) return conn.send({ t: 'error', message: 'That room is full.' });
       this.leaveCurrent(conn);
       this.connRoom.set(conn.id, room);
-      room.addPlayer(conn, free, msg.name, msg.rating, msg.look);
+      room.addPlayer(conn, free, msg.name, msg.rating, msg.look, !!msg.wheels);
       return;
     }
     if (msg.t === 'rejoin') {

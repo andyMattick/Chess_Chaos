@@ -4,7 +4,8 @@ import { botById } from '../content/bots';
 import { skinFor } from '../content/cosmetics';
 import { pieceType } from '../core/pieces';
 import { newRecord, replay, type GameRecord } from '../core/record';
-import { hillData } from '../core/modes';
+import { flagSquare, hillData, MODE_INFO, rolledType } from '../core/modes';
+import { pieceType as typeInfo } from '../core/pieces';
 import { legalActions } from '../core/rules';
 import { toSAN } from '../core/san';
 import { newSeed } from '../core/rng';
@@ -22,6 +23,8 @@ import type { ReviewResult } from '../systems/review';
 import { mergeMiss } from '../systems/review';
 import { sameMove } from '../core/rules';
 import { useTraining, type TrainingConfig } from './training';
+import { alertMode, chooseAlert } from '../systems/alerts';
+import { EASY_GOALS, type EasyGoalId } from '../tactics/missions';
 import { usePartyLayer } from './partyLayer';
 import { refereeMission, type PartySetup } from '../systems/party';
 import { missionById } from '../content/party';
@@ -170,9 +173,26 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   // Loud "your turn" for games where you wait on someone else.
   useYourTurn(isHumanTurn && !reviewing && rec.actions.length > 0, { wrap: wrapRef, announce: isOnline || !!botSeat });
 
+  // Training wheels online: my own alert, hints and goals, as in Train (only I see them).
+  const seatsNow = isOnline ? net.seats : {};
+  const myWheels = isOnline && !!seatsNow[me]?.wheels && net.seatIds.length === 2;
+  const oppWheels = isOnline && !!seatsNow[other(me)]?.wheels && net.seatIds.length === 2;
+  const wheelsCfg = useMemo<TrainingConfig | undefined>(() => {
+    const p = activeProfile(save);
+    if (!myWheels || !p) return undefined;
+    const alert = chooseAlert(p.rating, p.missMap, p.lastAlert, Math.random);
+    const goals = (Object.keys(EASY_GOALS) as EasyGoalId[]).sort(() => Math.random() - 0.5).slice(0, 3);
+    return { alertId: alert.id, mode: alertMode(p.rating), goals };
+  }, [myWheels, rec.id, rec.seed]); // eslint-disable-line react-hooks/exhaustive-deps
+  const trainingCfg = config.training ?? wheelsCfg;
+  // Playing someone with training wheels: you may play just for fun (no rating change). Decide before your first move.
+  const [forFun, setForFun] = useState(false);
+  useEffect(() => setForFun(false), [rec.id, rec.seed]);
+  const iHaveMoved = rec.actions.some((a, i) => a.t === 'move' && states[i]?.turn === me);
+
   const moveActions = useMemo(() => rec.actions.filter((a): a is MoveAction => a.t === 'move'), [rec]);
   const training = useTraining({
-    cfg: config.training, live, states, actions: moveActions, me,
+    cfg: trainingCfg, live, states, actions: moveActions, me,
     isMyTurn: isHumanTurn && !reviewing, selected, commit: (m) => commit(m),
   });
 
@@ -280,7 +300,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
         setCoinAward(award);
         p = { ...p, coins: (p.coins ?? 0) + award.total };
       }
-      if (oppRating !== undefined && rec.actions.length >= 2) {
+      if (oppRating !== undefined && rec.actions.length >= 2 && !(oppWheels && forFun)) {
         const score = won ? 1 : drawn ? 0.5 : 0;
         const rating = updateRating(p.rating, oppRating, score, p.gamesPlayed, live.result!.reason === 'mission' ? 0.5 : 1);
         setRatingChange({ before: p.rating, after: rating });
@@ -297,8 +317,8 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           ? { key: `bot:${bot.id}`, name: bot.name, kind: 'bot', rating: bot.rating, score }
           : { key: `online:${oppName.toLowerCase()}`, name: oppName, kind: 'online', rating: oppRating, score });
       }
-      if (config.training) {
-        p = { ...p, lastAlert: config.training.alertId, badges: { ...p.badges, 'goal-getter': (p.badges['goal-getter'] ?? 0) + training.goalsDone.length } };
+      if (trainingCfg) {
+        p = { ...p, lastAlert: trainingCfg.alertId, badges: { ...p.badges, 'goal-getter': (p.badges['goal-getter'] ?? 0) + training.goalsDone.length } };
       }
       return addGame(upsertProfile(d, p), p.id, finalRec);
     });
@@ -406,7 +426,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             interactive={(!reviewing && isHumanTurn) || retrying}
             onSquare={onSquare}
             fx={view === null ? fx : null}
-            overlays={retrying && retry!.reveal && fix ? revealOverlay(states[fix.ply], fix.goodMoves[0]) : training.overlays ?? party.overlays}
+            overlays={retrying && retry!.reveal && fix ? revealOverlay(states[fix.ply], fix.goodMoves[0]) : withFlags(shown, training.overlays ?? party.overlays)}
           />
           {training.modal}
           {party.modal}
@@ -463,6 +483,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
                   <small>{coinAward.lines.map((l) => `${l.label} +${l.coins}`).join(' · ')}</small>
                 </div>
               )}
+              {!ratingChange && oppWheels && forFun && <p className="rating-change">🚲 Played for fun: your rating stays the same.</p>}
               {ratingChange && (
                 <p className="rating-change">
                   ★ {ratingChange.before} → <b>{ratingChange.after}</b> ({ratingChange.after >= ratingChange.before ? '+' : ''}{ratingChange.after - ratingChange.before})
@@ -505,8 +526,24 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             <small>{net.gamesPlayed ? `after ${net.gamesPlayed} game${net.gamesPlayed > 1 ? 's' : ''}` : 'first game'}</small>
           </div>
         )}
+        {isOnline && !reviewRecord && net.seatIds.length === 2 && rec.actions.length === 0 && !live.result && (
+          <label className="wheels-toggle small">
+            <input type="checkbox" checked={myWheels} onChange={(e) => online.setWheels(e.target.checked)} />
+            <span>🚲 Training wheels for me</span>
+          </label>
+        )}
+        {oppWheels && !reviewRecord && (
+          <div className="wheels-note">
+            🚲 <b>{names[other(me)]}</b> has training wheels on: danger alerts and hints.
+            <label>
+              <input type="checkbox" checked={!forFun} disabled={iHaveMoved || !!live.result} onChange={(e) => setForFun(!e.target.checked)} />
+              {' '}Count this game for my rating{iHaveMoved || live.result ? (forFun ? ' (playing for fun)' : '') : ' (choose before your first move)'}
+            </label>
+          </div>
+        )}
         {!reviewRecord && training.panel}
         {!reviewRecord && party.panel}
+        <ModeStatus s={shown} names={names} showBlurb={!partySetup} />
         {live.mode === 'koth' && <div className="hill-goal">⛰️ King of the hill: get your king to a yellow square to win!</div>}
         {live.mode === 'hill-wars' && (() => {
           const h = hillData(shown);
@@ -614,6 +651,43 @@ function PlayerBar({ name, rating, avatar, active, captured, speech, colour, not
         ))}
         {!!lead && lead > 0 && <span className="lead">+{lead}</span>}
       </div>
+    </div>
+  );
+}
+
+/** Capture the flag: tint both flag squares so everyone can see them. */
+function withFlags(s: GameState, o: import('./Board').BoardOverlays | undefined) {
+  if (s.mode !== 'capture-the-flag') return o;
+  const tint = new Map(o?.tint ?? []);
+  for (const seat of s.seats) tint.set(flagSquare(s, seat.id), seat.id === 'p1' ? 'rgba(80, 160, 255, 0.55)' : 'rgba(255, 70, 70, 0.55)');
+  return { ...(o ?? {}), tint };
+}
+
+/** Live score box for the 2-player modes that need one (koth and hill wars have their own). */
+function ModeStatus({ s, names, showBlurb }: { s: GameState; names: Record<string, string>; showBlurb: boolean }) {
+  const info = MODE_INFO.find((m) => m.id === s.mode);
+  if (!info || ['standard', 'koth', 'hill-wars', 'battle'].includes(info.id)) return null;
+  const who = ['p1', 'p2'] as PlayerId[];
+  let line: ReactNode = null;
+  if (s.mode === 'three-check') {
+    const c = (s.modeData?.checks as Record<string, number>) ?? {};
+    line = who.map((k) => <div key={k}>{names[k]}: {'✔️'.repeat(c[k] ?? 0)}{'▫️'.repeat(Math.max(0, 3 - (c[k] ?? 0)))}</div>);
+  } else if (s.mode === 'capture-race') {
+    const pts = (s.modeData?.points as Record<string, number>) ?? {};
+    line = who.map((k) => <div key={k} className="hill-bar"><div style={{ width: `${Math.min(100, ((pts[k] ?? 0) / 15) * 100)}%` }} /><span>{names[k]}: {pts[k] ?? 0} / 15</span></div>);
+  } else if (s.mode === 'random-piece' && !s.result) {
+    const t = rolledType(s, legalActions({ ...s, mode: 'standard' }));
+    line = <div className="dice-roll">🎲 {names[s.turn]} must move: <b>{t ? typeInfo(t).name ?? t : 'anything (check!)'}</b></div>;
+  } else if (s.mode === 'truce') {
+    const left = Math.max(0, Math.ceil((20 - s.ply) / 2));
+    line = <div>{left > 0 ? `🕊️ No captures for ${left} more move${left === 1 ? '' : 's'} each` : '💥 Truce is over. Capture away!'}</div>;
+  } else if (s.mode === 'capture-the-flag') {
+    line = <div>🔵 Blue square: White's flag. 🔴 Red square: Black's flag. Sit on the enemy flag for one turn to win.</div>;
+  }
+  return (
+    <div className="hill-goal">
+      {showBlurb && <div>{info.emoji} <b>{info.name}</b>: {info.blurb}</div>}
+      {line}
     </div>
   );
 }
