@@ -21,7 +21,7 @@ export function ProfileChip({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train' | 'chesscom' | 'battle') => void }) {
+export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train' | 'chesscom' | 'battle' | 'leaderboard') => void }) {
   const save = useSave();
   const p = activeProfile(save);
   return (
@@ -61,6 +61,11 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
           <span className="big-emoji">🧌</span>
           <span className="big-title">Wardrobe</span>
           <span className="big-sub">Monsters, robots, ghosts… and lava boards</span>
+        </button>
+        <button className="big" style={{ ['--c' as string]: '#ffb13d' }} onClick={() => go('leaderboard')} disabled={!p}>
+          <span className="big-emoji">🏆</span>
+          <span className="big-title">Leaderboard</span>
+          <span className="big-sub">Everyone you've played, by rating</span>
         </button>
         <button className="big" style={{ ['--c' as string]: '#a77bff' }} onClick={() => go('history')} disabled={!p}>
           <span className="big-emoji">📜</span>

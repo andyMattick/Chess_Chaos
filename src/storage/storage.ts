@@ -28,8 +28,21 @@ export interface Profile {
   /** Coins earned by playing, spent in the Wardrobe. */
   coins: number;
   owned: { skins: SkinId[]; landscapes: LandscapeId[] };
+  /** Everyone this player has played (bots and online players), for the leaderboard. */
+  opponents: Record<string, Opponent>;
   /** This player's chosen look. */
   look: { skins: SkinChoice; landscape: LandscapeId };
+}
+
+export interface Opponent {
+  name: string;
+  kind: 'bot' | 'online';
+  /** Their rating the last time you played them. */
+  rating: number;
+  w: number;
+  l: number;
+  d: number;
+  last: number;
 }
 
 export interface Settings {
@@ -125,6 +138,7 @@ export function newProfile(nickname: string, colour: string): Profile {
     badges: {},
     missionsCompleted: 0,
     coins: 20,
+    opponents: {},
     owned: { skins: [...FREE_SKINS], landscapes: [...FREE_LANDSCAPES] },
     look: { skins: DEFAULT_SKINS, landscape: 'meadow' },
   };
@@ -134,6 +148,16 @@ export function newProfile(nickname: string, colour: string): Profile {
 export function lookOf(d: SaveData = load()): { skins: SkinChoice; landscape: LandscapeId } {
   const p = activeProfile(d);
   return p?.look ?? { skins: d.settings.skins, landscape: d.settings.landscape };
+}
+
+/** Record a finished game against someone, for the leaderboard. */
+export function noteOpponent(p: Profile, o: { key: string; name: string; kind: 'bot' | 'online'; rating: number; score: number }): Profile {
+  const prev = p.opponents?.[o.key] ?? { name: o.name, kind: o.kind, rating: o.rating, w: 0, l: 0, d: 0, last: 0 };
+  const next: Opponent = {
+    ...prev, name: o.name, rating: o.rating, last: Date.now(),
+    w: prev.w + (o.score === 1 ? 1 : 0), l: prev.l + (o.score === 0 ? 1 : 0), d: prev.d + (o.score === 0.5 ? 1 : 0),
+  };
+  return { ...p, opponents: { ...(p.opponents ?? {}), [o.key]: next } };
 }
 
 /** Change the active player's profile in one step. */

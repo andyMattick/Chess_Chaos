@@ -11,7 +11,7 @@ import { newSeed } from '../core/rng';
 import type { Action, GameState, MoveAction, PlayerId } from '../core/types';
 import { online, timeLeft } from '../net/client';
 import { EMOTES } from '../net/protocol';
-import { lookOf, activeProfile, addGame, update, upsertProfile } from '../storage/storage';
+import { lookOf, activeProfile, addGame, noteOpponent, update, upsertProfile } from '../storage/storage';
 import { updateRating } from '../systems/rating';
 import { coinsFor, type CoinAward } from '../systems/coins';
 import { Board } from './Board';
@@ -255,6 +255,13 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           const r0 = p.botRecords[bot.id] ?? { w: 0, l: 0, d: 0 };
           p = { ...p, botRecords: { ...p.botRecords, [bot.id]: { w: r0.w + (score === 1 ? 1 : 0), l: r0.l + (score === 0 ? 1 : 0), d: r0.d + (score === 0.5 ? 1 : 0) } } };
         }
+      }
+      if (oppRating !== undefined && rec.actions.length >= 2) {
+        const score = won ? 1 : drawn ? 0.5 : 0;
+        const oppName = names[other(me)];
+        p = noteOpponent(p, bot
+          ? { key: `bot:${bot.id}`, name: bot.name, kind: 'bot', rating: bot.rating, score }
+          : { key: `online:${oppName.toLowerCase()}`, name: oppName, kind: 'online', rating: oppRating, score });
       }
       if (config.training) {
         p = { ...p, lastAlert: config.training.alertId, badges: { ...p.badges, 'goal-getter': (p.badges['goal-getter'] ?? 0) + training.goalsDone.length } };

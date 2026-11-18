@@ -413,3 +413,11 @@ body[data-land='space'] .player-bar:not(.active) .prating, body[data-land='volca
 .scoreboard small { width: 100%; color: var(--muted); font-size: 0.8rem; }
 .lead { font-weight: 900; margin-left: 6px; background: var(--lime); border: 2px solid var(--ink); border-radius: 8px; padding: 0 5px; font-size: 0.9rem; align-self: center; }
 .wins { font-size: 0.85rem; color: #b07000; }
+
+.leaderboard { list-style: none; padding: 0; display: grid; gap: 8px; }
+.leaderboard li { display: flex; align-items: center; gap: 10px; border: 3px solid var(--ink); border-radius: var(--wonky2); padding: 8px 12px; background: #fff8e6; box-shadow: 3px 3px 0 var(--ink); }
+.leaderboard li:nth-child(odd) { transform: rotate(-0.6deg); }
+.leaderboard li.me { background: #dff0ff; }
+.leaderboard .place { font-size: 1.5rem; min-width: 36px; text-align: center; font-weight: 900; font-family: var(--hand); }
+.lb-name { display: grid; flex: 1; }
+.lb-name small { color: var(--muted); font-weight: 700; }

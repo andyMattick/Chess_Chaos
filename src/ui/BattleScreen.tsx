@@ -10,7 +10,7 @@ import type { Action, MoveAction, PlayerId } from '../core/types';
 import type { BattleKind } from '../core/variants';
 import { online, timeLeft } from '../net/client';
 import { EMOTES } from '../net/protocol';
-import { activeProfile, addGame, lookOf, update, upsertProfile } from '../storage/storage';
+import { activeProfile, addGame, lookOf, noteOpponent, update, upsertProfile } from '../storage/storage';
 import { coinsFor, type CoinAward } from '../systems/coins';
 import { updateRating } from '../systems/rating';
 import { Board } from './Board';
@@ -169,6 +169,12 @@ export function BattleScreen({ local, onExit, onAgain }: { local?: LocalBattle; 
       const before = p.rating;
       const rating = movesPlayed >= 3 ? updateRating(p.rating, opp, won ? 1 : 0, p.gamesPlayed, 0.5) : p.rating;
       setAward({ coins, before, after: rating });
+      if (movesPlayed >= 3) {
+        for (const k of opponents) {
+          const isBot = !isOnline || net.seats[k]?.botControlled;
+          p = noteOpponent(p, { key: `${isBot ? 'bot' : 'online'}:${names[k].toLowerCase()}`, name: names[k], kind: isBot ? 'bot' : 'online', rating: ratings[k] ?? 600, score: won ? 1 : 0 });
+        }
+      }
       p = { ...p, rating, coins: p.coins + coins.total, gamesPlayed: p.gamesPlayed + 1, ratingHistory: [...p.ratingHistory, { at: Date.now(), rating }].slice(-200) };
       return addGame(upsertProfile(d, p), p.id, { ...rec, meta: { ...rec.meta, players: names, result: live.result } });
     });
