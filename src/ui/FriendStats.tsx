@@ -35,7 +35,7 @@ export function StatsLine({ row, n }: { row: BoardRow | undefined; n?: string })
         <>
           <span className="bot-rating">★ {row.r}</span> <b>#{row.rank}</b> in the world · W {row.w} · L {row.l} · D {row.d} · {row.g} {row.g === 1 ? 'game' : 'games'}
         </>
-      ) : n ? <span className="muted">Not on the world leaderboard</span> : null}
+      ) : n ? <span className="muted">Not on the world leaderboard yet (their app puts them on it once it syncs)</span> : null}
       {vs && <span className="vs"> · you vs them: W {vs.w} · L {vs.l} · D {vs.d}</span>}
     </span>
   );

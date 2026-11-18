@@ -23,14 +23,20 @@ export function Leaderboard({ back }: { back: () => void }) {
   // An online opponent you also added as a friend (same name): their live world stats.
   const friendFor = (name: string) => (p.friends ?? []).find((n) => labelFor(p, n).trim().toLowerCase() === name.trim().toLowerCase());
   const liveRow = (name: string) => { const n = friendFor(name); return n ? { n, row: board?.friends.find((x) => x.n === n) } : null; };
+  const played = Object.entries(withHistory(p.opponents ?? {}, p.botRecords ?? {}, save.games[p.id] ?? [], p.nickname)).map(([key, o]) => ({ key, ...o }));
+  // Friends you added by number show too, even before you have played them (or under another name).
+  const linked = new Set(played.filter((r) => r.kind === 'online').map((r) => friendFor(r.name)).filter(Boolean));
+  const friendRows = (p.friends ?? []).filter((n) => !linked.has(n)).map((n) => ({ key: `friend:${n}`, n, name: labelFor(p, n), kind: 'friend' as const, rating: 0, w: 0, l: 0, d: 0, last: 0 }));
   const rows = [
     { key: 'me', name: p.nickname, kind: 'you' as const, rating: p.rating, w: 0, l: 0, d: 0, last: Date.now() },
-    ...Object.entries(withHistory(p.opponents ?? {}, p.botRecords ?? {}, save.games[p.id] ?? [], p.nickname)).map(([key, o]) => ({ key, ...o })),
+    ...played,
+    ...friendRows,
     // Other players on this device count too.
     ...save.profiles.filter((x) => x.id !== p.id).map((x) => ({ key: `local:${x.id}`, name: x.nickname, kind: 'device' as const, rating: x.rating, w: 0, l: 0, d: 0, last: 0 })),
   ].map((r) => {
     // A friend's rating from the world board is newer than the one saved after your last game.
     const live = r.kind === 'online' ? liveRow(r.name) : null;
+    if ('n' in r) { const row = board?.friends.find((x) => x.n === r.n); return row ? { ...r, rating: row.r } : r; }
     return live?.row ? { ...r, rating: live.row.r } : r;
   }).sort((a, b) => b.rating - a.rating);
   const unknown = rows.some((r) => r.kind === 'online' && !liveRow(r.name));
@@ -44,7 +50,7 @@ export function Leaderboard({ back }: { back: () => void }) {
           <button className="chip" onClick={() => setTab('world')}>🌍 World</button>
         </div>
       )}
-      <p className="muted small">Everyone you've played, ranked by rating. Ratings are from your last game with each one. Saved on this device.</p>
+      <p className="muted small">Everyone you've played and your friends, ranked by rating. Ratings are from your last game with each one. Saved on this device.</p>
       {rows.length === 1 && <p className="muted">Play some bots or friends online and they'll show up here.</p>}
       <ol className="leaderboard">
         {rows.map((r, i) => (
@@ -54,6 +60,7 @@ export function Leaderboard({ back }: { back: () => void }) {
               <b>{r.name}{r.kind === 'you' ? ' (you)' : ''}</b>
               <small>{r.kind === 'bot' ? '🤖 bot' : r.kind === 'online' ? (friendFor(r.name) ? '👫 friend' : '🌐 online') : r.kind === 'device' ? '📱 this device' : ''}{r.kind === 'bot' || r.kind === 'online' ? ` · you: W ${r.w} · L ${r.l} · D ${r.d}` : ''}</small>
               {r.kind === 'online' && liveRow(r.name) && <small><StatsLine row={liveRow(r.name)!.row} /></small>}
+              {'n' in r && (board ? <small><StatsLine row={board.friends.find((x) => x.n === r.n)} n={r.n} /></small> : <small className="muted">👫 friend</small>)}
             </span>
             <span className="bot-rating" title={r.rating ? undefined : 'Not saved yet: it is saved at the end of your next game with them'}>{r.rating ? `★ ${r.rating}` : '★ ?'}</span>
           </li>
