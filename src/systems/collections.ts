@@ -1,5 +1,6 @@
 import { CARDS, type CardDef, type Suit } from '../content/cards';
 import { SELL_PRICE, type CollectionSet } from '../content/collections';
+import type { SkinChoice } from '../content/cosmetics';
 
 /**
  * Turning in collections and selling cards (owner, 2026-11-18). `cards` is the
@@ -45,4 +46,22 @@ export function sellCard(cards: Record<string, number>, id: string): { cards: Re
   const next = { ...cards, [id]: cards[id] - 1 };
   if (next[id] <= 0) delete next[id];
   return { cards: next, coins: SELL_PRICE[def.rarity] };
+}
+
+/**
+ * After turning in a set, its pieces wear the new skin straight away (owner,
+ * 2026-11-18), in both your White and Black armies (set skins have a light
+ * and a dark look). Other pieces keep what they had; the Wardrobe can change it.
+ */
+export function wearSet(skins: SkinChoice, set: Pick<CollectionSet, 'pieces' | 'skin'>): SkinChoice {
+  const pieces = { ...skins.pieces };
+  for (const seat of ['p1', 'p2']) {
+    const mine = { ...(pieces[seat] ?? {}) };
+    for (const type of set.pieces) {
+      if (skins.armies[seat] === set.skin) delete mine[type];
+      else mine[type] = set.skin;
+    }
+    pieces[seat] = mine;
+  }
+  return { ...skins, pieces };
 }

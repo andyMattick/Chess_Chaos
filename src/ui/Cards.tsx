@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { CARDS, HAND_SIZE, POWER_CARDS, SUITS, SUIT_ICON, SUIT_NAME, cardById, type CardDef, type Suit } from '../content/cards';
 import { COLLECTIONS, SELL_PRICE, SET_SKIN_PRICE, type CollectionSet, type SetRarity } from '../content/collections';
-import { redeemSet, sellCard, setProgress } from '../systems/collections';
+import { redeemSet, sellCard, setProgress, wearSet } from '../systems/collections';
 import { Character, skinInfo } from './skins';
 import { sfx } from './sound';
 import { activeProfile, updateProfile } from '../storage/storage';
@@ -131,9 +131,9 @@ function Collections({ onNote }: { onNote: (t: string) => void }) {
   const turnIn = (c: CollectionSet) => {
     const r = redeemSet(p.collection, c);
     if (!r) return;
-    updateProfile((x) => ({ ...x, collection: r.cards, owned: { ...x.owned, skins: [...new Set([...x.owned.skins, c.skin])] } }));
+    updateProfile((x) => ({ ...x, collection: r.cards, owned: { ...x.owned, skins: [...new Set([...x.owned.skins, c.skin])] }, look: { ...x.look, skins: wearSet(x.look.skins, c) } }));
     sfx.promote();
-    onNote(`🎉 ${c.name} turned in! You unlocked ${skinInfo(c.skin).name}. Find it in the Wardrobe.`);
+    onNote(`🎉 ${c.name} turned in! Your ${c.pieces.map((s) => SUIT_NAME[s].toLowerCase()).join(', ')} pieces now wear ${skinInfo(c.skin).name}. Change it any time in the Wardrobe.`);
   };
   const buy = (c: CollectionSet, price: number) => {
     if (p.coins < price) return;

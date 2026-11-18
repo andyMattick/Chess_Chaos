@@ -48,3 +48,14 @@ describe('collections', () => {
     expect(sellCard({}, 'CARD-03')).toBeNull();
   });
 });
+
+describe('wearing a set you turned in', () => {
+  it('puts the skin on just those pieces, in both armies', async () => {
+    const { wearSet } = await import('../src/systems/collections');
+    const skins = { armies: { p1: 'gremlin', p2: 'robot' }, pieces: { p1: { queen: 'dino' } }, badges: false } as never;
+    const out = wearSet(skins, { pieces: ['king', 'rook'], skin: 'set-lava' as never });
+    expect(out.pieces.p1).toEqual({ queen: 'dino', king: 'set-lava', rook: 'set-lava' });
+    expect(out.pieces.p2).toEqual({ king: 'set-lava', rook: 'set-lava' });
+    expect(out.armies).toEqual({ p1: 'gremlin', p2: 'robot' });
+  });
+});
