@@ -67,3 +67,33 @@ describe('post-game review', () => {
       .toEqual({ fork: { missed: 2, found: 2 }, pin: { missed: 1, found: 0 } });
   });
 });
+
+import { coinsFor, PATH, unlockedCount } from '../src/systems/coins';
+import { SKIN_PRICES, LANDSCAPE_PRICES } from '../src/content/cosmetics';
+import { SKINS } from '../src/ui/skins';
+import { LANDSCAPES } from '../src/ui/landscapes';
+
+describe('coins and shop', () => {
+  it('every finished game pays something; wins pay more', () => {
+    const base = { kind: 'bot' as const, opponent: 600, rating: 600, movesPlayed: 20 };
+    expect(coinsFor({ ...base, result: 'loss' }).total).toBeGreaterThan(0);
+    expect(coinsFor({ ...base, result: 'win' }).total).toBeGreaterThan(coinsFor({ ...base, result: 'draw' }).total);
+    expect(coinsFor({ ...base, result: 'win', opponent: 900 }).total).toBeGreaterThan(coinsFor({ ...base, result: 'win' }).total);
+    expect(coinsFor({ ...base, result: 'win', firstWin: true, goalsDone: 2 }).total).toBe(10 + 25 + 8);
+  });
+  it('resigning instantly pays nothing', () => {
+    expect(coinsFor({ kind: 'bot', result: 'loss', opponent: 600, rating: 600, movesPlayed: 1 }).total).toBe(0);
+  });
+  it('every skin and landscape has a price, and some are free', () => {
+    for (const s of SKINS) expect(SKIN_PRICES[s.id]).toBeGreaterThanOrEqual(0);
+    for (const l of LANDSCAPES) expect(LANDSCAPE_PRICES[l.id]).toBeGreaterThanOrEqual(0);
+    expect(SKINS.length).toBe(14);
+    expect(Object.values(SKIN_PRICES).filter((p) => p === 0).length).toBeGreaterThanOrEqual(3);
+  });
+  it('bot path opens one bot per win', () => {
+    expect(unlockedCount({})).toBe(3);
+    expect(unlockedCount({ [PATH[0].id]: { w: 1 } })).toBe(3);
+    expect(unlockedCount({ [PATH[2].id]: { w: 1 } })).toBe(4);
+    expect(PATH[0].rating).toBe(400);
+  });
+});

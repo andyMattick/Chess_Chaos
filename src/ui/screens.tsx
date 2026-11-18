@@ -15,6 +15,7 @@ export function ProfileChip({ onClick }: { onClick: () => void }) {
       <span className="dot" style={{ background: p?.colour ?? '#ccc' }}>{p?.nickname.slice(0, 1).toUpperCase() ?? '?'}</span>
       <span>{p ? p.nickname : 'Pick a player'}</span>
       {p && <span className="chip-rating">★ {p.rating}</span>}
+      {p && <span className="chip-coins">🪙 {p.coins ?? 0}</span>}
     </button>
   );
 }

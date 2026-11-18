@@ -42,8 +42,13 @@ export function handle(req: AIRequest): AIResponse {
   }
 }
 
-// Only wire up messaging when actually running inside a worker.
-const ctx = globalThis as unknown as { onmessage: ((e: MessageEvent<AIRequest>) => void) | null; postMessage: (d: AIResponse) => void };
-if (typeof window === 'undefined' && typeof (globalThis as { importScripts?: unknown }).importScripts === 'function') {
-  ctx.onmessage = (e) => ctx.postMessage(handle(e.data));
+// Only wire up messaging when actually running inside a worker. (Module
+// workers have no importScripts, so test for the worker scope itself.)
+const g = globalThis as unknown as {
+  WorkerGlobalScope?: new () => unknown;
+  onmessage: ((e: MessageEvent<AIRequest>) => void) | null;
+  postMessage: (d: AIResponse) => void;
+};
+if (typeof window === 'undefined' && typeof g.WorkerGlobalScope !== 'undefined' && globalThis instanceof g.WorkerGlobalScope) {
+  g.onmessage = (e) => g.postMessage(handle(e.data));
 }

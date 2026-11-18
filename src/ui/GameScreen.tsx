@@ -10,8 +10,9 @@ import { newSeed } from '../core/rng';
 import type { Action, GameState, MoveAction, PlayerId } from '../core/types';
 import { online, timeLeft } from '../net/client';
 import { EMOTES } from '../net/protocol';
-import { activeProfile, addGame, update, upsertProfile } from '../storage/storage';
+import { lookOf, activeProfile, addGame, update, upsertProfile } from '../storage/storage';
 import { updateRating } from '../systems/rating';
+import { coinsFor, type CoinAward } from '../systems/coins';
 import { Board } from './Board';
 import { Character } from './skins';
 import { useSave } from './store';
@@ -82,6 +83,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   const [thinking, setThinking] = useState(false);
   const [flipped, setFlipped] = useState(false);
   const [ratingChange, setRatingChange] = useState<{ before: number; after: number } | null>(null);
+  const [coinAward, setCoinAward] = useState<CoinAward | null>(null);
   const finishedRef = useRef(!!reviewRecord);
   const reviewing = !!reviewRecord || view !== null;
 
@@ -229,6 +231,17 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     const oppRating = bot?.rating ?? (isOnline ? net.seats[other(me)]?.rating : undefined);
     update((d) => {
       let p = activeProfile(d)!;
+      if (oppRating !== undefined) {
+        const firstWin = !!bot && won && (p.botRecords[bot.id]?.w ?? 0) === 0;
+        const movesPlayed = rec.actions.filter((a, i) => a.t === 'move' && states[i].turn === me).length;
+        const award = coinsFor({
+          kind: config.training ? 'training' : isOnline ? 'online' : 'bot',
+          result: won ? 'win' : drawn ? 'draw' : 'loss',
+          opponent: oppRating, rating: p.rating, goalsDone: training.goalsDone.length, firstWin, movesPlayed,
+        });
+        setCoinAward(award);
+        p = { ...p, coins: (p.coins ?? 0) + award.total };
+      }
       if (oppRating !== undefined && rec.actions.length >= 2) {
         const score = won ? 1 : drawn ? 0.5 : 0;
         const rating = updateRating(p.rating, oppRating, score, p.gamesPlayed);
@@ -254,8 +267,14 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           const p = activeProfile(d);
           if (!p) return d;
           const badges = { ...p.badges };
-          for (const [k, n] of Object.entries(r.badges)) badges[k] = (badges[k] ?? 0) + n;
-          return upsertProfile(d, { ...p, missMap: mergeMiss(p.missMap, r.miss), badges });
+          let tricks = 0;
+          for (const [k, n] of Object.entries(r.badges)) {
+            badges[k] = (badges[k] ?? 0) + n;
+            if (k !== 'no-hang-streak') tricks += n;
+          }
+          const bonus = Math.min(tricks, 5) * 2;
+          if (bonus) setCoinAward((c) => c && { total: c.total + bonus, lines: [...c.lines, { label: `Tricks found ×${Math.min(tricks, 5)}`, coins: bonus }] });
+          return upsertProfile(d, { ...p, missMap: mergeMiss(p.missMap, r.miss), badges, coins: (p.coins ?? 0) + bonus });
         });
       });
     }
@@ -301,7 +320,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     if (bot && seat === botSeat) return <span className="avatar-emoji">{bot.emoji}</span>;
     return (
       <svg viewBox="0 0 100 100">
-        <Character skin={skinFor(save.settings.skins, seat, 'king')} type="king" owner={seat} seed={seat === 'p1' ? 3 : 9} />
+        <Character skin={skinFor(lookOf(save).skins, seat, 'king')} type="king" owner={seat} seed={seat === 'p1' ? 3 : 9} />
       </svg>
     );
   };
@@ -332,8 +351,8 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             targets={reviewing && !retrying ? [] : targets}
             lastMove={lastMove}
             showCoordinates={save.settings.showCoordinates}
-            landscape={save.settings.landscape}
-            skins={save.settings.skins}
+            landscape={lookOf(save).landscape}
+            skins={lookOf(save).skins}
             interactive={(!reviewing && isHumanTurn) || retrying}
             onSquare={onSquare}
             fx={view === null ? fx : null}
@@ -346,7 +365,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
               <div className="promo-row">
                 {promo.map((m) => (
                   <button key={m.promo} className="promo-btn" onClick={() => commit(m)} aria-label={m.promo}>
-                    <svg viewBox="0 0 100 100"><Character skin={skinFor(save.settings.skins, me, m.promo!)} type={m.promo!} owner={me} badge /></svg>
+                    <svg viewBox="0 0 100 100"><Character skin={skinFor(lookOf(save).skins, me, m.promo!)} type={m.promo!} owner={me} badge /></svg>
                   </button>
                 ))}
               </div>
@@ -375,6 +394,12 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
                       <button className="btn small" onClick={() => { setRetry({ tries: 0, solved: false, reveal: false }); setView(review.fix!.ply); }}>Try it again</button>
                     </div>
                   )}
+                </div>
+              )}
+              {coinAward && coinAward.total > 0 && (
+                <div className="coin-award" title={coinAward.lines.map((l) => `${l.label} +${l.coins}`).join('\n')}>
+                  <span className="coin-big">🪙</span> +{coinAward.total}
+                  <small>{coinAward.lines.map((l) => `${l.label} +${l.coins}`).join(' · ')}</small>
                 </div>
               )}
               {ratingChange && (
@@ -496,7 +521,7 @@ function PlayerBar({ name, rating, avatar, active, captured, speech, colour, not
       )}
       <div className="captured" aria-label="Captured pieces">
         {captured.map((p) => (
-          <svg key={p.id} viewBox="0 0 100 100"><Character skin={skinFor(save.settings.skins, p.owner, p.type)} type={p.type} owner={p.owner} seed={p.id + 1} /></svg>
+          <svg key={p.id} viewBox="0 0 100 100"><Character skin={skinFor(lookOf(save).skins, p.owner, p.type)} type={p.type} owner={p.owner} seed={p.id + 1} /></svg>
         ))}
       </div>
     </div>

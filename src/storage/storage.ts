@@ -1,6 +1,6 @@
 import type { GameRecord } from '../core/record';
 import { START_RATING } from '../systems/rating';
-import { DEFAULT_SKINS, type LandscapeId, type SkinChoice } from '../content/cosmetics';
+import { DEFAULT_SKINS, FREE_LANDSCAPES, FREE_SKINS, type LandscapeId, type SkinChoice, type SkinId } from '../content/cosmetics';
 
 /**
  * Local persistence (docs/04 section 7). Everything lives in localStorage under
@@ -25,6 +25,11 @@ export interface Profile {
   badges: Record<string, number>;
   missionsCompleted: number;
   lastAlert?: string;
+  /** Coins earned by playing, spent in the Wardrobe. */
+  coins: number;
+  owned: { skins: SkinId[]; landscapes: LandscapeId[] };
+  /** This player's chosen look. */
+  look: { skins: SkinChoice; landscape: LandscapeId };
 }
 
 export interface Settings {
@@ -60,7 +65,13 @@ function migrate(raw: unknown): SaveData {
     ...empty(),
     ...d,
     settings: { ...DEFAULT_SETTINGS, ...(d.settings ?? {}), skins: { ...DEFAULT_SKINS, ...(d.settings?.skins ?? {}) } },
-    profiles: (d.profiles ?? []).map((p) => ({ ...newProfile(p.nickname ?? 'Player', p.colour ?? '#4a90d9'), ...p })),
+    profiles: (d.profiles ?? []).map((p) => {
+      const fresh = newProfile(p.nickname ?? 'Player', p.colour ?? '#4a90d9');
+      const merged = { ...fresh, ...p };
+      // Profiles from before the shop keep whatever look the device had.
+      if (!p.look) merged.look = { skins: { ...DEFAULT_SKINS, ...(d.settings?.skins ?? {}) }, landscape: d.settings?.landscape ?? 'meadow' };
+      return merged;
+    }),
   } as SaveData;
 }
 
@@ -113,7 +124,24 @@ export function newProfile(nickname: string, colour: string): Profile {
     missMap: {},
     badges: {},
     missionsCompleted: 0,
+    coins: 20,
+    owned: { skins: [...FREE_SKINS], landscapes: [...FREE_LANDSCAPES] },
+    look: { skins: DEFAULT_SKINS, landscape: 'meadow' },
   };
+}
+
+/** The active player's look, or the device default when nobody is picked. */
+export function lookOf(d: SaveData = load()): { skins: SkinChoice; landscape: LandscapeId } {
+  const p = activeProfile(d);
+  return p?.look ?? { skins: d.settings.skins, landscape: d.settings.landscape };
+}
+
+/** Change the active player's profile in one step. */
+export function updateProfile(fn: (p: Profile) => Profile) {
+  update((d) => {
+    const p = activeProfile(d);
+    return p ? upsertProfile(d, fn(p)) : d;
+  });
 }
 
 export function activeProfile(d: SaveData = load()): Profile | undefined {

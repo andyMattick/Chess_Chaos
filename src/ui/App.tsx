@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { GameRecord } from '../core/record';
-import { activeProfile } from '../storage/storage';
+import { lookOf, activeProfile } from '../storage/storage';
 import { GameScreen, type GameConfig } from './GameScreen';
 import { landscapeById } from './landscapes';
 import { OnlineLobby, roomFromUrl } from './OnlineLobby';
@@ -29,9 +29,9 @@ export function App() {
   // While playing, the whole page becomes the board's landscape.
   const inGame = screen.name === 'game' || screen.name === 'online';
   useEffect(() => {
-    document.body.style.background = inGame ? landscapeById(save.settings.landscape).scene : '';
-    document.body.dataset.land = inGame ? save.settings.landscape : '';
-  }, [inGame, save.settings.landscape]);
+    document.body.style.background = inGame ? landscapeById(lookOf(save).landscape).scene : '';
+    document.body.dataset.land = inGame ? lookOf(save).landscape : '';
+  }, [inGame, lookOf(save).landscape]);
 
   return (
     <main className="app">

@@ -33,13 +33,25 @@ function getWorker(): Worker | null {
 
 type Req = AIRequest extends infer R ? (R extends AIRequest ? Omit<R, 'id'> : never) : never;
 
+/** If the worker has not answered in this long, stop trusting it and work on the main thread. */
+const WORKER_TIMEOUT_MS = { move: 12000, rank: 12000, review: 45000 };
+
 async function run(body: Req): Promise<AIResponse> {
   const req = { ...body, id: nextId++ } as AIRequest;
   const w = getWorker();
   if (w) {
     const res = await new Promise<AIResponse | null>((resolve) => {
       pending.set(req.id, resolve);
-      w.postMessage(req);
+      const timer = setTimeout(() => {
+        if (!pending.has(req.id)) return;
+        pending.delete(req.id);
+        console.warn('AI worker did not answer; falling back to the main thread');
+        worker?.terminate();
+        worker = null;
+        resolve(null);
+      }, WORKER_TIMEOUT_MS[req.kind]);
+      pending.set(req.id, (r) => { clearTimeout(timer); resolve(r); });
+      try { w.postMessage(req); } catch { clearTimeout(timer); pending.delete(req.id); resolve(null); }
     });
     if (res) return res;
   }

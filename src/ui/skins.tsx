@@ -21,6 +21,14 @@ const PALETTES: Record<Exclude<SkinId, 'classic'>, Record<'p1' | 'p2', Palette>>
   robot: { p1: { body: '#cfe3ea', shade: '#8fb1bd', belly: '#5fe0d0', ink: '#1b2a30', eye: '#5fe0d0' }, p2: { body: '#d0603a', shade: '#8f3a20', belly: '#ffcf4a', ink: '#2a1208', eye: '#ffcf4a' } },
   ghost: { p1: { body: '#fbfbff', shade: '#c8cbe6', belly: '#ffd2e4', ink: '#2b2a40', eye: '#2b2a40' }, p2: { body: '#5a6b8f', shade: '#36425e', belly: '#8fa3cc', ink: '#0f1422', eye: '#c6ff6b' } },
   critter: { p1: { body: '#ffb04a', shade: '#e07a1c', belly: '#ffe3b8', ink: '#2e1a08', eye: '#2e1a08' }, p2: { body: '#2f4f7f', shade: '#1b3054', belly: '#9cc2f0', ink: '#0b1422', eye: '#fff' } },
+  unicorn: { p1: { body: '#fff6fb', shade: '#f2c6e0', belly: '#ff8fd0', ink: '#3b1f3a', eye: '#3b1f3a' }, p2: { body: '#7b5cd6', shade: '#4f37a0', belly: '#ffd84a', ink: '#160b2e', eye: '#fff' } },
+  fish: { p1: { body: '#ff9b3d', shade: '#e0601c', belly: '#ffe1b8', ink: '#2e1608', eye: '#fff' }, p2: { body: '#2fb3c9', shade: '#1a7488', belly: '#bff3ff', ink: '#08222a', eye: '#fff' } },
+  dog: { p1: { body: '#f2d29b', shade: '#b07a3c', belly: '#fff3dc', ink: '#2e1a08', eye: '#2e1a08' }, p2: { body: '#5b4636', shade: '#2e2218', belly: '#c9a882', ink: '#120b05', eye: '#fff' } },
+  wolf: { p1: { body: '#cfd6e0', shade: '#8a96a8', belly: '#f4f6fa', ink: '#1b2230', eye: '#ffd23f' }, p2: { body: '#4a4f5c', shade: '#262a33', belly: '#8f96a6', ink: '#0b0d12', eye: '#ff4f4f' } },
+  muncher: { p1: { body: '#4ad9b0', shade: '#1f9c7a', belly: '#c33a5a', ink: '#0d2a22', eye: '#fff' }, p2: { body: '#ff6a3d', shade: '#b83a17', belly: '#5a0f22', ink: '#2a0d05', eye: '#fff' } },
+  dino: { p1: { body: '#7fd36b', shade: '#3f9a3a', belly: '#f6f0a6', ink: '#13280f', eye: '#fff' }, p2: { body: '#c45ad8', shade: '#7a2a90', belly: '#ffc2f0', ink: '#22082a', eye: '#fff' } },
+  alien: { p1: { body: '#b6f25a', shade: '#78b52a', belly: '#e9ffc2', ink: '#1a2a08', eye: '#141414' }, p2: { body: '#7aa8ff', shade: '#3c63c9', belly: '#d6e6ff', ink: '#08142e', eye: '#141414' } },
+  slime: { p1: { body: '#9ff0e0', shade: '#4cc4ad', belly: '#e8fffa', ink: '#0d3029', eye: '#0d3029' }, p2: { body: '#ff7ab8', shade: '#c43c7f', belly: '#ffd6ea', ink: '#3a0b22', eye: '#3a0b22' } },
   veggie: { p1: { body: '#ff5d5d', shade: '#c93030', belly: '#ffb0a0', ink: '#3a0d0d', eye: '#fff' }, p2: { body: '#7a4fd0', shade: '#4d2a90', belly: '#b99af0', ink: '#160b2e', eye: '#fff' } },
 };
 
@@ -31,6 +39,14 @@ export const SKINS: { id: SkinId; name: string; blurb: string }[] = [
   { id: 'ghost', name: 'Ghosts', blurb: 'Spooky sheets that float around.' },
   { id: 'critter', name: 'Critters', blurb: 'Fuzzy round things with ears.' },
   { id: 'veggie', name: 'Angry Veg', blurb: 'Tomatoes and turnips with attitude.' },
+  { id: 'dog', name: 'Good Dogs', blurb: 'Floppy ears. Very loyal. Will chew your rook.' },
+  { id: 'fish', name: 'Fish', blurb: 'Blub. Blub. Checkmate.' },
+  { id: 'slime', name: 'Slimes', blurb: 'Wobbly, drippy, a bit sticky.' },
+  { id: 'muncher', name: 'Munchers', blurb: 'All mouth. Eats pieces for breakfast.' },
+  { id: 'wolf', name: 'Wolves', blurb: 'Hunt in packs. Howl when they win.' },
+  { id: 'dino', name: 'Dinos', blurb: 'Tiny arms, big ideas.' },
+  { id: 'alien', name: 'Aliens', blurb: 'Three eyes, to spot every fork.' },
+  { id: 'unicorn', name: 'Unicorns', blurb: 'Sparkly, magical, surprisingly ruthless.' },
 ];
 
 /** Bigger pieces are bigger characters: a pawn is short, the king is tall. */
@@ -132,6 +148,113 @@ const BODIES: Record<Exclude<SkinId, 'classic'>, (pal: Palette, type: string, se
       <path d="M36 92 v3 M64 92 v3" stroke={pal.ink} {...STROKE} />
     </g>
   ),
+  unicorn: (pal, type, seed) => (
+    <g>
+      <path d="M32 94 v-4 M66 94 v-4" stroke={pal.ink} {...STROKE} strokeWidth={5} />
+      <path d="M26 92 C20 70 24 50 34 42 C42 34 60 32 70 40 C82 50 82 74 74 92 Z" fill={pal.body} stroke={pal.ink} {...STROKE} />
+      {/* Rainbow mane down one side */}
+      {['#ff5d8f', '#ffb13d', '#ffe14a', '#6bd36b', '#5ab4ff', '#a77bff'].map((c, i) => (
+        <path key={c} d={`M${70 + i * 1.5} ${42 + i * 7} q10 4 8 12`} fill="none" stroke={c} strokeWidth={5} strokeLinecap="round" />
+      ))}
+      <path d="M38 40 L32 18 L46 36 Z" fill="#ffe14a" stroke={pal.ink} strokeWidth={2.5} strokeLinejoin="round" />
+      <path d="M35 30 l6 -2 M37 24 l4 -1.5" stroke={pal.ink} strokeWidth={1.5} />
+      <Eyes pal={pal} y={56} gap={10} r={type === 'pawn' ? 6 : 5} seed={seed} />
+      <ellipse cx={50} cy={74} rx={13} ry={8} fill={pal.belly} />
+      <circle cx={45} cy={74} r={1.8} fill={pal.ink} /><circle cx={55} cy={74} r={1.8} fill={pal.ink} />
+      <path d="M22 60 l-5 -3 M20 66 l-6 0" stroke="#ffe14a" strokeWidth={2.5} strokeLinecap="round" />
+    </g>
+  ),
+  fish: (pal, _type, seed) => (
+    <g>
+      <path d="M72 66 L92 50 L88 66 L92 84 Z" fill={pal.shade} stroke={pal.ink} {...STROKE} />
+      <ellipse cx={46} cy={66} rx={30} ry={24} fill={pal.body} stroke={pal.ink} {...STROKE} />
+      <path d="M44 44 C50 34 60 36 62 46" fill={pal.shade} stroke={pal.ink} strokeWidth={3} />
+      <path d="M58 54 C62 62 62 72 58 80 M66 56 C70 64 70 72 66 78" fill="none" stroke={pal.shade} strokeWidth={3} strokeLinecap="round" />
+      <circle cx={30 + jitter(seed, 13) * 2} cy={60} r={8} fill={pal.eye} stroke={pal.ink} strokeWidth={2.5} />
+      <circle cx={31} cy={61} r={3.5} fill={pal.ink} />
+      <ellipse cx={20} cy={74} rx={4} ry={3} fill={pal.ink} />
+      <ellipse cx={46} cy={80} rx={14} ry={6} fill={pal.belly} opacity={0.8} />
+      <circle cx={12} cy={50} r={3} fill="none" stroke="#7fd4ff" strokeWidth={2} />
+      <circle cx={8} cy={40} r={2} fill="none" stroke="#7fd4ff" strokeWidth={2} />
+    </g>
+  ),
+  dog: (pal, type, seed) => (
+    <g>
+      <ellipse cx={50} cy={66} rx={28} ry={27} fill={pal.body} stroke={pal.ink} {...STROKE} />
+      <path d="M24 48 C10 50 10 76 20 80 C26 74 28 60 28 52 Z" fill={pal.shade} stroke={pal.ink} {...STROKE} />
+      <path d="M76 48 C90 50 90 76 80 80 C74 74 72 60 72 52 Z" fill={pal.shade} stroke={pal.ink} {...STROKE} />
+      <circle cx={62} cy={56} r={9} fill={pal.shade} opacity={0.6} />
+      <Eyes pal={pal} y={58} gap={11} r={type === 'pawn' ? 5.5 : 5} seed={seed} />
+      <ellipse cx={50} cy={74} rx={14} ry={10} fill={pal.belly} stroke={pal.ink} strokeWidth={2.5} />
+      <ellipse cx={50} cy={70} rx={5} ry={3.5} fill={pal.ink} />
+      <path d="M50 74 v4 M44 79 Q50 84 56 79" fill="none" stroke={pal.ink} strokeWidth={2.5} strokeLinecap="round" />
+      <path d="M52 81 q3 8 7 2 z" fill="#ff7a9a" stroke={pal.ink} strokeWidth={2} />
+    </g>
+  ),
+  wolf: (pal, type, seed) => (
+    <g>
+      {type !== 'knight' && <path d="M28 50 L22 22 L42 40 Z M72 50 L78 22 L58 40 Z" fill={pal.body} stroke={pal.ink} {...STROKE} />}
+      <path d="M22 60 C22 40 40 34 50 34 C60 34 78 40 78 60 L70 86 L50 94 L30 86 Z" fill={pal.body} stroke={pal.ink} {...STROKE} />
+      <path d="M36 70 L50 94 L64 70 C58 66 42 66 36 70 Z" fill={pal.belly} stroke={pal.ink} strokeWidth={2.5} strokeLinejoin="round" />
+      {/* Grumpy brows */}
+      <path d={`M32 ${50 + jitter(seed, 14) * 3} L46 56 M68 ${50 + jitter(seed, 15) * 3} L54 56`} stroke={pal.ink} {...STROKE} strokeWidth={4} />
+      <ellipse cx={40} cy={60} rx={4.5} ry={3.5} fill={pal.eye} stroke={pal.ink} strokeWidth={2} />
+      <ellipse cx={60} cy={60} rx={4.5} ry={3.5} fill={pal.eye} stroke={pal.ink} strokeWidth={2} />
+      <ellipse cx={50} cy={74} rx={5} ry={3.5} fill={pal.ink} />
+      <path d="M44 82 l2 5 l2 -4 M52 82 l2 5 l2 -4" fill="#fff" stroke={pal.ink} strokeWidth={1.5} />
+    </g>
+  ),
+  muncher: (pal, type, seed) => (
+    <g>
+      <path d="M38 40 V26 M62 40 V24" stroke={pal.ink} {...STROKE} />
+      <circle cx={38} cy={24} r={7} fill={pal.eye} stroke={pal.ink} strokeWidth={2.5} />
+      <circle cx={62} cy={22} r={type === 'pawn' ? 9 : 7} fill={pal.eye} stroke={pal.ink} strokeWidth={2.5} />
+      <circle cx={39 + jitter(seed, 16) * 3} cy={25} r={3} fill={pal.ink} />
+      <circle cx={61 + jitter(seed, 17) * 3} cy={23} r={3} fill={pal.ink} />
+      <rect x={18} y={38} width={64} height={56} rx={16} fill={pal.body} stroke={pal.ink} {...STROKE} />
+      <rect x={24} y={50} width={52} height={32} rx={10} fill={pal.belly} stroke={pal.ink} strokeWidth={3} />
+      <path d="M24 52 l6 8 l6 -8 l6 8 l6 -8 l6 8 l6 -8 l6 8 l4 -8" fill="#fff" stroke={pal.ink} strokeWidth={2} strokeLinejoin="round" />
+      <path d="M26 80 l5 -7 l5 7 l5 -7 l5 7 l5 -7 l5 7 l5 -7 l5 7 l4 -7" fill="#fff" stroke={pal.ink} strokeWidth={2} strokeLinejoin="round" />
+    </g>
+  ),
+  dino: (pal, type, seed) => (
+    <g>
+      <path d="M70 70 C84 72 92 82 96 92 L72 90 Z" fill={pal.body} stroke={pal.ink} {...STROKE} />
+      <path d="M30 44 l4 -10 l6 8 l5 -10 l6 9 l6 -9 l4 10 l6 -6 l1 10" fill={pal.shade} stroke={pal.ink} strokeWidth={3} strokeLinejoin="round" />
+      <path d="M26 94 C18 74 22 50 36 42 C46 36 62 38 70 46 C80 58 78 80 72 94 Z" fill={pal.body} stroke={pal.ink} {...STROKE} />
+      <path d="M38 94 C36 80 42 70 52 70 C62 70 66 82 64 94" fill={pal.belly} />
+      <path d="M40 74 l-8 4 M62 74 l8 4" stroke={pal.ink} {...STROKE} strokeWidth={4} />
+      <Eyes pal={pal} y={54} gap={10} r={type === 'pawn' ? 6.5 : 5.5} seed={seed} />
+      <path d="M40 64 Q50 70 60 63" fill="none" stroke={pal.ink} {...STROKE} />
+      <path d="M44 66 l2 4 l2 -3 M53 66 l2 4 l2 -3" fill="#fff" stroke={pal.ink} strokeWidth={1.4} />
+    </g>
+  ),
+  alien: (pal, type, seed) => (
+    <g>
+      <path d="M30 42 Q20 30 16 20 M70 42 Q80 30 84 20" fill="none" stroke={pal.ink} {...STROKE} />
+      <circle cx={16} cy={18} r={5} fill={pal.shade} stroke={pal.ink} strokeWidth={2.5} />
+      <circle cx={84} cy={18} r={5} fill={pal.shade} stroke={pal.ink} strokeWidth={2.5} />
+      <path d="M36 94 L40 82 L60 82 L64 94 Z" fill={pal.shade} stroke={pal.ink} {...STROKE} />
+      <ellipse cx={50} cy={60} rx={32} ry={26} fill={pal.body} stroke={pal.ink} {...STROKE} />
+      {[34, 50, 66].map((x, i) => (
+        <g key={x}>
+          <ellipse cx={x} cy={i === 1 ? 52 : 58} rx={7} ry={type === 'pawn' && i === 1 ? 10 : 8} fill={pal.belly} stroke={pal.ink} strokeWidth={2.5} />
+          <circle cx={x + jitter(seed, 20 + i) * 3} cy={(i === 1 ? 52 : 58) + 2} r={3.5} fill={pal.eye} />
+        </g>
+      ))}
+      <path d="M42 74 Q50 78 58 74" fill="none" stroke={pal.ink} {...STROKE} />
+    </g>
+  ),
+  slime: (pal, type, seed) => (
+    <g>
+      <path d="M18 92 C14 70 26 40 50 38 C74 40 86 70 82 92 C76 88 72 96 66 92 C60 88 56 96 50 92 C44 88 38 96 32 92 C26 88 22 96 18 92 Z" fill={pal.body} stroke={pal.ink} {...STROKE} opacity={0.92} />
+      <path d="M30 56 C32 48 38 44 44 44" fill="none" stroke="#fff" strokeWidth={5} strokeLinecap="round" opacity={0.7} />
+      <path d={`M70 ${70 + jitter(seed, 18) * 4} q2 10 -2 14`} fill="none" stroke={pal.shade} strokeWidth={5} strokeLinecap="round" />
+      <Eyes pal={{ ...pal, eye: '#fff' }} y={62} gap={11} r={type === 'pawn' ? 7 : 6} seed={seed} />
+      <path d="M42 76 Q50 82 58 76" fill="none" stroke={pal.ink} {...STROKE} />
+      <circle cx={60} cy={48} r={3} fill="#fff" opacity={0.8} />
+    </g>
+  ),
   veggie: (pal, type, seed) => (
     <g>
       <path d="M50 30 C30 30 20 46 22 64 C24 84 38 94 50 94 C64 94 78 84 78 64 C80 46 70 30 50 30 Z" fill={pal.body} stroke={pal.ink} {...STROKE} />
@@ -152,7 +275,7 @@ const GOLD_DARK = '#b8860b';
 
 /** The hat says what piece it is. Drawn in body space, sitting on the head (top near y=32). */
 function Hat({ type, skin, pal }: { type: string; skin: SkinId; pal: Palette }) {
-  const top = skin === 'robot' ? 38 : skin === 'critter' ? 42 : 34;
+  const top = skin === 'robot' || skin === 'muncher' ? 38 : skin === 'critter' || skin === 'dog' ? 42 : skin === 'fish' ? 44 : skin === 'alien' ? 36 : 34;
   const t = (y: number) => y - 34 + top;
   switch (type) {
     case 'king':
