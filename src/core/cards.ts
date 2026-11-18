@@ -2,7 +2,7 @@ import { fileOf, isPromotionSquare, rankOf, seatOf, step } from './board';
 import { inCheck, nextSeat } from './movegen';
 import { baseType } from './pieces';
 import type { RuleModule } from './rules';
-import type { Action, GameState, Piece, PlayerId } from './types';
+import type { GameState, Piece, PlayerId } from './types';
 
 /**
  * Power cards (docs/02 s6, docs/03 Cards) as rule modules. A card in a
@@ -13,7 +13,6 @@ import type { Action, GameState, Piece, PlayerId } from './types';
  * Upgrade and Summon cards use the player's move; Effect cards do not, unless
  * the catalog says so (Teleporter, Twin).
  */
-type CardAction = Extract<Action, { t: 'buff' }>;
 
 const UPGRADES: Record<string, { from: string[]; to: string }> = {
   'CARD-01': { from: ['rook'], to: 'chancellor' },

@@ -245,7 +245,7 @@ function WallBlock({ seed }: { seed: number }) {
   return (
     <g transform={`rotate(${tilt} 50 50)`}>
       <rect x={10} y={22} width={80} height={68} rx={6} fill="#c8553d" stroke="#2d2a3e" strokeWidth={4} />
-      {[40, 58, 76].map((y, i) => <path key={y} d={`M12 ${y} H88`} stroke="#2d2a3e" strokeWidth={3} />)}
+      {[40, 58, 76].map((y) => <path key={y} d={`M12 ${y} H88`} stroke="#2d2a3e" strokeWidth={3} />)}
       {[[36, 22, 40], [64, 22, 40], [26, 40, 58], [54, 40, 58], [74, 40, 58], [40, 58, 76], [66, 58, 76], [30, 76, 90], [58, 76, 90]].map(([x, a, b], i) => <path key={i} d={`M${x} ${a} V${b}`} stroke="#2d2a3e" strokeWidth={3} />)}
     </g>
   );
