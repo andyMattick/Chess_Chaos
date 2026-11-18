@@ -90,3 +90,12 @@ Implementing agent: add dated entries below when you resolve an ambiguity or rec
 - **Bots** get only always-on modifiers and do not chase their mission yet (they still win by checkmate or the mode). Online, the mode is drawn at random by the server rather than from a player's own deck.
 - **Not yet playable:** BUFF-04 Scout, 09 Safe king, 13 Rally, 22 Time bank, 23 Peek; HCAP-01 Fog, 08 Blind spot, 10 Tax, 15 Sleepy start, 21 Costume party, 23 Toll road, 24 No take-backs. Bonus missions (03, 09, 20, 24).
 
+
+### 2026-11-17: Puzzles
+
+- **Built:** Puzzles screen with Chess.com's daily puzzle (CC-02), random puzzle (CC-03) and 8 built-in warm-ups that work offline or when the parent switch hides Chess.com. Wrong moves slide back; one hint per puzzle (the right piece glows); after 3 misses a "Show me" button plays the answer.
+- **Any checkmate counts**, even if it is not the move in Chess.com's line.
+- **Streak:** solving the daily puzzle on consecutive days. Missing a day resets it. Random and warm-up puzzles do not touch the streak.
+- **Coins:** 8 for the daily, 3 for others, halved with a hint, plus a streak bonus up to 7. Each puzzle pays once. Puzzles never change the rating (doc 02).
+- **Random puzzle rate limit:** the client caches `/puzzle/random` for 20 seconds, so it never asks more often.
+- **No external link** to the puzzle on Chess.com, because the screen is kid-facing; it says "Puzzle from Chess.com" instead.

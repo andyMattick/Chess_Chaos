@@ -12,9 +12,15 @@ export function relayPath(pathname: string): string | null {
 }
 
 export async function relay(rest: string): Promise<Response> {
-  const upstream = await fetch(`https://api.chess.com/pub${rest}`, {
-    headers: { 'User-Agent': 'ChessChaos/1.0 (kids chess app; room server relay)', Accept: 'application/json' },
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(`https://api.chess.com/pub${rest}`, {
+      headers: { 'User-Agent': 'ChessChaos/1.0 (kids chess app; room server relay)', Accept: 'application/json' },
+    });
+  } catch {
+    // Chess.com unreachable: answer with CORS headers so the page sees a clean error.
+    return new Response('{"message":"Chess.com unreachable"}', { status: 502, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'cache-control': 'no-store' } });
+  }
   const body = await upstream.text();
   return new Response(body, {
     status: upstream.status,

@@ -1,5 +1,6 @@
 import type { GameRecord } from '../core/record';
 import { START_RATING } from '../systems/rating';
+import type { PuzzleProgress } from '../systems/puzzle';
 import { DEFAULT_SKINS, FREE_LANDSCAPES, FREE_SKINS, type LandscapeId, type SkinChoice, type SkinId } from '../content/cosmetics';
 
 /**
@@ -32,6 +33,8 @@ export interface Profile {
   opponents: Record<string, Opponent>;
   /** This player's chosen look. */
   look: { skins: SkinChoice; landscape: LandscapeId };
+  /** Puzzle streak and solves (systems/puzzle.ts). */
+  puzzles: PuzzleProgress;
 }
 
 export interface Opponent {
@@ -141,6 +144,7 @@ export function newProfile(nickname: string, colour: string): Profile {
     opponents: {},
     owned: { skins: [...FREE_SKINS], landscapes: [...FREE_LANDSCAPES] },
     look: { skins: DEFAULT_SKINS, landscape: 'meadow' },
+    puzzles: { streak: 0, best: 0, lastDaily: '', solved: 0, paid: [] },
   };
 }
 

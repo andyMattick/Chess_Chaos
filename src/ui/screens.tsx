@@ -4,6 +4,7 @@ import { PATH, unlockedCount } from '../systems/coins';
 import type { GameRecord } from '../core/record';
 import { activeProfile, newProfile, update, upsertProfile, type Profile } from '../storage/storage';
 import { useSave } from './store';
+import { currentStreak, EMPTY_PROGRESS } from '../systems/puzzle';
 import type { GameConfig } from './GameScreen';
 
 const COLOURS = ['#ff7a59', '#ffc93c', '#5bd17a', '#4aa8ff', '#a77bff', '#ff6fb5'];
@@ -21,7 +22,7 @@ export function ProfileChip({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train' | 'chesscom' | 'battle' | 'leaderboard' | 'party') => void }) {
+export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train' | 'chesscom' | 'battle' | 'leaderboard' | 'party' | 'puzzles') => void }) {
   const save = useSave();
   const p = activeProfile(save);
   return (
@@ -84,10 +85,10 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
             <span className="big-sub">Look up players, download their games</span>
           </button>
         )}
-        <button className="big soon" style={{ ['--c' as string]: '#ff7a59' }} disabled>
+        <button className="big" style={{ ['--c' as string]: '#ff7a59' }} onClick={() => go('puzzles')} disabled={!p}>
           <span className="big-emoji">🧩</span>
           <span className="big-title">Puzzles</span>
-          <span className="big-sub">Coming soon: daily puzzle</span>
+          <span className="big-sub">{p && currentStreak({ ...EMPTY_PROGRESS, ...p.puzzles }) > 0 ? `🔥 ${currentStreak({ ...EMPTY_PROGRESS, ...p.puzzles })}-day streak! Keep it going` : 'Daily puzzle, random puzzles and warm-ups'}</span>
         </button>
       </div>
       {p && <Settings />}

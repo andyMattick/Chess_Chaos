@@ -10,6 +10,7 @@ import { TrainSetup } from './TrainSetup';
 import { ChessCom } from './ChessCom';
 import { Leaderboard } from './Leaderboard';
 import { PartySetup } from './PartySetup';
+import { PuzzleScreen } from './PuzzleScreen';
 import { BattleSetup } from './BattleSetup';
 import { BattleScreen, type LocalBattle } from './BattleScreen';
 import { useSave } from './store';
@@ -25,6 +26,7 @@ type Screen =
   | { name: 'chesscom' }
   | { name: 'leaderboard' }
   | { name: 'party' }
+  | { name: 'puzzles' }
   | { name: 'battle' }
   | { name: 'battle-game'; local: LocalBattle; key: number }
   | { name: 'game'; config: GameConfig; key: number; review?: GameRecord };
@@ -38,7 +40,7 @@ export function App() {
   const openRecord = (rec: GameRecord) => setScreen({ name: 'game', key: Date.now(), review: rec, config: { kind: 'local', humanSeat: 'p1', names: rec.meta.players } });
 
   // While playing, the whole page becomes the board's landscape.
-  const inGame = screen.name === 'game' || screen.name === 'online' || screen.name === 'battle-game';
+  const inGame = screen.name === 'game' || screen.name === 'online' || screen.name === 'battle-game' || screen.name === 'puzzles';
   useEffect(() => {
     document.body.style.background = inGame ? landscapeById(lookOf(save).landscape).scene : '';
     document.body.dataset.land = inGame ? lookOf(save).landscape : '';
@@ -57,6 +59,7 @@ export function App() {
       {screen.name === 'train' && <TrainSetup start={startGame} back={home} />}
       {screen.name === 'chesscom' && <ChessCom back={home} open={openRecord} />}
       {screen.name === 'leaderboard' && <Leaderboard back={home} />}
+      {screen.name === 'puzzles' && <PuzzleScreen back={home} />}
       {screen.name === 'party' && <PartySetup start={startGame} back={home} />}
       {screen.name === 'battle' && <BattleSetup back={home} startDuel={startGame} startBattle={(local) => setScreen({ name: 'battle-game', local, key: Date.now() })} />}
       {screen.name === 'battle-game' && (

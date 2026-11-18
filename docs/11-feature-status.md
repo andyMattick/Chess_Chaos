@@ -224,7 +224,9 @@ Built so far: Classic, King of the hill, Hill wars (2 and 4 players), 3-way, 4-w
 | Capture/check/mate effects and sounds | Built | Every game |
 | Profiles, ratings, saved games and replay | Built | Home, My games |
 | Chess.com player lookup and game download | Built (relay needs `wrangler deploy`) | Chess.com corner |
-| Chess.com daily puzzle | Planned | Puzzles |
+| Chess.com daily puzzle with streak | Built | Puzzles |
+| Chess.com random puzzle | Built | Puzzles |
+| Built-in warm-up puzzles (work offline) | Built | Puzzles |
 | Nemesis bot (plays like any Chess.com player) | Planned | Chess.com corner |
 | Blunder replay puzzles from your games | Planned | Chess.com corner |
 | Opening trainer | Planned | Later phase |

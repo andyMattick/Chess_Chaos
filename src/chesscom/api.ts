@@ -76,6 +76,8 @@ export interface CCStatBlock { last?: { rating: number }; best?: { rating: numbe
 export interface CCStats { chess_rapid?: CCStatBlock; chess_blitz?: CCStatBlock; chess_bullet?: CCStatBlock; chess_daily?: CCStatBlock; tactics?: { highest?: { rating: number } } }
 export interface CCGame { url: string; pgn?: string; time_class: string; rules: string; rated: boolean; end_time: number; white: { username: string; rating: number; result: string }; black: { username: string; rating: number; result: string } }
 
+export interface CCPuzzle { title: string; fen: string; pgn: string; url: string; publish_time?: number }
+
 const clean = (u: string) => encodeURIComponent(u.trim().toLowerCase());
 
 export const chesscom = {
@@ -88,7 +90,9 @@ export const chesscom = {
     const current = now.getUTCFullYear() === year && now.getUTCMonth() + 1 === month;
     return get<{ games: CCGame[] }>(`/player/${clean(u)}/games/${year}/${String(month).padStart(2, '0')}`, current ? HOUR : 24 * 30 * HOUR);
   },
-  dailyPuzzle: () => get<{ title: string; fen: string; pgn: string; url: string }>('/puzzle', 6 * HOUR),
+  dailyPuzzle: () => get<CCPuzzle>('/puzzle', 6 * HOUR),
+  /** Chess.com asks for at most one request per 20 seconds; the cache enforces it. */
+  randomPuzzle: () => get<CCPuzzle>('/puzzle/random', 20_000),
 };
 
 /** Most recent standard games, newest first, reading back through months until `limit` are found. */
