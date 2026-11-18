@@ -1,0 +1,101 @@
+/**
+ * Party match content (docs/03): display data for the buffs, handicaps and
+ * secret missions this build can play. Rules live in core/modifiers.ts and
+ * systems/missions.ts; IDs match the catalog.
+ */
+
+export type Tier = 'Minor' | 'Major';
+/** What a one-shot buff needs the player to tap before it fires. */
+export type BuffTarget = 'none' | 'own-piece' | 'enemy-piece' | 'two-own' | 'own-pawn-side' | 'own-piece-knight' | 'own-piece-home' | 'pawn-row-square' | 'king-dash' | 'double-step';
+
+export interface ModifierDef {
+  id: string;
+  kind: 'buff' | 'handicap';
+  name: string;
+  emoji: string;
+  blurb: string;
+  tier: Tier;
+  /** One-shot button (buff) or always on. */
+  oneShot?: BuffTarget;
+  /** Only makes sense against a bot on this device (take-backs, a per-move timer). */
+  botGameOnly?: boolean;
+  /** Only changes what a human sees or taps: never given to a bot. */
+  humanOnly?: boolean;
+  tags?: string[];
+}
+
+export const MODIFIERS: ModifierDef[] = [
+  // Buffs
+  { id: 'BUFF-01', kind: 'buff', name: 'Double step', emoji: '👟', tier: 'Major', oneShot: 'double-step', blurb: 'Once: one of your pieces moves twice in a row.' },
+  { id: 'BUFF-02', kind: 'buff', name: 'Shield', emoji: '🛡️', tier: 'Major', oneShot: 'own-piece', blurb: 'Once: a piece of yours can\'t be taken for 2 enemy turns. Free action.' },
+  { id: 'BUFF-03', kind: 'buff', name: 'Take-back', emoji: '⏪', tier: 'Minor', botGameOnly: true, humanOnly: true, blurb: 'Once: undo your last move.' },
+  { id: 'BUFF-05', kind: 'buff', name: 'Pawn sprint', emoji: '🏃', tier: 'Minor', blurb: 'Your pawns can jump two squares any time.', tags: ['needsPawns'] },
+  { id: 'BUFF-06', kind: 'buff', name: 'Second wind', emoji: '💨', tier: 'Major', blurb: 'The first piece you lose (not your queen) comes back home.', tags: ['needsStandardArmy'] },
+  { id: 'BUFF-07', kind: 'buff', name: 'Long jump', emoji: '🦘', tier: 'Major', blurb: 'Your knights can also leap 3 and 1.', tags: ['needsKnights'] },
+  { id: 'BUFF-08', kind: 'buff', name: 'Early crown', emoji: '👑', tier: 'Major', blurb: 'Your pawns promote one row early.', tags: ['needsPawns'] },
+  { id: 'BUFF-10', kind: 'buff', name: 'Backpedal', emoji: '🔙', tier: 'Minor', blurb: 'Each pawn may step backward once.', tags: ['needsPawns'] },
+  { id: 'BUFF-11', kind: 'buff', name: 'Swap', emoji: '🔄', tier: 'Minor', oneShot: 'two-own', blurb: 'Once: two of your pieces swap places. Uses your move.' },
+  { id: 'BUFF-12', kind: 'buff', name: 'Bonus hint', emoji: '💡', tier: 'Minor', humanOnly: true, blurb: 'Once: the piece with the best move glows.' },
+  { id: 'BUFF-14', kind: 'buff', name: 'Reinforcements', emoji: '🪖', tier: 'Minor', oneShot: 'pawn-row-square', blurb: 'Once: drop a new pawn on your pawn row. Uses your move.', tags: ['needsPawns'] },
+  { id: 'BUFF-15', kind: 'buff', name: 'Freeze ray', emoji: '🧊', tier: 'Minor', oneShot: 'enemy-piece', blurb: 'Once: an enemy piece can\'t move next turn. Free action.' },
+  { id: 'BUFF-16', kind: 'buff', name: 'Royal dash', emoji: '🤴', tier: 'Minor', oneShot: 'king-dash', blurb: 'Once: your king zooms two squares in a line.' },
+  { id: 'BUFF-17', kind: 'buff', name: 'Sidestep', emoji: '↔️', tier: 'Minor', oneShot: 'own-pawn-side', blurb: 'Once: a pawn steps sideways. Uses your move.', tags: ['needsPawns'] },
+  { id: 'BUFF-18', kind: 'buff', name: 'Knight\'s blessing', emoji: '🐴', tier: 'Major', oneShot: 'own-piece-knight', blurb: 'Once: any piece jumps like a knight. Uses your move.' },
+  { id: 'BUFF-19', kind: 'buff', name: 'X-ray', emoji: '🩻', tier: 'Minor', humanOnly: true, blurb: 'Once: see attackers and defenders on every piece for 3 turns.' },
+  { id: 'BUFF-20', kind: 'buff', name: 'Recall', emoji: '🏠', tier: 'Minor', oneShot: 'own-piece-home', blurb: 'Once: send a piece back to its starting square. Uses your move.' },
+  { id: 'BUFF-21', kind: 'buff', name: 'Home guard', emoji: '🏰', tier: 'Minor', oneShot: 'none', blurb: 'Once: your back row can\'t be taken next enemy turn. Free action.' },
+  { id: 'BUFF-24', kind: 'buff', name: 'Safety net', emoji: '🥅', tier: 'Minor', humanOnly: true, blurb: 'The first time you\'re about to drop a piece, we warn you.' },
+  // Handicaps
+  { id: 'HCAP-02', kind: 'handicap', name: 'Frozen piece', emoji: '🥶', tier: 'Minor', blurb: 'One of your pieces is frozen for your first 3 turns.' },
+  { id: 'HCAP-03', kind: 'handicap', name: 'Tired queen', emoji: '😴', tier: 'Minor', blurb: 'Your queen moves at most 3 squares.', tags: ['needsQueen'] },
+  { id: 'HCAP-04', kind: 'handicap', name: 'Butterfingers', emoji: '🧈', tier: 'Minor', humanOnly: true, blurb: 'Touch a piece and you have to move it.' },
+  { id: 'HCAP-05', kind: 'handicap', name: 'Slow pawns', emoji: '🐌', tier: 'Minor', blurb: 'Your pawns can\'t jump two squares.', tags: ['needsPawns'] },
+  { id: 'HCAP-06', kind: 'handicap', name: 'No castling', emoji: '🚫', tier: 'Minor', blurb: 'You can\'t castle.', tags: ['needsCastling'] },
+  { id: 'HCAP-07', kind: 'handicap', name: 'Short clock', emoji: '⏱️', tier: 'Major', humanOnly: true, botGameOnly: true, blurb: '10 seconds per move or a random move is played.' },
+  { id: 'HCAP-09', kind: 'handicap', name: 'Heavy rooks', emoji: '🪨', tier: 'Minor', blurb: 'Your rooks can\'t move before move 10 (castling is fine).', tags: ['needsRooks'] },
+  { id: 'HCAP-11', kind: 'handicap', name: 'Mirror', emoji: '🪞', tier: 'Major', blurb: 'If you can, move the same kind of piece your opponent just moved.' },
+  { id: 'HCAP-12', kind: 'handicap', name: 'Homesick king', emoji: '🏡', tier: 'Minor', blurb: 'Your king can\'t leave your first two rows.' },
+  { id: 'HCAP-13', kind: 'handicap', name: 'Forced capture', emoji: '😋', tier: 'Major', blurb: 'If you can capture, you must.' },
+  { id: 'HCAP-14', kind: 'handicap', name: 'Missing pawn', emoji: '🕳️', tier: 'Minor', blurb: 'You start one pawn short.', tags: ['needsPawns', 'needsStandardArmy'] },
+  { id: 'HCAP-16', kind: 'handicap', name: 'Silent board', emoji: '🤫', tier: 'Minor', humanOnly: true, blurb: 'No move dots or highlights for you.' },
+  { id: 'HCAP-17', kind: 'handicap', name: 'Rusty crown', emoji: '🦴', tier: 'Minor', blurb: 'Your pawns can only promote to knights.', tags: ['needsPawns'] },
+  { id: 'HCAP-18', kind: 'handicap', name: 'Slippery board', emoji: '🧼', tier: 'Major', blurb: 'Rooks, bishops and queen slide as far as they can.' },
+  { id: 'HCAP-19', kind: 'handicap', name: 'One-way rooks', emoji: '⬆️', tier: 'Major', blurb: 'Your rooks only move up and down.', tags: ['needsRooks'] },
+  { id: 'HCAP-20', kind: 'handicap', name: 'Peaceful bishops', emoji: '☮️', tier: 'Major', blurb: 'Your bishops can\'t capture.', tags: ['needsBishops'] },
+  { id: 'HCAP-22', kind: 'handicap', name: 'Restless king', emoji: '🦶', tier: 'Major', blurb: 'Every 5th turn you must move your king.' },
+];
+
+export function modifierById(id: string): ModifierDef | undefined {
+  return MODIFIERS.find((m) => m.id === id);
+}
+
+export interface MissionDef {
+  id: string;
+  name: string;
+  blurb: string;
+  category: 'Medium' | 'Hard';
+  tags?: string[];
+}
+
+/** Game-ending secret missions (docs/02 s5). Easy ones are training goals; bonus ones come later. */
+export const MISSIONS: MissionDef[] = [
+  { id: 'MISSION-05', category: 'Medium', name: 'Fork it!', blurb: 'Attack two pieces at once with one piece (a fork).' },
+  { id: 'MISSION-06', category: 'Medium', name: 'Pin it!', blurb: 'Pin an enemy piece so it can\'t move without exposing its king.', tags: ['needsCheck'] },
+  { id: 'MISSION-07', category: 'Medium', name: 'Rook raid', blurb: 'Get a rook to the enemy\'s pawn row and keep it there for a turn.', tags: ['needsRooks'] },
+  { id: 'MISSION-10', category: 'Medium', name: 'Own the centre', blurb: 'Sit on 2 of the 4 middle squares and attack or hold all 4.' },
+  { id: 'MISSION-11', category: 'Medium', name: 'Queen swap', blurb: 'Trade queens while you\'re 2+ points ahead.', tags: ['needsQueen'] },
+  { id: 'MISSION-12', category: 'Medium', name: 'Check ×3', blurb: 'Give check three times.', tags: ['needsCheck'] },
+  { id: 'MISSION-17', category: 'Medium', name: 'Runaway pawn', blurb: 'Get a pawn to the 5th row with no enemy pawns in its way.', tags: ['needsPawns'] },
+  { id: 'MISSION-18', category: 'Medium', name: 'Pawn pile-up', blurb: 'Make the enemy have two pawns on the same column.', tags: ['needsPawns'] },
+  { id: 'MISSION-19', category: 'Medium', name: 'Bishop buddies', blurb: 'Still have both bishops after your move 20.', tags: ['needsBishops'] },
+  { id: 'MISSION-21', category: 'Medium', name: 'Knight fortress', blurb: 'Park a knight deep in enemy land, guarded by a pawn, where no pawn can chase it.', tags: ['needsKnights', 'needsPawns'] },
+  { id: 'MISSION-23', category: 'Medium', name: 'Rook tower', blurb: 'Stack both rooks on a column with no pawns.', tags: ['needsRooks'] },
+  { id: 'MISSION-04', category: 'Hard', name: 'Crown a pawn', blurb: 'Promote a pawn.', tags: ['needsPawns'] },
+  { id: 'MISSION-14', category: 'Hard', name: 'Sneak attack', blurb: 'Move one piece out of the way so another attacks something big.' },
+  { id: 'MISSION-15', category: 'Hard', name: 'Skewer', blurb: 'Attack a big piece with a smaller one hiding behind it.' },
+  { id: 'MISSION-16', category: 'Hard', name: 'En passant!', blurb: 'Capture a pawn en passant (the sneaky pawn capture).', tags: ['needsPawns'] },
+];
+
+export function missionById(id: string): MissionDef | undefined {
+  return MISSIONS.find((m) => m.id === id);
+}

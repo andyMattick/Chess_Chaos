@@ -24,6 +24,7 @@ import { sameMove } from '../core/rules';
 import { useTraining, type TrainingConfig } from './training';
 import { moveEvents, shakeFor, type MoveEvents } from './effects';
 import { setSoundEnabled, sfx } from './sound';
+import { useYourTurn } from './yourTurn';
 
 export interface GameConfig {
   /** 'local' is only used to replay saved games. */
@@ -154,6 +155,9 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     const t = setTimeout(() => setFx((f) => (f?.ply === ev.ply ? null : f)), ev.mate ? 3200 : 1500);
     return () => clearTimeout(t);
   }, [states.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Loud "your turn" for games where you wait on someone else.
+  useYourTurn(isHumanTurn && !reviewing && rec.actions.length > 0, { wrap: wrapRef, announce: isOnline || !!botSeat });
 
   const moveActions = useMemo(() => rec.actions.filter((a): a is MoveAction => a.t === 'move'), [rec]);
   const training = useTraining({

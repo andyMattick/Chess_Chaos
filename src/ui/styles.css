@@ -421,3 +421,18 @@ body[data-land='space'] .player-bar:not(.active) .prating, body[data-land='volca
 .leaderboard .place { font-size: 1.5rem; min-width: 36px; text-align: center; font-weight: 900; font-family: var(--hand); }
 .lb-name { display: grid; flex: 1; }
 .lb-name small { color: var(--muted); font-weight: 700; }
+
+/* Your turn: glowing board, bouncing banner, nudges when idle */
+.board-wrap.my-turn .board { filter: drop-shadow(6px 8px 0 rgba(20, 16, 30, 0.55)) drop-shadow(0 0 14px #ffcb2b) drop-shadow(0 0 4px #ffcb2b); }
+.board-wrap.my-turn::after {
+  content: 'YOUR TURN!'; white-space: nowrap; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-8deg); pointer-events: none; z-index: 6;
+  font-family: 'Bangers', var(--hand); font-size: clamp(2.4rem, 9vw, 5rem); color: #ffcb2b; -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill;
+  animation: your-turn 1.1s ease-out forwards;
+}
+@keyframes your-turn { 0% { transform: translate(-50%, -50%) rotate(-8deg) scale(0.2); opacity: 0; } 25% { transform: translate(-50%, -50%) rotate(-8deg) scale(1.15); opacity: 1; } 70% { opacity: 1; } 100% { transform: translate(-50%, -50%) rotate(-8deg) scale(1); opacity: 0; } }
+.board-wrap.nudge { animation: nudge 0.7s linear; }
+.board-wrap.nudge::before {
+  content: '⏰ Your move!'; position: absolute; top: 10px; left: 50%; transform: translateX(-50%) rotate(3deg); z-index: 6; pointer-events: none;
+  background: var(--tomato); color: white; border: 3px solid var(--ink); border-radius: 12px; padding: 4px 12px; font-weight: 900; animation: pop 0.3s ease-out;
+}
+@keyframes nudge { 0%, 100% { transform: rotate(0); } 15% { transform: rotate(-2.5deg) scale(1.02); } 30% { transform: rotate(2.5deg); } 45% { transform: rotate(-2deg); } 60% { transform: rotate(1.5deg); } 75% { transform: rotate(-1deg); } }

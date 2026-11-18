@@ -82,6 +82,15 @@ export const sfx = {
   lose() {
     [392, 330, 262].forEach((f, i) => tone(f, i * 0.18, 0.3, 'triangle', 0.1));
   },
+  yourTurn() {
+    tone(660, 0, 0.12, 'triangle', 0.12);
+    tone(990, 0.12, 0.2, 'triangle', 0.12);
+  },
+  nudge() {
+    tone(440, 0, 0.1, 'square', 0.1);
+    tone(440, 0.16, 0.1, 'square', 0.1);
+    tone(330, 0.32, 0.25, 'square', 0.1);
+  },
   tick() {
     tone(1500, 0, 0.03, 'square', 0.04);
   },

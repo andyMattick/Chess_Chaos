@@ -17,6 +17,7 @@ import { Board } from './Board';
 import { moveEvents, shakeFor, type MoveEvents } from './effects';
 import { Character } from './skins';
 import { setSoundEnabled, sfx } from './sound';
+import { useYourTurn } from './yourTurn';
 import { useSave } from './store';
 
 /**
@@ -79,6 +80,8 @@ export function BattleScreen({ local, onExit, onAgain }: { local?: LocalBattle; 
   const legal = useMemo(() => (myTurn ? legalActions(live) : []), [live, myTurn]);
   const targets = selected === null ? [] : legal.filter((m) => m.piece === live.sq[selected]);
   const say = (t: string) => { setToast(t); setTimeout(() => setToast((x) => (x === t ? null : x)), 2600); };
+
+  useYourTurn(myTurn, { wrap: wrapRef, announce: true });
 
   function push(a: Action) {
     if (isOnline) online.act(a);
