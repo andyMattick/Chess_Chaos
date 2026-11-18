@@ -2,6 +2,7 @@ import { hashString, positionKey } from './position';
 import { play } from './rules';
 import { fromFEN, STANDARD_FEN } from './setup';
 import type { Action, GameState } from './types';
+import { battleStart, type BattleKind } from './variants';
 
 /**
  * A game is fully described by its setup, seed and action list (docs/04 section 1).
@@ -9,7 +10,7 @@ import type { Action, GameState } from './types';
 export interface GameRecord {
   version: 1;
   id: string;
-  setup: { kind: 'fen'; fen: string; mode: string };
+  setup: { kind: 'fen'; fen: string; mode: string } | { kind: 'battle'; battle: BattleKind; mode: string };
   seed: number;
   actions: Action[];
   meta: {
@@ -32,8 +33,13 @@ export function newRecord(seed: number, players: Record<string, string>, fen = S
 }
 
 export function initialState(rec: GameRecord): GameState {
+  if (rec.setup.kind === 'battle') return battleStart(rec.setup.battle, rec.setup.mode, rec.seed);
   const s = fromFEN(rec.setup.fen, rec.seed);
   return { ...s, mode: rec.setup.mode };
+}
+
+export function newBattleRecord(seed: number, players: Record<string, string>, battle: BattleKind, mode = 'battle'): GameRecord {
+  return { ...newRecord(seed, players), setup: { kind: 'battle', battle, mode } };
 }
 
 /** Every state from the start to the end of the record. */

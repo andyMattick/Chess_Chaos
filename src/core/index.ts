@@ -8,3 +8,5 @@ export * from './setup';
 export * from './san';
 export * from './record';
 export * from './rng';
+export * from './variants';
+export * from './modes';

@@ -59,7 +59,9 @@ export type EndReason =
   | 'draw-repetition'
   | 'draw-50'
   | 'draw-material'
-  | 'draw-agreed';
+  | 'draw-agreed'
+  /** Three or four player games: the last king (or team) standing. */
+  | 'last-standing';
 
 export interface GameResult {
   reason: EndReason;
@@ -81,6 +83,8 @@ export interface GameState {
   mode: string;
   /** Seeded generator state; see rng.ts. */
   rng: number;
+  /** Per-mode counters (hill scores, checks given…). JSON only. */
+  modeData?: Record<string, unknown>;
   result: GameResult | null;
 }
 

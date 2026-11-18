@@ -1,6 +1,6 @@
 import type { GameRecord } from '../core/record';
 import type { Action, PlayerId } from '../core/types';
-import type { ClientMsg, ClockSetting, ClockState, EmoteId, SeatInfo, ServerMsg } from './protocol';
+import type { ClientMsg, ClockSetting, ClockState, EmoteId, RoomGame, SeatInfo, ServerMsg } from './protocol';
 
 /**
  * Browser side of online play. Keeps one WebSocket, reconnects with the seat
@@ -18,6 +18,12 @@ export interface OnlineSnapshot {
   error: string | null;
   lastEmote: { from: PlayerId; id: EmoteId; at: number } | null;
   clock: ClockState | null;
+  seatIds: PlayerId[];
+  /** Match score in this room (wins; draws count half). */
+  score: Partial<Record<PlayerId, number>>;
+  gamesPlayed: number;
+  game: RoomGame;
+  host: PlayerId | null;
   /** Local time when `clock` arrived, to count down between messages. */
   clockAt: number;
 }
@@ -32,7 +38,7 @@ export function roomServerUrl(): string | null {
 }
 
 class OnlineSession {
-  snap: OnlineSnapshot = { status: 'idle', code: null, seat: null, record: null, seats: {}, rematchVotes: [], error: null, lastEmote: null, clock: null, clockAt: 0 };
+  snap: OnlineSnapshot = { status: 'idle', code: null, seat: null, record: null, seats: {}, rematchVotes: [], error: null, lastEmote: null, clock: null, clockAt: 0, seatIds: ['p1', 'p2'], game: 'standard', host: null, score: {}, gamesPlayed: 0 };
   private ws: WebSocket | null = null;
   private listeners = new Set<() => void>();
   private queue: ClientMsg[] = [];
@@ -85,7 +91,7 @@ class OnlineSession {
         this.set({ code: m.code, seat: m.seat, error: null });
         break;
       case 'room':
-        this.set({ code: m.code, record: m.record, seats: m.seats, rematchVotes: m.rematchVotes, clock: m.clock ?? null, clockAt: Date.now() });
+        this.set({ code: m.code, record: m.record, seats: m.seats, rematchVotes: m.rematchVotes, clock: m.clock ?? null, clockAt: Date.now(), seatIds: m.seatIds ?? ['p1', 'p2'], game: m.game ?? 'standard', host: m.host ?? null, score: m.score ?? {}, gamesPlayed: m.gamesPlayed ?? 0 });
         break;
       case 'emote':
         this.set({ lastEmote: { from: m.from, id: m.id, at: Date.now() } });
@@ -113,10 +119,14 @@ class OnlineSession {
     try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
   }
 
-  create(name: string, rating: number, colour: 'p1' | 'p2' | 'random', clock: ClockSetting | null = null) {
+  create(name: string, rating: number, colour: 'p1' | 'p2' | 'random', clock: ClockSetting | null = null, game: RoomGame = 'standard') {
     this.forget();
     this.set({ record: null, code: null, seat: null, seats: {}, error: null, clock: null });
-    this.send({ t: 'create', name, rating, colour, clock });
+    this.send({ t: 'create', name, rating, colour, clock, game });
+  }
+
+  fillBots() {
+    this.send({ t: 'fill-bots' });
   }
 
   join(code: string, name: string, rating: number) {

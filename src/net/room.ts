@@ -1,8 +1,9 @@
 import { chooseMove } from '../ai/strength';
-import { newRecord, replay, type GameRecord } from '../core/record';
+import { newBattleRecord, newRecord, replay, type GameRecord } from '../core/record';
+import { BOTS } from '../content/bots';
 import { play } from '../core/rules';
 import type { Action, GameState, PlayerId } from '../core/types';
-import { cleanName, EMOTES, type ClientMsg, type ClockSetting, type ClockState, type SeatInfo, type ServerMsg } from './protocol';
+import { cleanName, EMOTES, ROOM_GAMES, type ClientMsg, type ClockSetting, type ClockState, type RoomGame, type SeatInfo, type ServerMsg } from './protocol';
 
 /**
  * Transport-agnostic room server. Adapters (Bun for local dev, Cloudflare
@@ -40,10 +41,50 @@ export class Room {
   left: Partial<Record<PlayerId, number>> = {};
   turnStart: number | null = null;
 
-  constructor(public code: string, private now: () => number, seed: number, clock: ClockSetting | null = null) {
-    this.record = newRecord(seed, {});
+  seatIds: PlayerId[];
+  host: PlayerId | null = null;
+  /** Match score across rematches, keyed by seat token so it follows players when seats rotate. */
+  tally = new Map<string, number>();
+  gamesPlayed = 0;
+  private counted = false;
+
+  constructor(public code: string, private now: () => number, seed: number, clock: ClockSetting | null = null, public game: RoomGame = 'standard') {
+    const n = ROOM_GAMES.find((g) => g.id === game)?.seats ?? 2;
+    this.seatIds = (['p1', 'p2', 'p3', 'p4'] as PlayerId[]).slice(0, n);
+    this.record = this.freshRecord(seed, {});
     this.state = replay(this.record)[0];
     this.setClock(clock);
+  }
+
+  private freshRecord(seed: number, players: Record<string, string>): GameRecord {
+    switch (this.game) {
+      case 'battle-3': return newBattleRecord(seed, players, 'three');
+      case 'battle-4': return newBattleRecord(seed, players, 'four');
+      case 'battle-teams': return newBattleRecord(seed, players, 'teams');
+      case 'battle-hill-4': return newBattleRecord(seed, players, 'four', 'battle-hill');
+      case 'koth': return newRecord(seed, players, undefined, 'koth');
+      case 'hill-wars': return newRecord(seed, players, undefined, 'hill-wars');
+      default: return newRecord(seed, players);
+    }
+  }
+
+  allSeated(): boolean {
+    return this.seatIds.every((k) => !!this.seats[k]);
+  }
+
+  /** Host fills empty seats with bots so a 3 or 4 player game can start. */
+  fillBots() {
+    const humans = Object.values(this.seats).filter(Boolean) as Seat[];
+    const avg = humans.length ? humans.reduce((a, x) => a + x.rating, 0) / humans.length : 600;
+    const pool = [...BOTS].sort((a, b) => Math.abs(a.rating - avg) - Math.abs(b.rating - avg));
+    let i = 0;
+    for (const k of this.seatIds) {
+      if (this.seats[k]) continue;
+      const b = pool[i++ % pool.length];
+      this.seats[k] = { name: `${b.emoji} ${b.name}`, rating: b.rating, connected: false, botControlled: true, token: token(), conn: null, leftAt: null };
+      this.record.meta.players[k] = this.seats[k]!.name;
+    }
+    this.broadcast();
   }
 
   private setClock(c: ClockSetting | null) {
@@ -51,7 +92,7 @@ export class Room {
       const minutes = Math.min(60, Math.max(1, Math.round(c.minutes)));
       const increment = Math.min(30, Math.max(0, Math.round(c.increment)));
       this.clockSetting = { minutes, increment };
-      this.left = { p1: minutes * 60_000, p2: minutes * 60_000 };
+      this.left = Object.fromEntries(this.seatIds.map((k) => [k, minutes * 60_000]));
     } else {
       this.clockSetting = null;
       this.left = {};
@@ -61,7 +102,7 @@ export class Room {
 
   /** Whose clock is ticking: nobody until the first move is made, or once the game ends. */
   private runningSeat(): PlayerId | null {
-    if (!this.clockSetting || this.state.result || !this.seats.p1 || !this.seats.p2) return null;
+    if (!this.clockSetting || this.state.result || !this.allSeated()) return null;
     if (this.record.actions.length === 0) return null;
     return this.state.turn;
   }
@@ -81,6 +122,7 @@ export class Room {
   addPlayer(conn: Conn, seat: PlayerId, name: string, rating: number): Seat {
     const s: Seat = { name: cleanName(name), rating: Math.max(100, Math.min(3000, Math.round(rating) || 600)), connected: true, botControlled: false, token: token(), conn, leftAt: null };
     this.seats[seat] = s;
+    this.host ??= seat;
     this.record.meta.players[seat] = s.name;
     this.emptySince = null;
     conn.send({ t: 'joined', code: this.code, seat, token: s.token });
@@ -155,7 +197,10 @@ export class Room {
     }
     this.state = play(this.state, a);
     this.record = { ...this.record, actions: [...this.record.actions, a] };
-    if (this.state.result) this.record.meta.result = this.state.result;
+    if (this.state.result) {
+      this.record.meta.result = this.state.result;
+      this.countResult();
+    }
     this.turnStart = this.now();
   }
 
@@ -165,7 +210,7 @@ export class Room {
     switch (msg.t) {
       case 'action': {
         const a = msg.action;
-        if (!this.seats.p1 || !this.seats.p2) return conn.send({ t: 'error', message: 'Waiting for your opponent to join.' });
+        if (!this.allSeated()) return conn.send({ t: 'error', message: 'Waiting for everyone to join.' });
         if (a.t === 'resign') {
           if (this.state.result) return;
           this.apply({ t: 'resign', by: seat });
@@ -206,6 +251,9 @@ export class Room {
         this.broadcast();
         return;
       }
+      case 'fill-bots':
+        if (seat === this.host && !this.allSeated()) this.fillBots();
+        return;
       case 'leave':
         this.disconnect(conn);
         return;
@@ -214,15 +262,39 @@ export class Room {
     }
   }
 
-  /** Swap colours and start again. */
+  private countResult() {
+    if (this.counted || !this.state.result) return;
+    this.counted = true;
+    this.gamesPlayed++;
+    const { winners } = this.state.result;
+    for (const k of this.seatIds) {
+      const s = this.seats[k];
+      if (!s) continue;
+      const pts = winners.length ? (winners.includes(k) ? 1 : 0) : 0.5;
+      this.tally.set(s.token, (this.tally.get(s.token) ?? 0) + pts);
+    }
+  }
+
+  scoreboard(): Partial<Record<PlayerId, number>> {
+    const out: Partial<Record<PlayerId, number>> = {};
+    for (const k of this.seatIds) { const s = this.seats[k]; if (s) out[k] = this.tally.get(s.token) ?? 0; }
+    return out;
+  }
+
+  /** Everyone moves one seat round (two players swap colours) and play starts again. */
   private rematch() {
-    const { p1, p2 } = this.seats;
-    this.seats = { p1: p2, p2: p1 };
-    this.record = newRecord((Math.random() * 0xffffffff) | 0, { p1: p2?.name ?? '', p2: p1?.name ?? '' });
+    const ids = this.seatIds;
+    const rotated: Partial<Record<PlayerId, Seat>> = {};
+    ids.forEach((k, i) => { rotated[ids[(i + 1) % ids.length]] = this.seats[k]; });
+    this.seats = rotated;
+    if (this.host) this.host = ids[(ids.indexOf(this.host) + 1) % ids.length];
+    const names = Object.fromEntries(ids.map((k) => [k, this.seats[k]?.name ?? '']));
+    this.record = this.freshRecord((Math.random() * 0xffffffff) | 0, names);
     this.state = replay(this.record)[0];
+    this.counted = false;
     this.setClock(this.clockSetting);
     this.rematchVotes.clear();
-    for (const k of ['p1', 'p2'] as PlayerId[]) {
+    for (const k of ids) {
       const s = this.seats[k];
       s?.conn?.send({ t: 'joined', code: this.code, seat: k, token: s.token });
     }
@@ -235,7 +307,7 @@ export class Room {
       seats[k] = { name, rating, connected, botControlled };
     }
     // Standard chess has no hidden information. Hidden modes will filter per seat here.
-    const msg: ServerMsg = { t: 'room', code: this.code, record: this.record, seats, rematchVotes: [...this.rematchVotes], clock: this.clockSnapshot() };
+    const msg: ServerMsg = { t: 'room', code: this.code, record: this.record, seats, seatIds: this.seatIds, game: this.game, host: this.host, rematchVotes: [...this.rematchVotes], clock: this.clockSnapshot(), score: this.scoreboard(), gamesPlayed: this.gamesPlayed };
     for (const s of Object.values(this.seats)) s?.conn?.send(msg);
   }
 }
@@ -257,17 +329,25 @@ export class RoomServer {
   handle(conn: Conn, msg: ClientMsg) {
     if (msg.t === 'create') {
       this.leaveCurrent(conn);
-      const room = new Room(this.newCode(), this.now, (Math.random() * 0xffffffff) | 0, msg.clock ?? null);
+      const game = ROOM_GAMES.some((g) => g.id === msg.game) ? msg.game! : 'standard';
+      const room = new Room(this.newCode(), this.now, (Math.random() * 0xffffffff) | 0, msg.clock ?? null, game);
       this.rooms.set(room.code, room);
       this.connRoom.set(conn.id, room);
-      const seat: PlayerId = msg.colour === 'random' ? (Math.random() < 0.5 ? 'p1' : 'p2') : msg.colour === 'p2' ? 'p2' : 'p1';
+      const seat: PlayerId = room.seatIds.length > 2 ? 'p1' : msg.colour === 'random' ? (Math.random() < 0.5 ? 'p1' : 'p2') : msg.colour === 'p2' ? 'p2' : 'p1';
       room.addPlayer(conn, seat, msg.name, msg.rating);
       return;
     }
     if (msg.t === 'join') {
       const room = this.rooms.get(String(msg.code).toUpperCase().trim());
       if (!room) return conn.send({ t: 'error', message: 'No room with that code. Check the letters?' });
-      const free = (['p1', 'p2'] as PlayerId[]).find((k) => !room.seats[k]);
+      // Already sitting here (a double tap or a page reload)? Just resend the room.
+      const already = room.seatOf(conn);
+      if (already) {
+        conn.send({ t: 'joined', code: room.code, seat: already, token: room.seats[already]!.token });
+        room.broadcast();
+        return;
+      }
+      const free = room.seatIds.find((k) => !room.seats[k]);
       if (!free) return conn.send({ t: 'error', message: 'That room is full.' });
       this.leaveCurrent(conn);
       this.connRoom.set(conn.id, room);

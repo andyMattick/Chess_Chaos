@@ -1,6 +1,7 @@
 import { isLightSquare } from './board';
-import { inCheck, legalMoves, makeMove } from './movegen';
+import { activeSeats, eliminate, inCheck, legalMoves, makeMove } from './movegen';
 import { positionKey } from './position';
+import { MODE_MODULES } from './modes';
 import type { Action, GameResult, GameState, MoveAction, PlayerId } from './types';
 
 /**
@@ -14,11 +15,11 @@ export interface RuleModule {
   filterMoves?(s: GameState, moves: MoveAction[]): MoveAction[];
   checkEnforced?(s: GameState): boolean;
   checkEnd?(s: GameState, prev: GameState, action: Action): GameResult | undefined;
+  /** Adjust the state after every action (scores, skipping stuck players…). */
+  afterMove?(s: GameState, prev: GameState): GameState;
 }
 
-const MODULES: Record<string, RuleModule[]> = {
-  standard: [],
-};
+const MODULES: Record<string, RuleModule[]> = { ...MODE_MODULES };
 
 export function registerMode(mode: string, modules: RuleModule[]) {
   MODULES[mode] = modules;
@@ -74,8 +75,47 @@ export function insufficientMaterial(s: GameState): boolean {
  * Apply any action with full bookkeeping: repetition counts and end-of-game
  * detection. Throws on an illegal action.
  */
+function isMulti(s: GameState) {
+  return s.seats.length > 2;
+}
+
+function afterMove(n: GameState, prev: GameState): GameState {
+  for (const m of modulesFor(n)) if (m.afterMove) n = m.afterMove(n, prev);
+  return n;
+}
+
+/** Remaining sides in a three/four player game: teams count as one side. */
+function sidesLeft(s: GameState): PlayerId[][] {
+  const groups = new Map<string, PlayerId[]>();
+  for (const id of activeSeats(s)) {
+    const seat = s.seats.find((x) => x.id === id)!;
+    const key = seat.team ?? id;
+    groups.set(key, [...(groups.get(key) ?? []), id]);
+  }
+  return [...groups.values()];
+}
+
+function multiEnd(n: GameState): GameResult | null {
+  const sides = sidesLeft(n);
+  if (sides.length > 1) return null;
+  if (!sides.length) return { reason: 'last-standing', winners: [] };
+  const team = n.seats.find((x) => x.id === sides[0][0])!.team;
+  const winners = team ? n.seats.filter((x) => x.team === team).map((x) => x.id) : sides[0];
+  return { reason: 'last-standing', winners };
+}
+
 export function play(s: GameState, action: Action): GameState {
   if (s.result) throw new Error('Game is over');
+  if (isMulti(s) && (action.t === 'resign' || action.t === 'timeout')) {
+    // With more than two players, giving up or running out of time knocks you out; the game goes on.
+    let n = afterMove(eliminate(s, action.by), s);
+    for (const m of modulesFor(n)) {
+      const r = m.checkEnd?.(n, s, action);
+      if (r) return { ...n, result: r };
+    }
+    const r = multiEnd(n);
+    return r ? { ...n, result: r } : n;
+  }
   if (action.t === 'resign') {
     return { ...s, result: { reason: 'resign', winners: otherSeats(s, action.by) } };
   }
@@ -91,7 +131,7 @@ export function play(s: GameState, action: Action): GameState {
   }
   if (!isLegal(s, action)) throw new Error(`Illegal move ${JSON.stringify(action)}`);
   const mover = s.turn;
-  let n = makeMove(s, action);
+  let n = afterMove(makeMove(s, action), s);
   const key = positionKey(n);
   n = { ...n, positionCounts: { ...s.positionCounts, [key]: (s.positionCounts[key] ?? 0) + 1 } };
   const result = detectEnd(n, s, action, mover);
@@ -103,6 +143,7 @@ function detectEnd(n: GameState, prev: GameState, action: Action, mover: PlayerI
     const r = m.checkEnd?.(n, prev, action);
     if (r) return r;
   }
+  if (isMulti(n)) return multiEnd(n);
   if (legalActions(n).length === 0) {
     if (isCheckEnforced(n) && inCheck(n, n.turn)) return { reason: 'checkmate', winners: [mover] };
     return { reason: 'stalemate', winners: [] };

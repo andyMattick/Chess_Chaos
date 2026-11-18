@@ -6,6 +6,7 @@ import { skinFor, type SkinChoice } from '../content/cosmetics';
 import { landscapeById, squareDoodle } from './landscapes';
 import { Character } from './skins';
 import { FxLayer, type MoveEvents } from './effects';
+import { hillSquares } from '../core/modes';
 
 /**
  * SVG board. Renders from GameState plus overlays; knows nothing about game
@@ -50,13 +51,20 @@ const PAD = 26;
 export function Board({ state, bottom, selected, targets, lastMove, showCoordinates, landscape, skins, interactive, onSquare, overlays, fx }: BoardProps) {
   const b = state.board;
   const land = landscapeById(landscape);
-  const flip = bottom === 'p2';
+  // Rotate so the bottom seat's pawns march up the screen (works for all four sides).
+  const fwd = state.seats.find((x) => x.id === bottom)?.forward ?? [0, 1];
+  const flip = fwd[1] < 0;
   const W = b.width * SIZE;
   const H = b.height * SIZE;
   const pos = (sq: number) => {
     const f = fileOf(b, sq);
     const r = rankOf(b, sq);
-    return { x: (flip ? b.width - 1 - f : f) * SIZE, y: (flip ? r : b.height - 1 - r) * SIZE };
+    let x: number, y: number;
+    if (fwd[1] > 0) { x = f; y = b.height - 1 - r; }
+    else if (fwd[1] < 0) { x = b.width - 1 - f; y = r; }
+    else if (fwd[0] > 0) { x = b.height - 1 - r; y = b.width - 1 - f; }
+    else { x = r; y = f; }
+    return { x: x * SIZE, y: y * SIZE };
   };
   const checked = new Set<number>();
   for (const p of state.pieces) {
@@ -80,7 +88,7 @@ export function Board({ state, bottom, selected, targets, lastMove, showCoordina
       );
     }
     return out;
-  }, [land, flip, b]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [land, bottom, flip, b]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const marks = [];
   for (let sq = 0; sq < b.width * b.height; sq++) {
@@ -101,7 +109,7 @@ export function Board({ state, bottom, selected, targets, lastMove, showCoordina
   }
 
   const coords = [];
-  if (showCoordinates) {
+  if (showCoordinates && fwd[0] === 0 && state.seats.length === 2) {
     for (let f = 0; f < b.width; f++) {
       const { x } = pos(f);
       coords.push(<text key={`f${f}`} x={x + SIZE / 2} y={H + PAD - 6} className="coord" textAnchor="middle" fill={land.coord}>{String.fromCharCode(97 + f)}</text>);
@@ -127,6 +135,14 @@ export function Board({ state, bottom, selected, targets, lastMove, showCoordina
       </defs>
       <rect x={-PAD + 4} y={-PAD + 4} width={W + PAD * 2 - 8} height={H + PAD * 2 - 8} rx={22} fill={land.frame} filter="url(#rough-edge)" />
       <g filter="url(#wobble)">{ground}</g>
+      {['koth', 'hill-wars', 'battle-hill'].includes(state.mode) && (
+        <g pointerEvents="none">
+          {[...hillSquares(state)].map((sq) => {
+            const { x, y } = pos(sq);
+            return <rect key={`h${sq}`} x={x + 6} y={y + 6} width={88} height={88} rx={14} className="hill-sq" />;
+          })}
+        </g>
+      )}
       <g pointerEvents="none">{coords}</g>
       <g>{marks}</g>
       <g pointerEvents="none">

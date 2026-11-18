@@ -156,3 +156,87 @@ describe('chess.com relay', () => {
     expect(relayPath('/other')).toBeNull();
   });
 });
+
+describe('3 and 4 player rooms', () => {
+  it('seats four, fills empty seats with bots, and bots play', () => {
+    let now = 0;
+    const server = new RoomServer(() => now);
+    const a = client('a'), b = client('b');
+    server.handle(a.conn, { t: 'create', name: 'Ava', rating: 700, colour: 'p1', game: 'battle-4' });
+    const code = a.last('joined')!.code;
+    server.handle(b.conn, { t: 'join', code, name: 'Ben', rating: 700 });
+    expect(b.last('joined')!.seat).toBe('p2');
+    const room = a.last('room')!;
+    expect(room.seatIds).toEqual(['p1', 'p2', 'p3', 'p4']);
+    expect(room.host).toBe('p1');
+    // Only the host can fill seats.
+    server.handle(b.conn, { t: 'fill-bots' });
+    expect(a.last('room')!.seats.p3).toBeUndefined();
+    server.handle(a.conn, { t: 'fill-bots' });
+    expect(a.last('room')!.seats.p3!.botControlled).toBe(true);
+    expect(a.last('room')!.seats.p4!.botControlled).toBe(true);
+    // Humans move, bots answer on the timer.
+    const s0 = replay(a.last('room')!.record).at(-1)!;
+    server.handle(a.conn, { t: 'action', action: legalActionsOf(s0)[0] });
+    const s1 = replay(a.last('room')!.record).at(-1)!;
+    server.handle(b.conn, { t: 'action', action: legalActionsOf(s1)[0] });
+    now += 500; server.tick();
+    now += 500; server.tick();
+    expect(a.last('room')!.record.actions.length).toBe(4);
+    expect(replay(a.last('room')!.record).at(-1)!.turn).toBe('p1');
+  });
+
+  it('three player rooms have three seats and a big board', () => {
+    const server = new RoomServer(() => 0);
+    const a = client('a');
+    server.handle(a.conn, { t: 'create', name: 'Ava', rating: 700, colour: 'p2', game: 'battle-3' });
+    const r = a.last('room')!;
+    expect(r.seatIds.length).toBe(3);
+    expect(a.last('joined')!.seat).toBe('p1');
+    expect(replay(r.record)[0].board.width).toBe(14);
+  });
+
+  it('rematch rotates everyone one seat', () => {
+    const server = new RoomServer(() => 0);
+    const a = client('a'), b = client('b'), c = client('c');
+    server.handle(a.conn, { t: 'create', name: 'Ava', rating: 700, colour: 'p1', game: 'battle-3' });
+    const code = a.last('joined')!.code;
+    server.handle(b.conn, { t: 'join', code, name: 'Ben', rating: 700 });
+    server.handle(c.conn, { t: 'join', code, name: 'Cat', rating: 700 });
+    server.handle(a.conn, { t: 'action', action: { t: 'resign', by: 'p1' } });
+    expect(a.last('room')!.record.meta.result).toBeFalsy();
+    server.handle(b.conn, { t: 'action', action: { t: 'resign', by: 'p2' } });
+    expect(a.last('room')!.record.meta.result).toEqual({ reason: 'last-standing', winners: ['p3'] });
+    for (const x of [a, b, c]) server.handle(x.conn, { t: 'rematch' });
+    expect(a.last('joined')!.seat).toBe('p2');
+    expect(c.last('joined')!.seat).toBe('p1');
+  });
+});
+
+import { legalActions as legalActionsOf } from '../src/core';
+
+describe('room extras', () => {
+  it('a double join from the same connection keeps one seat', () => {
+    const server = new RoomServer(() => 0);
+    const a = client('a'), b = client('b');
+    server.handle(a.conn, { t: 'create', name: 'Ava', rating: 700, colour: 'p1', game: 'battle-3' });
+    const code = a.last('joined')!.code;
+    server.handle(b.conn, { t: 'join', code, name: 'Ben', rating: 700 });
+    server.handle(b.conn, { t: 'join', code, name: 'Ben', rating: 700 });
+    expect(Object.keys(a.last('room')!.seats).length).toBe(2);
+  });
+  it('keeps a match score that follows players across rematches', () => {
+    const server = new RoomServer(() => 0);
+    const a = client('a'), b = client('b');
+    server.handle(a.conn, { t: 'create', name: 'Ava', rating: 700, colour: 'p1' });
+    server.handle(b.conn, { t: 'join', code: a.last('joined')!.code, name: 'Ben', rating: 700 });
+    server.handle(b.conn, { t: 'action', action: { t: 'resign', by: 'p2' } });
+    expect(a.last('room')!.score).toEqual({ p1: 1, p2: 0 });
+    server.handle(a.conn, { t: 'rematch' }); server.handle(b.conn, { t: 'rematch' });
+    // Colours swapped; Ava is now p2 and keeps her point.
+    expect(a.last('room')!.score).toEqual({ p1: 0, p2: 1 });
+    server.handle(a.conn, { t: 'action', action: { t: 'resign', by: 'p2' } });
+    expect(a.last('room')!.score).toEqual({ p1: 1, p2: 1 });
+    expect(a.last('room')!.gamesPlayed).toBe(2);
+  });
+});

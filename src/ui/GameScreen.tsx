@@ -4,6 +4,7 @@ import { botById } from '../content/bots';
 import { skinFor } from '../content/cosmetics';
 import { pieceType } from '../core/pieces';
 import { newRecord, replay, type GameRecord } from '../core/record';
+import { hillData } from '../core/modes';
 import { legalActions } from '../core/rules';
 import { toSAN } from '../core/san';
 import { newSeed } from '../core/rng';
@@ -27,6 +28,8 @@ import { setSoundEnabled, sfx } from './sound';
 export interface GameConfig {
   /** 'local' is only used to replay saved games. */
   kind: 'local' | 'bot' | 'online';
+  /** Game mode for new games (koth, hill-wars…). Default classic. */
+  mode?: string;
   /** Training game: one alert and open goals (docs/02 s2). */
   training?: TrainingConfig;
   botId?: string;
@@ -52,6 +55,7 @@ const REASON_TEXT: Record<string, string> = {
   'draw-material': 'Draw: nobody can checkmate with what is left.',
   'draw-agreed': 'Draw agreed.',
   time: 'on time! (the other clock ran out)',
+  'mode-win': 'by taking the hill! ⛰️',
 };
 
 function pick<T>(list: readonly T[]): T {
@@ -68,7 +72,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   const me: PlayerId = isOnline ? net.seat ?? 'p1' : config.humanSeat;
   const botSeat: PlayerId | null = config.kind === 'bot' ? other(config.humanSeat) : null;
 
-  const [localRec, setLocalRec] = useState<GameRecord>(() => reviewRecord ?? newRecord(newSeed(), config.names));
+  const [localRec, setLocalRec] = useState<GameRecord>(() => reviewRecord ?? newRecord(newSeed(), config.names, undefined, config.mode ?? 'standard'));
   const rec = isOnline && net.record ? net.record : localRec;
   const names: Record<string, string> = isOnline
     ? { p1: net.seats.p1?.name ?? '…', p2: net.seats.p2?.name ?? '…' }
@@ -301,6 +305,9 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
 
   const captured = (owner: PlayerId) =>
     shown.pieces.filter((p) => p.at < 0 && p.owner === owner).sort((a, b) => pieceType(b.type).value - pieceType(a.type).value);
+  // Material lead in whole points (pawn 1, knight/bishop 3, rook 5, queen 9).
+  const material = (owner: PlayerId) => shown.pieces.filter((p) => p.at >= 0 && p.owner === owner && p.type !== 'king').reduce((a, p) => a + Math.floor(pieceType(p.type).value), 0);
+  const lead = (seat: PlayerId) => material(seat) - material(other(seat));
 
   let status: string;
   if (shown.result) {
@@ -332,6 +339,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           name={names[top]} rating={bot && top === botSeat ? bot.rating : net.seats[top]?.rating} avatar={avatar(top)}
           active={shown.turn === top && !shown.result} captured={captured(bottom)} speech={speech?.seat === top ? speech.text : null}
           colour={bot && top === botSeat ? bot.colour : undefined}
+          lead={lead(top)}
           clockMs={isOnline && !reviewing ? timeLeft(net, top) : null} clockRunning={net.clock?.running === top}
           note={isOnline && opp && top !== me ? (opp.botControlled ? '🤖 a bot took over' : !opp.connected ? '📡 reconnecting…' : null) : null}
         />
@@ -426,13 +434,36 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           name={names[bottom]} rating={bot && bottom === botSeat ? bot.rating : net.seats[bottom]?.rating} avatar={avatar(bottom)}
           active={shown.turn === bottom && !shown.result} captured={captured(top)} speech={speech?.seat === bottom ? speech.text : null}
           colour={bot && bottom === botSeat ? bot.colour : undefined}
+          lead={lead(bottom)}
           clockMs={isOnline && !reviewing ? timeLeft(net, bottom) : null} clockRunning={net.clock?.running === bottom}
         />
       </div>
 
       <aside className="game-side">
         {isOnline && <div className="room-code">Room <b>{net.code}</b></div>}
+        {isOnline && (
+          <div className="scoreboard" aria-label="Match score">
+            <span>{names[me]}</span>
+            <b>{fmtScore(net.score[me] ?? 0)}</b>
+            <i>–</i>
+            <b>{fmtScore(net.score[other(me)] ?? 0)}</b>
+            <span>{names[other(me)]}</span>
+            <small>{net.gamesPlayed ? `after ${net.gamesPlayed} game${net.gamesPlayed > 1 ? 's' : ''}` : 'first game'}</small>
+          </div>
+        )}
         {!reviewRecord && training.panel}
+        {live.mode === 'koth' && <div className="hill-goal">⛰️ King of the hill: get your king to a yellow square to win!</div>}
+        {live.mode === 'hill-wars' && (() => {
+          const h = hillData(shown);
+          return (
+            <div className="hill-goal">
+              🚩 Hill wars: first to <b>{h.target}</b>
+              {(['p1', 'p2'] as PlayerId[]).map((k) => (
+                <div key={k} className="hill-bar"><div style={{ width: `${Math.min(100, ((h.scores[k] ?? 0) / h.target) * 100)}%` }} /><span>{names[k]}: {h.scores[k] ?? 0}</span></div>
+              ))}
+            </div>
+          );
+        })()}
         {retrying && <button className="btn small" onClick={() => { setRetry(null); setView(null); }}>← Back to results</button>}
         <div className={`status ${shown.result ? 'over' : ''}`} aria-live="polite">{status}</div>
         {reviewing ? (
@@ -472,6 +503,10 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   );
 }
 
+function fmtScore(n: number) {
+  return Number.isInteger(n) ? String(n) : `${Math.floor(n)}½`;
+}
+
 function formatClock(ms: number): string {
   const s = Math.ceil(ms / 1000);
   if (ms < 10_000) return (ms / 1000).toFixed(1);
@@ -492,9 +527,9 @@ function MoveCell({ san, idx, view, onPick }: { san?: string; idx: number; view:
   );
 }
 
-function PlayerBar({ name, rating, avatar, active, captured, speech, colour, note, clockMs, clockRunning }: {
+function PlayerBar({ name, rating, avatar, active, captured, speech, colour, note, clockMs, clockRunning, lead }: {
   name: string; rating?: number; avatar: ReactNode; active: boolean; captured: GameState['pieces'];
-  speech: string | null; colour?: string; note?: string | null; clockMs?: number | null; clockRunning?: boolean;
+  speech: string | null; colour?: string; note?: string | null; clockMs?: number | null; clockRunning?: boolean; lead?: number;
 }) {
   const save = useSave();
   // Re-render a few times a second while this clock is running.
@@ -523,6 +558,7 @@ function PlayerBar({ name, rating, avatar, active, captured, speech, colour, not
         {captured.map((p) => (
           <svg key={p.id} viewBox="0 0 100 100"><Character skin={skinFor(lookOf(save).skins, p.owner, p.type)} type={p.type} owner={p.owner} seed={p.id + 1} /></svg>
         ))}
+        {!!lead && lead > 0 && <span className="lead">+{lead}</span>}
       </div>
     </div>
   );

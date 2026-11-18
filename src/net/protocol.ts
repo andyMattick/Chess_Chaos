@@ -43,8 +43,22 @@ export interface ClockState {
   increment: number;
 }
 
+/** What kind of game a room plays. */
+export type RoomGame = 'standard' | 'koth' | 'hill-wars' | 'battle-3' | 'battle-4' | 'battle-teams' | 'battle-hill-4';
+
+export const ROOM_GAMES: { id: RoomGame; label: string; seats: number; blurb: string }[] = [
+  { id: 'standard', label: '♟️ Classic', seats: 2, blurb: 'Normal chess, 1 vs 1.' },
+  { id: 'koth', label: '⛰️ King of the hill', seats: 2, blurb: 'Get your king to the middle 4 squares to win.' },
+  { id: 'hill-wars', label: '🚩 Hill wars', seats: 2, blurb: 'Hold the middle squares to score. First to 20.' },
+  { id: 'battle-3', label: '⚔️ 3-way battle', seats: 3, blurb: 'Three armies, one winner. Capture kings to knock players out.' },
+  { id: 'battle-4', label: '⚔️ 4-way battle', seats: 4, blurb: 'Four armies, every one for themselves.' },
+  { id: 'battle-teams', label: '🤝 2 vs 2 teams', seats: 4, blurb: 'Partners sit opposite. Knock out both enemy kings.' },
+  { id: 'battle-hill-4', label: '🚩 4-way Hill wars', seats: 4, blurb: 'Four armies fight over a big hill. First to 30.' },
+];
+
 export type ClientMsg =
-  | { t: 'create'; name: string; rating: number; colour: 'p1' | 'p2' | 'random'; clock?: ClockSetting | null }
+  | { t: 'create'; name: string; rating: number; colour: 'p1' | 'p2' | 'random'; clock?: ClockSetting | null; game?: RoomGame }
+  | { t: 'fill-bots' }
   | { t: 'join'; code: string; name: string; rating: number }
   | { t: 'rejoin'; code: string; token: string }
   | { t: 'action'; action: Action }
@@ -54,7 +68,7 @@ export type ClientMsg =
 
 export type ServerMsg =
   | { t: 'joined'; code: string; seat: PlayerId; token: string }
-  | { t: 'room'; code: string; record: GameRecord; seats: Partial<Record<PlayerId, SeatInfo>>; rematchVotes: PlayerId[]; clock: ClockState | null }
+  | { t: 'room'; code: string; record: GameRecord; seats: Partial<Record<PlayerId, SeatInfo>>; seatIds: PlayerId[]; game: RoomGame; host: PlayerId | null; rematchVotes: PlayerId[]; clock: ClockState | null; score?: Partial<Record<PlayerId, number>>; gamesPlayed?: number }
   | { t: 'emote'; from: PlayerId; id: EmoteId }
   | { t: 'error'; message: string };
 

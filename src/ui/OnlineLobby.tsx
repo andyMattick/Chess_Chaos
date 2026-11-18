@@ -1,6 +1,7 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { online, roomServerUrl } from '../net/client';
-import { CLOCK_CHOICES } from '../net/protocol';
+import { CLOCK_CHOICES, ROOM_GAMES, type RoomGame } from '../net/protocol';
+import { BattleScreen } from './BattleScreen';
 import { activeProfile } from '../storage/storage';
 import { GameScreen } from './GameScreen';
 import { useSave } from './store';
@@ -59,12 +60,17 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
   const p = activeProfile(save);
   const [code, setCode] = useState(initialCode ?? '');
   const [clockIdx, setClockIdx] = useState(1);
+  const [game, setGame] = useState<RoomGame>('standard');
+  const seatsFor = ROOM_GAMES.find((g) => g.id === game)?.seats ?? 2;
   const clock = CLOCK_CHOICES[clockIdx].setting;
   const name = p?.nickname ?? 'Player';
   const rating = p?.rating ?? 600;
 
   // Opened from a shared link: join straight away. Otherwise, coming back mid-game? Rejoin the seat.
+  const joinedRef = useRef(false);
   useEffect(() => {
+    if (joinedRef.current) return;
+    joinedRef.current = true;
     if (initialCode && !net.code) {
       online.join(initialCode, name, rating);
       try { history.replaceState(null, '', location.pathname); } catch { /* ignore */ }
@@ -83,8 +89,10 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
     );
   }
 
-  const bothSeated = !!(net.seats.p1 && net.seats.p2);
-  if (net.code && net.record && bothSeated && net.seat) {
+  const seatIds = net.seatIds ?? ['p1', 'p2'];
+  const allSeated = seatIds.every((k) => !!net.seats[k]);
+  if (net.code && net.record && allSeated && net.seat) {
+    if (seatIds.length > 2) return <BattleScreen key={`${net.code}-${net.record.id}`} onExit={exit} />;
     return <GameScreen key={`${net.code}-${net.record.id}`} config={{ kind: 'online', humanSeat: net.seat, names: {} }} onExit={exit} onRematch={() => online.rematch()} />;
   }
 
@@ -97,6 +105,13 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
           {net.code.split('').map((c, i) => <span key={i} style={{ transform: `rotate(${[-6, 4, -3, 7][i]}deg)` }}>{c}</span>)}
         </div>
         <ShareCode code={net.code} />
+        {seatIds.length > 2 && (
+          <div className="seat-wait">
+            <p><b>{ROOM_GAMES.find((g) => g.id === net.game)?.label}</b>: {seatIds.filter((k) => net.seats[k]).length} of {seatIds.length} players here</p>
+            <ul>{seatIds.map((k) => <li key={k}>{net.seats[k] ? `✅ ${net.seats[k]!.name}` : '⏳ empty seat'}</li>)}</ul>
+            {net.host === net.seat && <button className="btn" onClick={() => online.fillBots()}>🤖 Fill empty seats with bots and start</button>}
+          </div>
+        )}
         <p className="waiting">waiting for them to show up<span className="dots">...</span></p>
         <button className="btn" onClick={exit}>Cancel</button>
       </div>
@@ -113,6 +128,13 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
         <section>
           <h3>Start a room</h3>
           <p className="muted">You get a 4-letter code to share.</p>
+          <p className="muted small">What are we playing?</p>
+          <div className="clock-chips" role="radiogroup" aria-label="Game">
+            {ROOM_GAMES.map((g) => (
+              <button key={g.id} role="radio" aria-checked={g.id === game} className={`chip ${g.id === game ? 'on' : ''}`} onClick={() => setGame(g.id)} title={g.blurb}>{g.label}</button>
+            ))}
+          </div>
+          <p className="muted small">{ROOM_GAMES.find((g) => g.id === game)?.blurb}</p>
           <p className="muted small">How much time each?</p>
           <div className="clock-chips" role="radiogroup" aria-label="Clock">
             {CLOCK_CHOICES.map((c, i) => (
@@ -120,9 +142,15 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
             ))}
           </div>
           <div className="row">
-            <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock)}>I'll be White</button>
-            <button className="btn primary dark" onClick={() => online.create(name, rating, 'p2', clock)}>I'll be Black</button>
-            <button className="btn" onClick={() => online.create(name, rating, 'random', clock)}>🎲 Whatever</button>
+            {seatsFor === 2 ? (
+              <>
+                <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock, game)}>I'll be White</button>
+                <button className="btn primary dark" onClick={() => online.create(name, rating, 'p2', clock, game)}>I'll be Black</button>
+                <button className="btn" onClick={() => online.create(name, rating, 'random', clock, game)}>🎲 Whatever</button>
+              </>
+            ) : (
+              <button className="btn primary" onClick={() => online.create(name, rating, 'p1', clock, game)}>Make the room ({seatsFor} players)</button>
+            )}
           </div>
         </section>
         <section>

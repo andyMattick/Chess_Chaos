@@ -213,9 +213,15 @@ export function makeMove(s: GameState, m: MoveAction): GameState {
   }
 
   const victimId = sq[m.to];
+  let seats = s.seats;
   if (victimId >= 0) {
-    pieces[victimId] = { ...pieces[victimId], at: -1 };
+    const victim = pieces[victimId];
+    pieces[victimId] = { ...victim, at: -1 };
     capture = true;
+    // Capturing the last royal piece knocks that player out (three/four player games).
+    if (pieceType(victim.type).royal && !pieces.some((x) => x.at >= 0 && x.owner === victim.owner && pieceType(x.type).royal)) {
+      seats = seats.map((x) => (x.id === victim.owner ? { ...x, status: 'eliminated' as const } : x));
+    }
   } else if (p.type === 'pawn' && s.enPassant && s.enPassant.square === m.to) {
     const vid = sq[s.enPassant.victim];
     if (vid >= 0) {
@@ -236,15 +242,27 @@ export function makeMove(s: GameState, m: MoveAction): GameState {
   sq[m.to] = p.id;
   pieces[p.id] = { ...p, at: m.to, moved: true, type: m.promo ?? p.type };
 
+  const next = { ...s, seats };
   return {
-    ...s,
+    ...next,
     pieces,
     sq,
     enPassant: ep,
     halfmoveClock: capture || p.type === 'pawn' ? 0 : s.halfmoveClock + 1,
     ply: s.ply + 1,
-    turn: nextSeat(s, p.owner),
+    turn: nextSeat(next, p.owner),
   };
+}
+
+/** Knock a player out (resigned, out of time, no moves). Their pieces stay as grey obstacles. */
+export function eliminate(s: GameState, who: PlayerId): GameState {
+  const seats = s.seats.map((x) => (x.id === who ? { ...x, status: 'eliminated' as const } : x));
+  const n = { ...s, seats };
+  return s.turn === who ? { ...n, turn: nextSeat(n, who) } : n;
+}
+
+export function activeSeats(s: GameState): PlayerId[] {
+  return s.seats.filter((x) => x.status === 'active').map((x) => x.id);
 }
 
 export function nextSeat(s: GameState, after: PlayerId): PlayerId {

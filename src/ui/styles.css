@@ -385,3 +385,31 @@ body[data-land='space'] .player-bar:not(.active) .prating, body[data-land='volca
 .cc-input { letter-spacing: normal; text-transform: none; font-size: 1.2rem; text-align: left; flex: 1; min-width: 180px; margin: 0; }
 .cc-card { display: flex; gap: 14px; align-items: center; border: 3px solid var(--ink); border-radius: var(--wonky2); padding: 12px; margin: 12px 0; background: #eaffd6; transform: rotate(-0.8deg); box-shadow: 4px 5px 0 var(--ink); }
 .cc-rating { font-weight: 700; }
+
+.hill-sq { fill: rgba(255, 207, 58, 0.32); stroke: #ffcf3a; stroke-width: 5; stroke-dasharray: 10 7; }
+
+/* Battles */
+.game.battle .board-wrap { width: min(94vw, calc(100vh - 120px), 820px); }
+.seat-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.seat { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 3px solid transparent; border-radius: var(--wonky2); position: relative; }
+.seat.turn { border-color: var(--ink); background: #fff3c4; box-shadow: 3px 4px 0 var(--ink); transform: rotate(-1deg); }
+.seat.me .seat-info b { color: var(--blue); }
+.seat.out { opacity: 0.45; filter: grayscale(1); }
+.seat .avatar { width: 44px; height: 44px; }
+.seat-info { display: grid; min-width: 0; flex: 1; }
+.seat-info .speech { justify-self: start; }
+.out-tag { font-weight: 900; background: var(--ink); color: #fff; border-radius: 8px; padding: 0 6px; transform: rotate(-8deg); }
+.out-tag.win { background: var(--yolk); color: var(--ink); }
+.seat .clock { font-size: 1.1rem; min-width: 60px; margin: 0; }
+.hill-goal { font-weight: 800; background: #fff3c4; border: 2.5px dashed var(--ink); border-radius: var(--wonky2); padding: 6px 10px; }
+.hill-bar { position: relative; height: 18px; border: 2px solid var(--ink); border-radius: 9px; background: white; overflow: hidden; margin-top: 3px; }
+.hill-bar div { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #ffcf3a, #ff5a3c); }
+.hill-bar span { position: relative; font-size: 0.75rem; font-weight: 900; padding-left: 6px; }
+.seat-wait { border: 3px dashed var(--ink); border-radius: var(--wonky2); padding: 10px; margin: 10px 0; text-align: left; }
+.seat-wait ul { margin: 6px 0; padding-left: 18px; font-weight: 700; }
+
+.scoreboard { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-family: var(--hand); font-size: 1.1rem; background: #fff; border: 3px solid var(--ink); border-radius: var(--wonky2); padding: 4px 10px; box-shadow: 3px 4px 0 var(--ink); transform: rotate(1deg); }
+.scoreboard b { font-size: 1.8rem; color: var(--pink); -webkit-text-stroke: 1px var(--ink); }
+.scoreboard small { width: 100%; color: var(--muted); font-size: 0.8rem; }
+.lead { font-weight: 900; margin-left: 6px; background: var(--lime); border: 2px solid var(--ink); border-radius: 8px; padding: 0 5px; font-size: 0.9rem; align-self: center; }
+.wins { font-size: 0.85rem; color: #b07000; }

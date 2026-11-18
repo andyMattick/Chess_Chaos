@@ -22,13 +22,13 @@ Rules for each item are in `docs/03-content-catalog.md` (and `docs/09-multiplaye
 
 ## Game modes (32)
 
-Includes King of the hill (MODE-02), Hill wars territory mode (MODE-29), Three-way (MODE-26), Four-way (MODE-27) and Four-way teams (MODE-28). The engine already supports 3 and 4 players and odd board shapes; these modes themselves are not built.
+Built so far: Classic, King of the hill, Hill wars (2 and 4 players), 3-way, 4-way and 2 vs 2 teams, against bots and online.
 
 | ID | Name | Status | Where |
 |---|---|---|---|
 | MODE-00 | Standard | Built | Bots, online, Train |
 | MODE-01 | Random piece | Planned | Party match (not built yet) |
-| MODE-02 | King of the hill | Planned | Party match (not built yet) |
+| MODE-02 | King of the hill | Built | Battle modes (vs bot), Play online |
 | MODE-03 | Three-check | Planned | Party match (not built yet) |
 | MODE-04 | Horde | Planned | Party match (not built yet) |
 | MODE-05 | Shuffle start | Planned | Party match (not built yet) |
@@ -52,10 +52,10 @@ Includes King of the hill (MODE-02), Hill wars territory mode (MODE-29), Three-w
 | MODE-23 | Mini board | Planned | Party match (not built yet) |
 | MODE-24 | Monster | Planned | Party match (not built yet) |
 | MODE-25 | Mystery army | Planned | Party match (not built yet) |
-| MODE-26 | Three-way | Planned | Party match (not built yet) |
-| MODE-27 | Four-way | Planned | Party match (not built yet) |
-| MODE-28 | Four-way teams | Planned | Party match (not built yet) |
-| MODE-29 | Hill wars | Planned | Party match (not built yet) |
+| MODE-26 | Three-way | Built | Battle modes, Play online |
+| MODE-27 | Four-way | Built | Battle modes, Play online |
+| MODE-28 | Four-way teams | Built | Battle modes, Play online |
+| MODE-29 | Hill wars | Built | Battle modes (1v1 and 4-way), Play online |
 | MODE-30 | Paint the board | Planned | Party match (not built yet) |
 | MODE-31 | Contract | Planned | Party match (not built yet) |
 
@@ -210,6 +210,8 @@ Includes King of the hill (MODE-02), Hill wars territory mode (MODE-29), Three-w
 | 18 opening bots, own chess engine after the opening | Built | Bot Path |
 | Bot Path (beat one to unlock the next) | Built | Play the bots |
 | Online play by room code, share link, text it | Built | Play online |
+| Online rooms for 3 and 4 players, fill empty seats with bots | Built (needs `wrangler deploy`) | Play online |
+| Match score across rematches, material lead (+3) | Built | Online games, every game |
 | Online chess clock (3, 5, 10 min or none) | Built (needs `wrangler deploy`) | Play online |
 | Emotes, reconnect, bot takes over if someone leaves, rematch | Built | Play online |
 | Win of the game / one fix with retry | Built | After every bot game |

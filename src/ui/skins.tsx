@@ -59,15 +59,25 @@ function jitter(seed: number, i: number) {
 }
 
 export function Character({ skin, type, owner, seed = 0, badge = false }: { skin: SkinId; type: string; owner: string; seed?: number; badge?: boolean }): ReactElement {
-  if (skin === 'classic') return <PieceGlyph type={type} light={owner === 'p1'} />;
-  const pal = PALETTES[skin][owner === 'p1' ? 'p1' : 'p2'];
+  if (skin === 'classic') {
+    const tint = owner === 'p3' ? '#ffcf3a' : owner === 'p4' ? '#45c7a8' : undefined;
+    return <PieceGlyph type={type} light={owner === 'p1'} tint={tint} />;
+  }
+  const pal = PALETTES[skin][owner === 'p1' || owner === 'p3' ? 'p1' : 'p2'];
+  // Third and fourth armies: same character, shifted colours.
+  const hue = owner === 'p3' ? 150 : owner === 'p4' ? 200 : 0;
   const s = SCALE[type] ?? 0.85;
   const tilt = jitter(seed, 1) * 9;
   // Body is drawn in a 100x100 box, standing on y=94, then scaled.
   return (
     <g>
+      {hue > 0 && (
+        <defs>
+          <filter id={`hue-${owner}`}><feColorMatrix type="hueRotate" values={String(hue)} /></filter>
+        </defs>
+      )}
       <ellipse cx={50} cy={93} rx={26 * s} ry={4} fill="rgba(0,0,0,0.22)" />
-      <g transform={`translate(50 94) rotate(${tilt}) scale(${s}) translate(-50 -94)`}>
+      <g transform={`translate(50 94) rotate(${tilt}) scale(${s}) translate(-50 -94)`} filter={hue > 0 ? `url(#hue-${owner})` : undefined}>
         {BODIES[skin](pal, type, seed)}
         <Hat type={type} skin={skin} pal={pal} />
       </g>

@@ -2,6 +2,7 @@ import { fileOf, rankOf, seatOf } from '../core/board';
 import { pieceType } from '../core/pieces';
 import { areEnemies } from '../core/movegen';
 import type { GameState, Piece, PlayerId } from '../core/types';
+import { hillSquares } from '../core/modes';
 
 /**
  * Static evaluation in centipawns from `pov`'s point of view.
@@ -18,9 +19,18 @@ export function evaluate(s: GameState, pov: PlayerId): number {
   const endgame = Math.max(0, Math.min(1, 1 - (nonPawnMaterial - 10) / 52));
 
   let score = 0;
+  // Three/four player games: being knocked out is the worst thing; knocking others out is great.
+  if (s.seats.length > 2) {
+    for (const seat of s.seats) {
+      if (seat.status !== 'eliminated') continue;
+      if (seat.id === pov) return -50000;
+      score += areEnemies(s, pov, seat.id) ? 2500 : -2500;
+    }
+  }
+  const out = new Set(s.seats.filter((x) => x.status === 'eliminated').map((x) => x.id));
   const bishops: Record<string, number> = {};
   for (const p of s.pieces) {
-    if (p.at < 0) continue;
+    if (p.at < 0 || out.has(p.owner)) continue;
     const v = pieceTerm(s, p, cx, cy, endgame);
     if (p.type === 'bishop') bishops[p.owner] = (bishops[p.owner] ?? 0) + 1;
     score += p.owner === pov ? v : areEnemies(s, pov, p.owner) ? -v : v * 0.5;
@@ -28,6 +38,7 @@ export function evaluate(s: GameState, pov: PlayerId): number {
   for (const [owner, n] of Object.entries(bishops)) {
     if (n >= 2) score += owner === pov ? 30 : -30;
   }
+  score += hillTerm(s, pov);
   return Math.round(score);
 }
 
@@ -92,4 +103,26 @@ function openLineBonus(s: GameState, p: Piece): number {
     if (q.owner === p.owner) own = true; else enemy = true;
   }
   return own ? 0 : enemy ? 10 : 22;
+}
+
+/** King of the hill and Hill wars: sitting on (and racing a king to) the middle matters. */
+function hillTerm(s: GameState, pov: PlayerId): number {
+  const koth = s.mode === 'koth';
+  if (!koth && s.mode !== 'hill-wars' && s.mode !== 'battle-hill') return 0;
+  const hill = hillSquares(s);
+  const b = s.board;
+  let score = 0;
+  for (const p of s.pieces) {
+    if (p.at < 0) continue;
+    const sign = p.owner === pov ? 1 : areEnemies(s, pov, p.owner) ? -1 : 0.5;
+    if (hill.has(p.at)) {
+      if (koth && p.type === 'king') return sign > 0 ? 90000 : -90000;
+      score += sign * (p.type === 'king' ? 70 : 40);
+    } else if (koth && p.type === 'king') {
+      let d = 99;
+      for (const h of hill) d = Math.min(d, Math.max(Math.abs(fileOf(b, h) - fileOf(b, p.at)), Math.abs(rankOf(b, h) - rankOf(b, p.at))));
+      score += sign * (60 - d * 15);
+    }
+  }
+  return score;
 }

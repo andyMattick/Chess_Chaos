@@ -8,6 +8,8 @@ import { BotRoster, History, Home, Profiles } from './screens';
 import { Wardrobe } from './Wardrobe';
 import { TrainSetup } from './TrainSetup';
 import { ChessCom } from './ChessCom';
+import { BattleSetup } from './BattleSetup';
+import { BattleScreen, type LocalBattle } from './BattleScreen';
 import { useSave } from './store';
 
 type Screen =
@@ -19,6 +21,8 @@ type Screen =
   | { name: 'wardrobe' }
   | { name: 'train' }
   | { name: 'chesscom' }
+  | { name: 'battle' }
+  | { name: 'battle-game'; local: LocalBattle; key: number }
   | { name: 'game'; config: GameConfig; key: number; review?: GameRecord };
 
 export function App() {
@@ -30,7 +34,7 @@ export function App() {
   const openRecord = (rec: GameRecord) => setScreen({ name: 'game', key: Date.now(), review: rec, config: { kind: 'local', humanSeat: 'p1', names: rec.meta.players } });
 
   // While playing, the whole page becomes the board's landscape.
-  const inGame = screen.name === 'game' || screen.name === 'online';
+  const inGame = screen.name === 'game' || screen.name === 'online' || screen.name === 'battle-game';
   useEffect(() => {
     document.body.style.background = inGame ? landscapeById(lookOf(save).landscape).scene : '';
     document.body.dataset.land = inGame ? lookOf(save).landscape : '';
@@ -48,6 +52,10 @@ export function App() {
       {screen.name === 'wardrobe' && <Wardrobe back={home} />}
       {screen.name === 'train' && <TrainSetup start={startGame} back={home} />}
       {screen.name === 'chesscom' && <ChessCom back={home} open={openRecord} />}
+      {screen.name === 'battle' && <BattleSetup back={home} startDuel={startGame} startBattle={(local) => setScreen({ name: 'battle-game', local, key: Date.now() })} />}
+      {screen.name === 'battle-game' && (
+        <BattleScreen key={screen.key} local={screen.local} onExit={home} onAgain={() => setScreen({ name: 'battle-game', local: screen.local, key: Date.now() })} />
+      )}
       {screen.name === 'bots' && <BotRoster start={startGame} back={home} />}
       {screen.name === 'history' && (
         <History

@@ -23,7 +23,9 @@ export const DEFAULT_SKINS: SkinChoice = {
 };
 
 export function skinFor(choice: SkinChoice, owner: string, type: string): SkinId {
-  return choice.pieces[owner]?.[type] ?? choice.armies[owner] ?? 'classic';
+  // Extra armies in 3/4 player games borrow White's and Black's looks (recoloured).
+  const base = owner === 'p3' ? 'p1' : owner === 'p4' ? 'p2' : owner;
+  return choice.pieces[owner]?.[type] ?? choice.armies[owner] ?? choice.pieces[base]?.[type] ?? choice.armies[base] ?? 'classic';
 }
 
 /**
