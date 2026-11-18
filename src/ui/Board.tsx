@@ -199,9 +199,11 @@ function OverlayLayer({ overlays, pos }: { overlays: BoardOverlays; pos: (sq: nu
   return (
     <g pointerEvents="none">
       <defs>
-        <marker id="arrowhead" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto">
-          <path d="M0 0 L4 2 L0 4 z" fill="#ff4f9a" />
-        </marker>
+        {[['arrowhead', '#ff4f9a'], ['arrowhead-2fb36b', '#2fb36b'], ['arrowhead-ff8a3d', '#ff8a3d']].map(([id, c]) => (
+          <marker key={id} id={id} markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto">
+            <path d="M0 0 L4 2 L0 4 z" fill={c} />
+          </marker>
+        ))}
       </defs>
       {[...(overlays.glow ?? [])].map((sq) => {
         const { x, y } = pos(sq);
@@ -215,7 +217,7 @@ function OverlayLayer({ overlays, pos }: { overlays: BoardOverlays; pos: (sq: nu
         const mx = (f.x + ex) / 2 - (dy / len) * 14, my = (f.y + ey) / 2 + (dx / len) * 14;
         return (
           <g key={`a${i}`}>
-            <path d={`M${f.x} ${f.y} Q${mx} ${my} ${ex} ${ey}`} fill="none" stroke="#ff4f9a" strokeWidth={11} strokeLinecap="round" markerEnd="url(#arrowhead)" opacity={0.85} />
+            <path d={`M${f.x} ${f.y} Q${mx} ${my} ${ex} ${ey}`} fill="none" stroke={a.color ?? "#ff4f9a"} strokeWidth={11} strokeLinecap="round" markerEnd={`url(#arrowhead${a.color ? '-' + a.color.slice(1) : ''})`} opacity={0.85} />
             {a.label && (
               <g transform={`translate(${mx} ${my})`}>
                 <circle r={17} fill="#fffdf6" stroke="#241f33" strokeWidth={4} />

@@ -123,3 +123,9 @@ Implementing agent: add dated entries below when you resolve an ambiguity or rec
 - **Earn conditions simplified:** "win material with a fork / discovered attack" counts when the tactic is played. Twin (Draft), Grasshopper (Mini board) and Bomb pawn (Atomic) need modes that are not built yet; until then they come only from the beginner gift. Decoy king cannot be earned yet.
 - **Bots** do not carry or play cards yet (docs/05 signature cards are later). Cards are only used in Party matches; the card play is not shown in the move list.
 - **Wall** stops riders, but leapers (knights) can still jump it; Jumper rook and Grasshopper may pass it. Bomb pawn does not explode on an en passant capture.
+
+### 2026-11-17: Full game analysis
+
+- **Built:** "🔍 Full analysis" on any finished 1 vs 1 game (after the game, and when replaying My games, including Chess.com imports). Every move is graded (Great move, Good, Hmm, Oops, Big oops) against our own engine at depth 2 with quiescence, with a plain-words reason from the tactic detectors (piece left hanging, missed fork, allowed checkmate) and arrows for the move played and the better one. A who-was-winning graph and a simple 0 to 100 game score per player.
+- **No AI service.** It is the same search the bots use, so it sees about as far as a 1400 player.
+- Fixed while building it: the search scores a position with only one legal move as 0, which hid blunders such as a queen sacrifice the king must take. Analysis and the post-game review now look one move further in that case.

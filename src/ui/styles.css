@@ -521,3 +521,20 @@ body[data-calm] .board-wrap.nudge::before { animation: none !important; }
 .party-cards .hand-row { margin: 0; }
 .party-cards .power-card .btn { margin-top: 4px; }
 .new-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 6px 0; }
+
+/* Game analysis */
+.analysis { display: grid; gap: 6px; }
+.analysis h4 { margin: 0; font-family: var(--hand); font-size: 1.2rem; }
+.eval-graph { width: 100%; height: auto; border: 3px solid var(--ink); border-radius: 10px; transform: rotate(-0.4deg); }
+.analysis-sum { display: grid; gap: 4px; }
+.analysis-sum > div { border: 2.5px solid var(--ink); border-radius: var(--wonky2); padding: 4px 8px; background: #fffaf0; }
+.analysis-sum > div.me { background: #fff1b8; }
+.analysis-sum small { display: block; color: var(--muted); font-weight: 700; }
+.game-score { float: right; font-family: var(--hand); font-weight: 900; font-size: 1.2rem; }
+.note-card { border: 3px solid var(--ink); border-left: 10px solid var(--g); border-radius: var(--wonky2); padding: 8px 10px; background: #fff; transform: rotate(0.6deg); }
+.note-card p { margin: 4px 0; font-weight: 700; }
+.analysis-moves { list-style: none; margin: 0; padding: 0; max-height: 30vh; overflow: auto; display: grid; gap: 2px; }
+.analysis-moves li { display: grid; grid-template-columns: 30px 1fr 1fr; gap: 4px; align-items: center; }
+.an-move { background: none; border: none; border-left: 5px solid var(--g); text-align: left; padding: 2px 6px; font-weight: 800; border-radius: 4px; }
+.an-move i { font-style: normal; color: var(--g); font-weight: 900; }
+.an-move.on { background: var(--yolk); }

@@ -2,6 +2,7 @@ import { chooseMove } from './strength';
 import { rankMoves } from './search';
 import { botById, type BookLine } from '../content/bots';
 import { reviewGame, type ReviewResult } from '../systems/review';
+import { analyzeGame, type Analysis } from '../systems/analysis';
 import type { GameRecord } from '../core/record';
 import type { GameState, MoveAction, PlayerId } from '../core/types';
 
@@ -12,14 +13,16 @@ import type { GameState, MoveAction, PlayerId } from '../core/types';
 export type AIRequest =
   | { id: number; kind: 'move'; state: GameState; rating: number; botId?: string; book?: CustomBook }
   | { id: number; kind: 'rank'; state: GameState; depth: number }
-  | { id: number; kind: 'review'; record: GameRecord; player: PlayerId };
+  | { id: number; kind: 'review'; record: GameRecord; player: PlayerId }
+  | { id: number; kind: 'analyze'; record: GameRecord };
 
 export interface RankedMoveOut { move: MoveAction; score: number }
 
 export type AIResponse =
   | { id: number; kind: 'move'; move: MoveAction | null; source?: string; error?: string }
   | { id: number; kind: 'rank'; ranked: RankedMoveOut[]; error?: string }
-  | { id: number; kind: 'review'; review: ReviewResult | null; error?: string };
+  | { id: number; kind: 'review'; review: ReviewResult | null; error?: string }
+  | { id: number; kind: 'analyze'; analysis: Analysis | null; error?: string };
 
 /** An opening book sent with the request (nemesis bots live in the player's save, not in content). */
 export interface CustomBook { id: string; asWhite: BookLine[]; asBlack: BookLine[] }
@@ -44,11 +47,14 @@ export function handle(req: AIRequest): AIResponse {
         return { id: req.id, kind: 'rank', ranked: rankMoves(req.state, req.depth, true, 2500) };
       case 'review':
         return { id: req.id, kind: 'review', review: reviewGame(req.record, req.player) };
+      case 'analyze':
+        return { id: req.id, kind: 'analyze', analysis: analyzeGame(req.record) };
     }
   } catch (e) {
     const error = String(e);
     if (req.kind === 'move') return { id: req.id, kind: 'move', move: null, error };
     if (req.kind === 'rank') return { id: req.id, kind: 'rank', ranked: [], error };
+    if (req.kind === 'analyze') return { id: req.id, kind: 'analyze', analysis: null, error };
     return { id: req.id, kind: 'review', review: null, error };
   }
 }

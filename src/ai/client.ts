@@ -1,6 +1,7 @@
 import type { GameRecord } from '../core/record';
 import type { GameState, MoveAction, PlayerId } from '../core/types';
 import type { ReviewResult } from '../systems/review';
+import type { Analysis } from '../systems/analysis';
 import type { AIRequest, AIResponse, CustomBook, RankedMoveOut } from './worker';
 
 /**
@@ -34,7 +35,7 @@ function getWorker(): Worker | null {
 type Req = AIRequest extends infer R ? (R extends AIRequest ? Omit<R, 'id'> : never) : never;
 
 /** If the worker has not answered in this long, stop trusting it and work on the main thread. */
-const WORKER_TIMEOUT_MS = { move: 12000, rank: 12000, review: 45000 };
+const WORKER_TIMEOUT_MS = { move: 12000, rank: 12000, review: 45000, analyze: 180000 };
 
 async function run(body: Req): Promise<AIResponse> {
   const req = { ...body, id: nextId++ } as AIRequest;
@@ -77,4 +78,11 @@ export async function requestRanking(state: GameState, depth = 2): Promise<Ranke
 export async function requestReview(record: GameRecord, player: PlayerId): Promise<ReviewResult | null> {
   const res = await run({ kind: 'review', record, player });
   return res.kind === 'review' ? res.review : null;
+}
+
+/** Grade every move of a finished game (systems/analysis.ts). */
+export async function requestAnalysis(record: GameRecord): Promise<Analysis | null> {
+  const res = await run({ kind: 'analyze', record });
+  if (res.error) console.warn('AI error', res.error);
+  return res.kind === 'analyze' ? res.analysis : null;
 }

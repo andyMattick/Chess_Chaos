@@ -19,7 +19,7 @@ import { coinsFor, type CoinAward } from '../systems/coins';
 import { Board } from './Board';
 import { Character } from './skins';
 import { useSave } from './store';
-import { requestReview } from '../ai/client';
+import { requestAnalysis, requestReview } from '../ai/client';
 import type { ReviewResult } from '../systems/review';
 import { mergeMiss } from '../systems/review';
 import { sameMove } from '../core/rules';
@@ -33,6 +33,8 @@ import { moveEvents, shakeFor, type MoveEvents } from './effects';
 import { setSoundEnabled, sfx } from './sound';
 import { useYourTurn } from './yourTurn';
 import { QuickToggles } from './QuickToggles';
+import { AnalysisPanel, noteOverlay } from './Analysis';
+import type { Analysis, MoveNote } from '../systems/analysis';
 import { CardTile, useHand } from './Cards';
 import { cardById } from '../content/cards';
 import { playedCards } from '../core/cards';
@@ -114,6 +116,8 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   const [ratingChange, setRatingChange] = useState<{ before: number; after: number } | null>(null);
   const [coinAward, setCoinAward] = useState<CoinAward | null>(null);
   const [newCards, setNewCards] = useState<string[]>([]);
+  const [analysis, setAnalysis] = useState<Analysis | 'loading' | null>(null);
+  const [note, setNote] = useState<MoveNote | null>(null);
   const hand = useHand();
   const finishedRef = useRef(!!reviewRecord);
   const reviewing = !!reviewRecord || view !== null;
@@ -404,6 +408,14 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   else status = `${names[shown.turn]} to move`;
 
   const resultView = live.result && view === null && !reviewRecord;
+
+  // Full analysis (any finished 1 vs 1 game, including replays and Chess.com imports).
+  const canAnalyze = (!!live.result || !!reviewRecord) && live.seats.length === 2 && rec.actions.some((a) => a.t === 'move');
+  const runAnalysis = () => {
+    setAnalysis('loading');
+    requestAnalysis(rec).then((a) => setAnalysis(a));
+  };
+  const pickNote = (n: MoveNote) => { setRetry(null); setNote(n); setView(n.ply); };
   const won = live.result?.winners.includes(me);
   const opp = isOnline ? net.seats[other(me)] : undefined;
   const iVotedRematch = isOnline && net.rematchVotes.includes(me);
@@ -451,7 +463,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             interactive={(!reviewing && isHumanTurn) || retrying}
             onSquare={onSquare}
             fx={view === null ? fx : null}
-            overlays={retrying && retry!.reveal && fix ? revealOverlay(states[fix.ply], fix.goodMoves[0]) : withFlags(shown, training.overlays ?? party.overlays)}
+            overlays={retrying && retry!.reveal && fix ? revealOverlay(states[fix.ply], fix.goodMoves[0]) : note && view === note.ply ? noteOverlay(note) : withFlags(shown, training.overlays ?? party.overlays)}
           />
           {training.modal}
           {party.modal}
@@ -529,6 +541,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
                   <button className="btn primary" onClick={() => onRematch({ ...config, humanSeat: other(config.humanSeat) })}>Play again</button>
                 )}
                 <button className="btn" onClick={() => setView(0)}>Replay it</button>
+                {canAnalyze && <button className="btn" onClick={() => { runAnalysis(); setView(states.length - 1); }}>🔍 Full analysis</button>}
                 <button className="btn" onClick={onExit}>Home</button>
               </div>
             </div>
@@ -611,7 +624,10 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             ))}
           </div>
         )}
-        <ol className="moves" aria-label="Moves">
+        {canAnalyze && !analysis && <button className="btn primary" onClick={runAnalysis}>🔍 Full analysis</button>}
+        {analysis === 'loading' && <p className="thinking-dots">Checking every move…</p>}
+        {analysis && analysis !== 'loading' && <AnalysisPanel a={analysis} names={names} me={me} note={note} onPick={pickNote} />}
+        {(!analysis || analysis === 'loading') && <ol className="moves" aria-label="Moves">
           {Array.from({ length: Math.ceil(sanList.length / 2) }, (_, i) => (
             <li key={i}>
               <span className="num">{i + 1}.</span>
@@ -619,7 +635,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
               <MoveCell san={sanList[i * 2 + 1]} idx={i * 2 + 2} view={view} onPick={(n) => setView(n)} />
             </li>
           ))}
-        </ol>
+        </ol>}
         <QuickToggles />
         <button className="btn" onClick={onExit}>← Home</button>
       </aside>

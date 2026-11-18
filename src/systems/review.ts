@@ -1,4 +1,5 @@
-import { allowsMateInOne, bestMove, rankMoves } from '../ai/search';
+import { allowsMateInOne, rankMoves } from '../ai/search';
+import { evaluate } from './analysis';
 import { makeMove } from '../core/movegen';
 import { replay, type GameRecord } from '../core/record';
 import { sameMove } from '../core/rules';
@@ -40,8 +41,7 @@ export interface ReviewResult {
 const FIX_THRESHOLD = 150;
 
 function scoreFor(s: GameState, pov: PlayerId, depth: number): number {
-  const r = bestMove(s, { depth, quiescence: true });
-  if (!r.best) return 0;
+  const r = evaluate(s, depth);
   return s.turn === pov ? r.score : -r.score;
 }
 

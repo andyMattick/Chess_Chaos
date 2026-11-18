@@ -226,6 +226,7 @@ Built so far: Classic, King of the hill, Hill wars (2 and 4 players), 3-way, 4-w
 | Chess.com player lookup and game download | Built (relay needs `wrangler deploy`) | Chess.com corner |
 | Chess.com daily puzzle with streak | Built | Puzzles |
 | Chess.com random puzzle | Built | Puzzles |
+| Full game analysis (every move graded, better move, graph) | Built | After any game, My games |
 | Training wheels in online games (alerts, hints, goals; opponent may play unrated) | Built | Play online |
 | All 2-player modes as online room games | Built | Play online |
 | Built-in warm-up puzzles (work offline) | Built | Puzzles |
