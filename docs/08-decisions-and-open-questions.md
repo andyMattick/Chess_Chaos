@@ -107,3 +107,10 @@ Implementing agent: add dated entries below when you resolve an ambiguity or rec
 - **Rating stays full** for the player using training wheels (owner: it is usually a lower-rated player against a higher one).
 - **The opponent is told** ("Ava has training wheels on") and may untick "Count this game for my rating" before their own first move. Then their rating does not change; coins and the leaderboard record still count. The choice is per game and lives on that player's device.
 - Not in 3 and 4 player games (the alerts assume one opponent).
+
+### 2026-11-17: Nemesis bot (CC-04)
+
+- **Built:** Chess.com corner → "Make a nemesis bot". Reads up to 200 standard games from the last 12 months. The player's first 12 moves in each game go into an opening book; a move needs at least 2 games behind it. After the book, the bot uses our own engine at the player's rapid rating (or blitz, bullet, daily), held between 400 and 1400 (the strongest setting). The card shows their top openings from the PGN ECOUrl headers and their usual first move.
+- Saved on the profile (up to 6) and listed on the Bot path under "Your nemeses", so it plays offline afterwards. Wins and losses count like any bot game; the first win pays the new-bot bonus.
+- **No style copying beyond openings.** The middle game is our engine, not an imitation of the person. Copying style (trades, attack) from game statistics is a possible later step.
+- The opening book travels with each AI request (the worker has no access to the save) and is cached in the worker by bot id.

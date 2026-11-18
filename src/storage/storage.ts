@@ -1,6 +1,7 @@
 import type { GameRecord } from '../core/record';
 import { START_RATING } from '../systems/rating';
 import type { PuzzleProgress } from '../systems/puzzle';
+import type { Nemesis } from '../systems/nemesis';
 import { DEFAULT_SKINS, FREE_LANDSCAPES, FREE_SKINS, type LandscapeId, type SkinChoice, type SkinId } from '../content/cosmetics';
 
 /**
@@ -35,6 +36,8 @@ export interface Profile {
   look: { skins: SkinChoice; landscape: LandscapeId };
   /** Puzzle streak and solves (systems/puzzle.ts). */
   puzzles: PuzzleProgress;
+  /** Nemesis bots built from Chess.com players (newest first, at most 6). */
+  nemeses: Nemesis[];
 }
 
 export interface Opponent {
@@ -147,6 +150,7 @@ export function newProfile(nickname: string, colour: string): Profile {
     owned: { skins: [...FREE_SKINS], landscapes: [...FREE_LANDSCAPES] },
     look: { skins: DEFAULT_SKINS, landscape: 'meadow' },
     puzzles: { streak: 0, best: 0, lastDaily: '', solved: 0, paid: [] },
+    nemeses: [],
   };
 }
 

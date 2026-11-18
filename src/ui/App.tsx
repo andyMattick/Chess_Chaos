@@ -66,7 +66,7 @@ export function App() {
       {screen.name === 'online' && <OnlineLobby back={home} initialCode={screen.code} />}
       {screen.name === 'wardrobe' && <Wardrobe back={home} />}
       {screen.name === 'train' && <TrainSetup start={startGame} back={home} />}
-      {screen.name === 'chesscom' && <ChessCom back={home} open={openRecord} />}
+      {screen.name === 'chesscom' && <ChessCom back={home} open={openRecord} play={startGame} />}
       {screen.name === 'leaderboard' && <Leaderboard back={home} />}
       {screen.name === 'puzzles' && <PuzzleScreen back={home} />}
       {screen.name === 'party' && <PartySetup start={startGame} back={home} />}

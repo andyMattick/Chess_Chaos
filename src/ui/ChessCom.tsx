@@ -4,6 +4,9 @@ import { recordFromPGN } from '../chesscom/pgn';
 import type { GameRecord } from '../core/record';
 import { activeProfile, addGame, update } from '../storage/storage';
 import { useSave } from './store';
+import type { GameConfig } from './GameScreen';
+import type { Nemesis } from '../systems/nemesis';
+import { makeNemesis, NemesisCard, startNemesis } from './Nemesis';
 
 /**
  * Chess.com corner (docs/06): look up any public player, see their ratings,
@@ -16,7 +19,7 @@ function recentNames(): string[] {
   try { return JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]'); } catch { return []; }
 }
 
-export function ChessCom({ back, open }: { back: () => void; open: (r: GameRecord) => void }) {
+export function ChessCom({ back, open, play }: { back: () => void; open: (r: GameRecord) => void; play: (c: GameConfig) => void }) {
   const save = useSave();
   const p = activeProfile(save);
   const [name, setName] = useState(recentNames()[0] ?? '');
@@ -25,6 +28,19 @@ export function ChessCom({ back, open }: { back: () => void; open: (r: GameRecor
   const [profile, setProfile] = useState<CCProfile | null>(null);
   const [stats, setStats] = useState<CCStats | null>(null);
   const [imported, setImported] = useState<GameRecord[]>([]);
+  const [nemesis, setNemesis] = useState<Nemesis | null>(null);
+
+  const buildNemesisBot = async () => {
+    if (!profile) return;
+    setBusy('Reading their games… (this can take a little while)'); setError(null);
+    try {
+      const n = await makeNemesis(profile.username, stats);
+      setNemesis(n);
+      if (!n.games) setError('No standard games found in the last 12 months.');
+    } catch (e) {
+      setError(e instanceof ChessComError ? e.message : 'Could not download games right now.');
+    } finally { setBusy(null); }
+  };
 
   const lookup = async () => {
     const u = name.trim();
@@ -32,7 +48,7 @@ export function ChessCom({ back, open }: { back: () => void; open: (r: GameRecor
     setBusy('Looking them up…'); setError(null); setImported([]);
     try {
       const [pr, st] = [await chesscom.profile(u), await chesscom.stats(u)];
-      setProfile(pr); setStats(st);
+      setProfile(pr); setStats(st); setNemesis(null);
       try { localStorage.setItem(RECENT_KEY, JSON.stringify([u, ...recentNames().filter((x) => x.toLowerCase() !== u.toLowerCase())].slice(0, 6))); } catch { /* ignore */ }
     } catch (e) {
       setProfile(null); setStats(null);
@@ -91,7 +107,19 @@ export function ChessCom({ back, open }: { back: () => void; open: (r: GameRecor
         </div>
       )}
       {profile && (
-        <button className="btn primary" onClick={importGames} disabled={!!busy}>⬇️ Download their last 20 games</button>
+        <div className="row wrap">
+          <button className="btn primary" onClick={importGames} disabled={!!busy}>⬇️ Download their last 20 games</button>
+          <button className="btn primary dark" onClick={buildNemesisBot} disabled={!!busy}>😈 Make a nemesis bot</button>
+        </div>
+      )}
+      {nemesis && nemesis.games > 0 && (
+        <NemesisCard n={nemesis}>
+          <div className="row wrap">
+            <button className="btn primary" onClick={() => startNemesis(nemesis, p?.nickname ?? 'You', play, 'p1')}>Play as White</button>
+            <button className="btn primary dark" onClick={() => startNemesis(nemesis, p?.nickname ?? 'You', play, 'p2')}>Play as Black</button>
+          </div>
+          <p className="muted small">Saved on the Bot path too, under "Your nemeses".</p>
+        </NemesisCard>
       )}
       {imported.length > 0 && (
         <>

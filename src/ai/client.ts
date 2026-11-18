@@ -1,7 +1,7 @@
 import type { GameRecord } from '../core/record';
 import type { GameState, MoveAction, PlayerId } from '../core/types';
 import type { ReviewResult } from '../systems/review';
-import type { AIRequest, AIResponse, RankedMoveOut } from './worker';
+import type { AIRequest, AIResponse, CustomBook, RankedMoveOut } from './worker';
 
 /**
  * Runs the AI in a Web Worker so the board never freezes. If a worker cannot
@@ -60,9 +60,9 @@ async function run(body: Req): Promise<AIResponse> {
   return handle(req);
 }
 
-export async function requestMove(state: GameState, rating: number, botId?: string, minDelayMs = 450): Promise<MoveAction | null> {
+export async function requestMove(state: GameState, rating: number, bot?: string | CustomBook, minDelayMs = 450): Promise<MoveAction | null> {
   const started = Date.now();
-  const res = await run({ kind: 'move', state, rating, botId });
+  const res = await run(typeof bot === 'string' || !bot ? { kind: 'move', state, rating, botId: bot } : { kind: 'move', state, rating, book: bot });
   const wait = minDelayMs - (Date.now() - started);
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   if (res.error) console.warn('AI error', res.error);

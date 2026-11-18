@@ -483,3 +483,11 @@ body[data-calm] .board-wrap.shake, body[data-calm] .board-wrap.shake-big, body[d
 body[data-calm] .board-wrap.nudge::before { animation: none !important; }
 .quick-toggles { display: flex; gap: 6px; flex-wrap: wrap; }
 .quick-toggles .btn.off { background: #e6e1d6; color: #6b6577; }
+
+/* Nemesis bots */
+.nemesis-card { display: flex; gap: 14px; align-items: flex-start; border: 3.5px solid var(--ink); border-radius: var(--wonky); background: #f1e6ff; padding: 12px 14px; margin: 10px 0; box-shadow: 4px 5px 0 var(--ink); transform: rotate(-0.6deg); }
+.nemesis-card:nth-child(even) { transform: rotate(0.7deg); }
+.nemesis-card h3 { margin: 0 0 4px; font-family: var(--hand); }
+.nemesis-card p { margin: 2px 0; }
+.nemesis-face { font-size: 3rem; line-height: 1; animation: hop 1.6s ease-in-out infinite; }
+.nemesis-list { margin-top: 14px; }

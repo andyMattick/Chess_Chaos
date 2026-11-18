@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { type Bot } from '../content/bots';
 import { PATH, unlockedCount } from '../systems/coins';
 import type { GameRecord } from '../core/record';
-import { activeProfile, newProfile, update, upsertProfile, type Profile } from '../storage/storage';
+import { activeProfile, newProfile, update, updateProfile, upsertProfile, type Profile } from '../storage/storage';
+import { nemesisBot } from '../systems/nemesis';
+import { NemesisCard } from './Nemesis';
 import { useSave } from './store';
 import { currentStreak, EMPTY_PROGRESS } from '../systems/puzzle';
 import type { GameConfig } from './GameScreen';
@@ -213,6 +215,25 @@ export function BotRoster({ start, back }: { start: (c: GameConfig) => void; bac
           );
         })}
       </div>
+      {(p?.nemeses?.length ?? 0) > 0 && (
+        <section className="nemesis-list">
+          <h3>😈 Your nemeses <span className="scribble">bots that play like real people</span></h3>
+          {p!.nemeses.map((n) => {
+            const b = nemesisBot(n);
+            const r = p!.botRecords[b.id];
+            return (
+              <NemesisCard key={n.key} n={n}>
+                <div className="row wrap">
+                  <button className="btn primary" onClick={() => setChosen(b)}>Play {n.name}'s nemesis</button>
+                  <button className="btn small" onClick={() => updateProfile((x) => ({ ...x, nemeses: x.nemeses.filter((y) => y.key !== n.key) }))}>Remove</button>
+                  {r && <span className="bot-record">W {r.w} · L {r.l} · D {r.d}</span>}
+                </div>
+              </NemesisCard>
+            );
+          })}
+        </section>
+      )}
+      {save.settings.chesscomEnabled && <p className="muted small">Make a nemesis bot of any Chess.com player in the Chess.com corner.</p>}
       <button className="btn" onClick={back}>← Home</button>
     </div>
   );

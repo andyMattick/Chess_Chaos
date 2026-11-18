@@ -1,6 +1,6 @@
 import { chooseMove } from './strength';
 import { rankMoves } from './search';
-import { botById } from '../content/bots';
+import { botById, type BookLine } from '../content/bots';
 import { reviewGame, type ReviewResult } from '../systems/review';
 import type { GameRecord } from '../core/record';
 import type { GameState, MoveAction, PlayerId } from '../core/types';
@@ -10,7 +10,7 @@ import type { GameState, MoveAction, PlayerId } from '../core/types';
  * for the training alerts, and post-game reviews.
  */
 export type AIRequest =
-  | { id: number; kind: 'move'; state: GameState; rating: number; botId?: string }
+  | { id: number; kind: 'move'; state: GameState; rating: number; botId?: string; book?: CustomBook }
   | { id: number; kind: 'rank'; state: GameState; depth: number }
   | { id: number; kind: 'review'; record: GameRecord; player: PlayerId };
 
@@ -21,11 +21,22 @@ export type AIResponse =
   | { id: number; kind: 'rank'; ranked: RankedMoveOut[]; error?: string }
   | { id: number; kind: 'review'; review: ReviewResult | null; error?: string };
 
+/** An opening book sent with the request (nemesis bots live in the player's save, not in content). */
+export interface CustomBook { id: string; asWhite: BookLine[]; asBlack: BookLine[] }
+const books = new Map<string, CustomBook>();
+function customBook(b: CustomBook): CustomBook {
+  // Keep one array per id so the compiled book is cached between moves.
+  const hit = books.get(b.id);
+  if (hit && hit.asWhite.length === b.asWhite.length && hit.asBlack.length === b.asBlack.length) return hit;
+  books.set(b.id, b);
+  return b;
+}
+
 export function handle(req: AIRequest): AIResponse {
   try {
     switch (req.kind) {
       case 'move': {
-        const bot = req.botId ? botById(req.botId) : undefined;
+        const bot = req.book ? customBook(req.book) : req.botId ? botById(req.botId) : undefined;
         const c = chooseMove(req.state, { bot, rating: req.rating });
         return { id: req.id, kind: 'move', move: c?.move ?? null, source: c?.source };
       }

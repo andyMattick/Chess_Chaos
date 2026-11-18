@@ -229,7 +229,7 @@ Built so far: Classic, King of the hill, Hill wars (2 and 4 players), 3-way, 4-w
 | Training wheels in online games (alerts, hints, goals; opponent may play unrated) | Built | Play online |
 | All 2-player modes as online room games | Built | Play online |
 | Built-in warm-up puzzles (work offline) | Built | Puzzles |
-| Nemesis bot (plays like any Chess.com player) | Planned | Chess.com corner |
+| Nemesis bot (plays like any Chess.com player) | Built (openings and strength) | Chess.com corner, Bot path |
 | Blunder replay puzzles from your games | Planned | Chess.com corner |
 | Opening trainer | Planned | Later phase |
 | Arcade duel mode | Planned | Later phase |
