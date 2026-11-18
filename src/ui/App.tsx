@@ -51,6 +51,12 @@ export function App() {
     document.body.dataset.land = inGame ? lookOf(save).landscape : '';
   }, [inGame, lookOf(save).landscape]);
 
+  // Every new screen starts at the top (otherwise Home opened from far down a long page looks blank).
+  const screenKey = screen.name + ('key' in screen ? String(screen.key) : '');
+  useEffect(() => {
+    try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior }); } catch { window.scrollTo(0, 0); }
+  }, [screenKey]);
+
   // Sound and shake settings apply everywhere.
   useEffect(() => {
     setSoundEnabled(save.settings.sound);
