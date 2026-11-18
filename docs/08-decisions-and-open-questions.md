@@ -169,3 +169,6 @@ Implementing agent: add dated entries below when you resolve an ambiguity or rec
 ### 2026-11-18: Dice chess, owner rules
 
 - Each turn you choose: give check (if you can), move your king (always allowed), or roll. In check you just get out of it (any move). A roll shows one of 6 kinds; if you have no legal move with it, roll again, up to 3 times; after 3 misses you may move any piece. The screen asks for the choice before showing the roll. Rolls come from the game seed, so games replay; the engine accepts any move one of the choices allows (bots choose among all of them).
+
+- 2026-11-18: Playtest of full Party matches (scripts/simulate-party.ts). Pawn wars now removes `needsStandardArmy` and `needsCastling` modifiers (buffs for missing pieces did nothing). Results in docs/12.
+- 2026-11-18: Learning on the phone (owner "step 6"). No AI service, no server. The **Mirror** bot is built from the player's own classic games (first 12 moves of the last 150, a move goes in once played twice) at the player's strength. Every nemesis and the Mirror learn from classic games against the player: a book line the bot played gets weight ×1.5 after a bot win and ×0.5 after a loss (kept between 0.15 and 8); draws only count. Learning survives rebuilding the bot. Games against the Mirror do not feed its own book.

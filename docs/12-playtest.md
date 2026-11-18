@@ -26,3 +26,16 @@ Classic, King of the hill, Hill wars, Three-check, Capture race, Truce, Capture 
 - **Dice chess** ends in a draw about half the time between bots (stalemate, bare kings, 50-move rule): the dice keeps stopping the winning side from finishing. Humans may finish more often; a possible fix is to let the dice pick from any piece once only kings and one other piece are left.
 - **Drop-in** and **Boss battle** bots think longer (drops and the Boss's extra moves give many choices).
 - These are bots at ★800. Kids will play differently, so watch real games too.
+
+## Re-run of every Party deck mode (2026-11-18, after the rule changes)
+
+All 26 modes in the Party deck, 12 games each, bots at ★800: **no crashes and no stalls**. Dice chess now draws 1 game in 12 (was about half) after the new dice choices. Paint, Pawn wars and Racing kings (with the chase turn) all end by their own win rules. Small samples swing: Hill wars (2 W / 10 B) and Shrinking (2 W / 8 B) leaned Black in this run but were even in the first run, so watch them rather than change them. Card chess is the longest after Horde and Hidden queen (about 54 moves, 4 draws in 12).
+
+## Full Party matches (buffs, handicaps and secret missions)
+
+`bun scripts/simulate-party.ts [games] [ratingA] [ratingB] [modes]` deals a real Party match (mode, buffs for the underdog, handicaps for the favourite, secret missions) between a ★800 bot and a ★1200 bot, 8 games per mode, colours swapped each game.
+
+- **Underdog won 98 of 208 games (47%)**: the buffs and handicaps close a 400-point gap, which is the point of Party mode. No crashes, no stalls, 7 draws.
+- Missions decided about a third of the games. They never finish in Atomic and Progressive, which end around move 10, about when missions switch on.
+- **Fixed: Pawn wars** gave buffs for pieces that are not on the board (the favourite won 7 of 8). Pawn wars now removes standard-army and castling buffs like Racing kings does; the underdog then won 4 of 12.
+- Capture the flag (1 of 8) and Wrap (2 of 8) leaned to the favourite in this run; worth another look with more games.

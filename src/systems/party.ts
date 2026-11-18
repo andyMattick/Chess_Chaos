@@ -30,6 +30,7 @@ const MODE_REMOVES: Record<string, string[]> = {
   boss: ['needsStandardArmy'],
   'mystery-army': ['needsStandardArmy', 'needsCastling'],
   shrinking: ['needsStandardBoard'],
+  'pawn-wars': ['needsStandardArmy', 'needsCastling'],
 };
 
 /**

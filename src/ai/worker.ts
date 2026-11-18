@@ -29,8 +29,10 @@ export interface CustomBook { id: string; asWhite: BookLine[]; asBlack: BookLine
 const books = new Map<string, CustomBook>();
 function customBook(b: CustomBook): CustomBook {
   // Keep one array per id so the compiled book is cached between moves.
+  // Learning bots change their weights, so compare those too.
+  const sig = (x: CustomBook) => `${x.asWhite.length}/${x.asBlack.length}/${[...x.asWhite, ...x.asBlack].reduce((a, l) => a + (l.weight ?? 1), 0)}`;
   const hit = books.get(b.id);
-  if (hit && hit.asWhite.length === b.asWhite.length && hit.asBlack.length === b.asBlack.length) return hit;
+  if (hit && sig(hit) === sig(b)) return hit;
   books.set(b.id, b);
   return b;
 }

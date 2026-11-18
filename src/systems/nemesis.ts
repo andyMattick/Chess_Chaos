@@ -4,6 +4,8 @@ import { play } from '../core/rules';
 import { parseSAN } from '../core/san';
 import { standardStart } from '../core/setup';
 import type { Bot, BookLine } from '../content/bots';
+import type { GameRecord } from '../core/record';
+import { STANDARD_FEN } from '../core/setup';
 
 /**
  * Nemesis bot (docs/06 CC-04): "play like any player". Built only from that
@@ -34,6 +36,12 @@ export interface Nemesis {
   /** e.g. "e4", their usual first move as White. */
   firstMove: string | null;
   builtAt: number;
+  /** The Mirror bot: built from your own games, not a Chess.com player. */
+  mirror?: boolean;
+  /** Games this bot played against you (it learns from them). */
+  vsYou?: { w: number; l: number; d: number };
+  /** How many games changed its book. */
+  learned?: number;
 }
 
 /** How deep the book goes: the player's first 12 moves (docs/06 CC-04 step 2). */
@@ -75,41 +83,7 @@ export function buildNemesis(username: string, games: NemesisGame[], ccRating: n
     parsed.push({ colour, san, headers, result: colour === 'w' ? g.white.result : g.black.result });
   }
 
-  // Pass 1: walk each game's opening, counting the player's moves per position.
-  const counts = new Map<string, number>();
-  const walks: { colour: 'w' | 'b'; plies: { san: string; key: string; mine: boolean }[] }[] = [];
-  for (const g of parsed) {
-    let s = standardStart();
-    const plies: { san: string; key: string; mine: boolean }[] = [];
-    for (const t of g.san.slice(0, BOOK_PLIES)) {
-      const m = parseSAN(s, t);
-      if (!m) break;
-      const mine = (s.turn === 'p1') === (g.colour === 'w');
-      const k = `${positionKey(s)}|${m.piece}-${m.to}-${m.promo ?? ''}`;
-      if (mine) counts.set(k, (counts.get(k) ?? 0) + 1);
-      plies.push({ san: t, key: k, mine });
-      s = play(s, m);
-      if (s.result) break;
-    }
-    walks.push({ colour: g.colour, plies });
-  }
-
-  // Pass 2: each game becomes a book line, cut before the first move they rarely play.
-  const asWhite: BookLine[] = [];
-  const asBlack: BookLine[] = [];
-  for (const w of walks) {
-    const keep: string[] = [];
-    let mineKept = 0;
-    for (const p of w.plies) {
-      if (p.mine && (counts.get(p.key) ?? 0) < MIN_COUNT) break;
-      keep.push(p.san);
-      if (p.mine) mineKept++;
-    }
-    if (!mineKept) continue;
-    // Drop a trailing opponent move: it adds nothing for the bot.
-    if (!w.plies[keep.length - 1]?.mine) keep.pop();
-    (w.colour === 'w' ? asWhite : asBlack).push({ line: keep.join(' '), weight: 1 });
-  }
+  const { asWhite, asBlack } = bookFrom(parsed);
 
   const openW = new Map<string, number>(), openB = new Map<string, number>(), first = new Map<string, number>();
   const record = { w: 0, l: 0, d: 0 };
@@ -128,10 +102,165 @@ export function buildNemesis(username: string, games: NemesisGame[], ccRating: n
   };
 }
 
+/**
+ * Turn games into a book: each game is a line, cut before the first move the
+ * player rarely plays (fewer than MIN_COUNT games). Only the player's own
+ * moves are counted.
+ */
+export function bookFrom(games: { colour: 'w' | 'b'; san: string[] }[]): { asWhite: BookLine[]; asBlack: BookLine[] } {
+  // Pass 1: walk each game's opening, counting the player's moves per position.
+  const counts = new Map<string, number>();
+  const walks: { colour: 'w' | 'b'; plies: { san: string; key: string; mine: boolean }[] }[] = [];
+  for (const g of games) {
+    let s = standardStart();
+    const plies: { san: string; key: string; mine: boolean }[] = [];
+    for (const t of g.san.slice(0, BOOK_PLIES)) {
+      const m = parseSAN(s, t);
+      if (!m) break;
+      const mine = (s.turn === 'p1') === (g.colour === 'w');
+      const k = `${positionKey(s)}|${m.piece}-${m.to}-${m.promo ?? ''}`;
+      if (mine) counts.set(k, (counts.get(k) ?? 0) + 1);
+      plies.push({ san: t, key: k, mine });
+      s = play(s, m);
+      if (s.result) break;
+    }
+    walks.push({ colour: g.colour, plies });
+  }
+
+  // Pass 2: each game becomes a book line.
+  const asWhite: BookLine[] = [];
+  const asBlack: BookLine[] = [];
+  for (const w of walks) {
+    const keep: string[] = [];
+    let mineKept = 0;
+    for (const p of w.plies) {
+      if (p.mine && (counts.get(p.key) ?? 0) < MIN_COUNT) break;
+      keep.push(p.san);
+      if (p.mine) mineKept++;
+    }
+    if (!mineKept) continue;
+    // Drop a trailing opponent move: it adds nothing for the bot.
+    if (!w.plies[keep.length - 1]?.mine) keep.pop();
+    (w.colour === 'w' ? asWhite : asBlack).push({ line: keep.join(' '), weight: 1 });
+  }
+  return { asWhite, asBlack };
+}
+
+/* ---------------------------------------------------------------------------
+ * Learning on the phone (owner request, step 6). No AI service, no server:
+ * - The Mirror bot is built from your own classic games, so it plays your openings.
+ * - Every nemesis (and the Mirror) learns from games against you: openings
+ *   that beat you get picked more, openings you beat get picked less.
+ * ------------------------------------------------------------------------- */
+
+/** One of your classic games, kept short: your colour, the first moves, your score. */
+export interface MyLine { c: 'w' | 'b'; san: string; r: number }
+export const MAX_MY_LINES = 150;
+export const MIRROR_KEY = '@me';
+/** Weight limits, so a line is never removed for good or picked every time. */
+export const MIN_WEIGHT = 0.15;
+export const MAX_WEIGHT = 8;
+
+/** Your line from a finished classic game, or null if the game is not one (modes, parties, custom starts). */
+export function myLineFrom(san: string[] | undefined, colour: 'w' | 'b', score: number): MyLine | null {
+  if (!san || san.length < 4) return null;
+  return { c: colour, san: san.slice(0, BOOK_PLIES).join(' '), r: score };
+}
+
+export function addMyLine(lines: MyLine[] | undefined, l: MyLine | null): MyLine[] {
+  return l ? [l, ...(lines ?? [])].slice(0, MAX_MY_LINES) : lines ?? [];
+}
+
+/** Your lines from saved games (for players who played before the Mirror existed). */
+export function linesFromRecords(recs: GameRecord[], nickname: string): MyLine[] {
+  const out: MyLine[] = [];
+  for (const r of recs) {
+    if (r.setup.kind !== 'fen' || r.setup.fen !== STANDARD_FEN || r.setup.mode !== 'standard' || r.setup.party || !r.meta.result) continue;
+    const seat = r.meta.players.p1 === nickname ? 'p1' : r.meta.players.p2 === nickname ? 'p2' : null;
+    if (!seat) continue;
+    const w = r.meta.result.winners;
+    const l = myLineFrom(r.meta.san, seat === 'p1' ? 'w' : 'b', w.includes(seat) ? 1 : w.length ? 0 : 0.5);
+    if (l) out.push(l);
+  }
+  return out.slice(0, MAX_MY_LINES);
+}
+
+/** Keep what a bot learned when its book is rebuilt (same line, same weight). */
+function carry(book: BookLine[], old: BookLine[] | undefined): BookLine[] {
+  const w = new Map((old ?? []).map((b) => [b.line, b.weight ?? 1]));
+  return book.map((b) => ({ ...b, weight: w.get(b.line) ?? b.weight }));
+}
+
+/** The Mirror: a bot that plays your own openings at about your strength. */
+export function buildMirror(lines: MyLine[], nickname: string, rating: number, old?: Nemesis, now = Date.now()): Nemesis {
+  const { asWhite, asBlack } = bookFrom(lines.map((l) => ({ colour: l.c, san: l.san.split(' ') })));
+  const firsts = new Map<string, number>();
+  for (const l of lines) if (l.c === 'w') { const f = l.san.split(' ')[0]; firsts.set(f, (firsts.get(f) ?? 0) + 1); }
+  const record = { w: 0, l: 0, d: 0 };
+  for (const l of lines) { if (l.r === 1) record.w++; else if (l.r === 0) record.l++; else record.d++; }
+  return {
+    key: MIRROR_KEY, name: nickname, mirror: true, rating: nemesisStrength(rating), ccRating: null, games: lines.length, record,
+    asWhite: carry(asWhite, old?.asWhite), asBlack: carry(asBlack, old?.asBlack), topWhite: [], topBlack: [],
+    firstMove: top(firsts, 1)[0] ?? null, builtAt: now, vsYou: old?.vsYou, learned: old?.learned,
+  };
+}
+
+/** How many of a line's moves the game followed from the start. */
+function sharedPlies(line: string, san: string[]): number {
+  const moves = line.split(' ');
+  let i = 0;
+  while (i < moves.length && i < san.length && moves[i] === san[i]) i++;
+  return i;
+}
+
+/**
+ * After a game against you: the book lines the bot actually played get
+ * picked more if it won and less if it lost. botScore is 1, 0.5 or 0.
+ */
+export function learnFromGame(n: Nemesis, san: string[], botColour: 'w' | 'b', botScore: number): Nemesis {
+  const vs = n.vsYou ?? { w: 0, l: 0, d: 0 };
+  const vsYou = { w: vs.w + (botScore === 1 ? 1 : 0), l: vs.l + (botScore === 0 ? 1 : 0), d: vs.d + (botScore === 0.5 ? 1 : 0) };
+  const book = botColour === 'w' ? n.asWhite : n.asBlack;
+  // A line counts once the bot played at least one of its moves from it.
+  const need = botColour === 'w' ? 1 : 2;
+  const best = Math.max(0, ...book.map((b) => sharedPlies(b.line, san)));
+  if (best < need || botScore === 0.5) return { ...n, vsYou };
+  const factor = botScore === 1 ? 1.5 : 0.5;
+  const next = book.map((b) => (sharedPlies(b.line, san) === best ? { ...b, weight: Math.min(MAX_WEIGHT, Math.max(MIN_WEIGHT, (b.weight ?? 1) * factor)) } : b));
+  return { ...n, vsYou, learned: (n.learned ?? 0) + 1, ...(botColour === 'w' ? { asWhite: next } : { asBlack: next }) };
+}
+
+/** The opening the bot now likes best against you (its heaviest line), as a few moves. */
+export function favouriteLine(n: Nemesis, colour: 'w' | 'b'): string | null {
+  const book = colour === 'w' ? n.asWhite : n.asBlack;
+  if (!book.length) return null;
+  const b = [...book].sort((x, y) => (y.weight ?? 1) - (x.weight ?? 1))[0];
+  if ((b.weight ?? 1) <= 1) return null;
+  return b.line.split(' ').slice(0, 6).join(' ');
+}
+
 export const NEMESIS_PREFIX = 'NEM:';
 
 /** A nemesis as a playable bot (same shape as the path bots). */
 export function nemesisBot(n: Nemesis): Bot {
+  if (n.mirror) return {
+    id: `${NEMESIS_PREFIX}${n.key}` as Bot['id'],
+    name: `Mirror ${n.name}`,
+    rating: n.rating,
+    opening: 'your own openings',
+    tip: n.firstMove ? `It starts with ${n.firstMove} as White, just like you!` : 'It plays the moves you play. Can you beat yourself?',
+    personality: `Plays the openings you play, at about ★ ${n.rating} strength.`,
+    colour: '#3fa7fc',
+    emoji: '🪞',
+    lines: {
+      greet: ['I play just like you. Ready?', 'Can you beat yourself?'],
+      capture: ['I learned that from you!', 'Got one!', 'Yoink!'],
+      win: ['Mirror wins! I learned that from you.', 'Rematch? I will remember this.'],
+      lose: ['You beat your own moves!', 'Okay, you are better than you. Rematch?'],
+    },
+    asWhite: n.asWhite,
+    asBlack: n.asBlack,
+  };
   const opening = n.topWhite[0] ?? n.topBlack[0] ?? 'their own openings';
   return {
     id: `${NEMESIS_PREFIX}${n.key}` as Bot['id'],

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { requestMove } from '../ai/client';
 import { botById } from '../content/bots';
-import { nemesisBot, NEMESIS_PREFIX } from '../systems/nemesis';
+import { addMyLine, buildMirror, learnFromGame, myLineFrom, nemesisBot, MIRROR_KEY, NEMESIS_PREFIX } from '../systems/nemesis';
+import { STANDARD_FEN } from '../core/setup';
 import { skinFor } from '../content/cosmetics';
 import { pieceType } from '../core/pieces';
 import { newRecord, replay, type GameRecord } from '../core/record';
@@ -104,7 +105,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   const isOnline = config.kind === 'online';
   // Online, everyone sees each army the way its owner dressed it.
   const skinsNow = isOnline ? roomSkins(net, lookOf(save).skins) : lookOf(save).skins;
-  const nemesis = config.botId?.startsWith(NEMESIS_PREFIX) ? activeProfile(save)?.nemeses?.find((n) => `${NEMESIS_PREFIX}${n.key}` === config.botId) : undefined;
+  const nemesis = config.botId === `${NEMESIS_PREFIX}${MIRROR_KEY}` ? activeProfile(save)?.mirror : config.botId?.startsWith(NEMESIS_PREFIX) ? activeProfile(save)?.nemeses?.find((n) => `${NEMESIS_PREFIX}${n.key}` === config.botId) : undefined;
   // Memoised: the bot-move effect depends on it, so it must keep its identity between renders.
   const bot = useMemo(() => (config.botId ? botById(config.botId) ?? (nemesis ? nemesisBot(nemesis) : undefined) : undefined), [config.botId, nemesis?.builtAt]); // eslint-disable-line react-hooks/exhaustive-deps
   const me: PlayerId = isOnline ? net.seat ?? 'p1' : config.humanSeat;
@@ -394,6 +395,21 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
         const theirs = won ? partySetup?.cards?.[other(me)] ?? [] : [];
         setPrize(theirs.length ? { options: theirs, taken: null } : null);
       } catch (e) { console.warn('card check failed', e); }
+      // Learning on the phone: nemeses learn from games against you; the Mirror learns your openings.
+      try {
+        const score = won ? 1 : drawn ? 0.5 : 0;
+        const colour = me === 'p1' ? 'w' : 'b';
+        const classic = rec.setup.kind === 'fen' && rec.setup.fen === STANDARD_FEN && rec.setup.mode === 'standard' && !partySetup;
+        if (classic && nemesis && bot && rec.actions.length >= 2) {
+          const learned = learnFromGame(nemesis, sanList, colour === 'w' ? 'b' : 'w', 1 - score);
+          p = nemesis.mirror ? { ...p, mirror: learned } : { ...p, nemeses: p.nemeses.map((n) => (n.key === learned.key ? learned : n)) };
+        }
+        // Games against your own Mirror do not teach it your openings (it would copy itself).
+        if (classic && !nemesis?.mirror) {
+          const myLines = addMyLine(p.myLines, myLineFrom(sanList, colour, score));
+          if (myLines !== p.myLines) p = { ...p, myLines, mirror: buildMirror(myLines, p.nickname, p.rating, p.mirror) };
+        }
+      } catch (e) { console.warn('nemesis learning failed', e); }
       if (isOnline) online.shareRating(p.rating);
       return addGame(upsertProfile(d, p), p.id, finalRec);
     });

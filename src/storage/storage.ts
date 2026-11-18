@@ -1,7 +1,7 @@
 import type { GameRecord } from '../core/record';
 import { START_RATING } from '../systems/rating';
 import type { PuzzleProgress } from '../systems/puzzle';
-import type { Nemesis } from '../systems/nemesis';
+import type { MyLine, Nemesis } from '../systems/nemesis';
 import { DEFAULT_SKINS, FREE_LANDSCAPES, FREE_SKINS, type LandscapeId, type SkinChoice, type SkinId } from '../content/cosmetics';
 
 /**
@@ -38,6 +38,10 @@ export interface Profile {
   puzzles: PuzzleProgress;
   /** Nemesis bots built from Chess.com players (newest first, at most 6). */
   nemeses: Nemesis[];
+  /** Your own classic-game openings (newest first), for the Mirror bot. */
+  myLines?: MyLine[];
+  /** The Mirror bot: plays your openings and learns from games against you. */
+  mirror?: Nemesis;
   /** Power cards picked for the next party match (only cards still in the collection count). */
   partyHand?: string[];
   /** How often each mode should come up in Party matches, 0 (never) to 3 (favourite). */

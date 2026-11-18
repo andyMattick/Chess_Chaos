@@ -3,7 +3,7 @@ import { type Bot } from '../content/bots';
 import { PATH, unlockedCount } from '../systems/coins';
 import type { GameRecord } from '../core/record';
 import { activeProfile, exportSave, findLostSave, importSave, newProfile, update, updateProfile, upsertProfile, type Profile } from '../storage/storage';
-import { nemesisBot } from '../systems/nemesis';
+import { buildMirror, linesFromRecords, nemesisBot, nemesisStrength } from '../systems/nemesis';
 import { NemesisCard } from './Nemesis';
 import { useSave } from './store';
 import { currentStreak, EMPTY_PROGRESS } from '../systems/puzzle';
@@ -267,6 +267,7 @@ export function BotRoster({ start, back }: { start: (c: GameConfig) => void; bac
       {!showAll && PATH.length > unlocked + 2 && (
         <button className="btn small" onClick={() => setShowAll(true)}>🔒 {PATH.length - unlocked - 2} more bots further down the path…</button>
       )}
+      {p && <MirrorSection p={p} games={save.games[p.id] ?? []} play={(b) => setChosen(b)} />}
       {(p?.nemeses?.length ?? 0) > 0 && (
         <section className="nemesis-list">
           <h3>😈 Your nemeses <span className="scribble">bots that play like real people</span></h3>
@@ -288,6 +289,35 @@ export function BotRoster({ start, back }: { start: (c: GameConfig) => void; bac
       {save.settings.chesscomEnabled && <p className="muted small">Make a nemesis bot of any Chess.com player in the Chess.com corner.</p>}
       <button className="btn" onClick={back}>← Home</button>
     </div>
+  );
+}
+
+/** The Mirror bot: built on this phone from your own classic games. */
+function MirrorSection({ p, games, play }: { p: Profile; games: GameRecord[]; play: (b: Bot) => void }) {
+  const lines = p.myLines?.length ? p.myLines : linesFromRecords(games, p.nickname);
+  const need = 3;
+  const open = () => {
+    // Build it now if needed (players from before the Mirror), at your current strength.
+    const m = { ...(p.mirror ?? buildMirror(lines, p.nickname, p.rating)), rating: nemesisStrength(p.rating) };
+    updateProfile((x) => ({ ...x, myLines: x.myLines?.length ? x.myLines : lines, mirror: m }));
+    play(nemesisBot(m));
+  };
+  const n = p.mirror ?? (lines.length >= need ? buildMirror(lines, p.nickname, p.rating) : null);
+  const r = p.botRecords['NEM:@me'];
+  return (
+    <section className="nemesis-list">
+      <h3>🪞 Your Mirror <span className="scribble">a bot that plays like you</span></h3>
+      {n && lines.length >= need ? (
+        <NemesisCard n={n}>
+          <div className="row wrap">
+            <button className="btn primary" onClick={open}>Play your Mirror</button>
+            {r && <span className="bot-record">W {r.w} · L {r.l} · D {r.d}</span>}
+          </div>
+        </NemesisCard>
+      ) : (
+        <p className="muted small">Play {need - lines.length} more classic {need - lines.length === 1 ? 'game' : 'games'} and a Mirror bot appears. It copies your openings and learns every game. It all stays on this phone.</p>
+      )}
+    </section>
   );
 }
 
