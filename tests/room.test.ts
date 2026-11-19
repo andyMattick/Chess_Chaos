@@ -194,14 +194,14 @@ describe('3 and 4 player rooms', () => {
     expect(replay(a.last('room')!.record).at(-1)!.turn).toBe('p1');
   });
 
-  it('three player rooms have three seats and a big board', () => {
+  it('three player rooms have three seats and the hexagon', () => {
     const server = new RoomServer(() => 0);
     const a = client('a');
     server.handle(a.conn, { t: 'create', name: 'Ava', rating: 700, colour: 'p2', game: 'battle-3' });
     const r = a.last('room')!;
     expect(r.seatIds.length).toBe(3);
     expect(a.last('joined')!.seat).toBe('p1');
-    expect(replay(r.record)[0].board.width).toBe(14);
+    expect(replay(r.record)[0].board.topology).toBe('tri');
   });
 
   it('rematch rotates everyone one seat', () => {
