@@ -1,4 +1,3 @@
-import { fileOf, rankOf } from './board';
 import { activeSeats, eliminate, inCheck, legalMoves, makeMove } from './movegen';
 import { baseType, pieceType } from './pieces';
 import type { RuleModule } from './rules';
@@ -25,9 +24,11 @@ export function hillSquares(s: GameState): Set<number> {
 const battle: RuleModule = {
   id: 'battle',
   checkEnforced: () => false,
-  // No en passant with more than two players.
+  // No en passant with more than two players. Only the en passant square itself is ruled out:
+  // on the hexagon a pawn stepping across the middle lands on another file and rank number,
+  // and that is an ordinary step (owner, 2026-11-19: pawns could not cross the halfway line).
   filterMoves: (s, moves) =>
-    moves.filter((m) => !(s.pieces[m.piece].type === 'pawn' && s.sq[m.to] < 0 && fileOf(s.board, m.to) !== fileOf(s.board, s.pieces[m.piece].at) && rankOf(s.board, m.to) !== rankOf(s.board, s.pieces[m.piece].at))),
+    moves.filter((m) => !(s.enPassant && m.to === s.enPassant.square && s.sq[m.to] < 0 && baseType(s.pieces[m.piece].type) === 'pawn')),
   // A player who cannot move at all is out (they would be stuck forever).
   afterMove: (s) => {
     let n = s;

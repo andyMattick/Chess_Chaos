@@ -69,6 +69,18 @@ describe('three-player hexagon', () => {
     expect(promos.some((m) => m.t === 'move' && m.promo === 'queen')).toBe(true);
     void x;
   });
+  it('in a real 3-player game, a pawn crosses the halfway line on every file', () => {
+    // The battle mode's "no en passant" rule used to drop these steps (owner, 2026-11-19).
+    for (const f of [0, 1, 2, 5, 6, 7]) {
+      let s = initialState(newBattleRecord(5, {}, 'tri'));
+      const id = s.sq[T(0, f, 1)];
+      s = play(s, { t: 'move', piece: id, to: T(0, f, 3) });
+      while (s.turn !== 'p1') s = play(s, legalActions(s).find((a) => s.pieces[a.piece].type === 'knight')!);
+      const across = legalActions(s).filter((a) => a.piece === id);
+      expect(across.length).toBe(1);
+      expect(Math.floor(across[0].to / 32)).not.toBe(0); // into a neighbour's half
+    }
+  });
   it('castling still works on your own back row', () => {
     const s = empty();
     addPiece(s, 'king', 'p1', T(0, 4, 0));
