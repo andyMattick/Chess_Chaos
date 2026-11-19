@@ -829,3 +829,8 @@ body[data-calm] .die { animation: none; }
 .lu-menu td.pts { color: #ffe066; font-weight: 700; width: 36px; }
 .lu-help { padding-left: 18px; }
 .lu-help li { margin: 5px 0; }
+.lu-stun { font-size: 4px; pointer-events: none; }
+.lu-load { font-size: 3.6px; fill: #ffe066; stroke: #000; stroke-width: 0.5px; paint-order: stroke; pointer-events: none; }
+.lu-drop { font-size: 6px; pointer-events: none; }
+.lu-roles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+.lu-roles .lu-btn { min-height: 72px; }

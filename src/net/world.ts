@@ -12,7 +12,7 @@ import { replay, play, newRecord } from '../core';
 import type { Action, GameRecord, PlayerId } from '../core';
 import { ROOM_GAMES, type RoomGame } from './protocol';
 import { isNumber, vaultResponse } from './vault';
-import { newGame as luNewGame, play as luPlay, type LUAction, type LUState } from '../levelup/rules';
+import { actor as luActor, newGame as luNewGame, play as luPlay, type LUAction, type LUState } from '../levelup/rules';
 
 export const WORLD_PREFIX = '/world';
 /** Board entries not updated for this long drop off. */
@@ -42,7 +42,7 @@ export function luReplay(g: { lu?: { seed: number; actions: LUAction[] } }): LUS
 
 /** Whose move it is in a challenge game. */
 export function mailTurn(g: MailGame): PlayerId {
-  return g.lu ? luReplay(g).turn : replay(g.record).at(-1)!.turn;
+  return g.lu ? luActor(luReplay(g)) : replay(g.record).at(-1)!.turn;
 }
 
 /** Copy a Level-Up result into the record's result, so lists and records read it like any game. */
@@ -231,7 +231,7 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
         if (g.status === 'playing' && now - g.updatedAt > MAIL_TIMEOUT_MS && g.lu) {
           // Level-Up: the quiet player gives up.
           const s = luReplay(g);
-          const a: LUAction = { t: 'resign', by: s.turn };
+          const a: LUAction = { t: 'resign', by: luActor(s) };
           g.lu = { ...g.lu, actions: [...g.lu.actions, a] };
           luFinish(g, luPlay(s, a, false));
           await save(g);
@@ -312,7 +312,7 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
         if (body.ply !== g.lu.actions.length) return json({ game: view(g), stale: true }, 409);
         a = (body as { action?: LUAction }).action as LUAction;
         if (!a || typeof a !== 'object' || a.t === 'resign') return bad('Not a move.');
-        if (s.turn !== seat) return bad('Not your turn.');
+        if (luActor(s) !== seat) return bad('Not your turn.');
       }
       let n: LUState;
       try { n = luPlay(s, a); } catch { return bad('That move is not allowed.'); }

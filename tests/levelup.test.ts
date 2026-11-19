@@ -29,12 +29,25 @@ function kings(s: LUState) {
   return s;
 }
 
+/** Shuffle a king back and forth (a quiet move for that side). */
+function quiet(s: LUState): LUState {
+  const k = s.pieces.find((p) => p.type === 'king' && p.owner === s.turn)!;
+  const to = legalActions(s).find((a) => a.t === 'move' && a.piece === k.id)!;
+  return play(s, to);
+}
+
 describe('Level-Up Chess: setup', () => {
-  it('two armies of 24 on a 16 x 16 board, a forest in the middle, three race missions and a secret each', () => {
+  it('two armies of 26 on a 16 x 16 board (2 ride the bombardiers), a forest in the middle, three race missions and a secret each', () => {
     const s = newGame(7);
-    expect(s.pieces.length).toBe(48);
-    expect(s.pieces.filter((p) => p.owner === 'p1' && p.type === 'pawn').length).toBe(12);
-    for (const t of ['catapult', 'medic', 'miner', 'scout']) expect(s.pieces.filter((p) => p.type === t).length).toBe(2);
+    expect(s.pieces.length).toBe(52);
+    expect(s.pieces.filter((p) => p.owner === 'p1' && p.type === 'pawn').length).toBe(14);
+    expect(s.pieces.filter((p) => p.owner === 'p1' && p.type === 'pawn' && p.at >= 0).length).toBe(12);
+    // Bombardiers on the outside, crewed and loaded; scouts inside them; no medics or miners yet.
+    const cats = s.pieces.filter((p) => p.type === 'catapult');
+    expect(cats.length).toBe(4);
+    for (const c of cats) { expect(c.load).toBe('loaded'); expect(s.pieces[c.crew!].riding).toBe(c.id); }
+    expect(s.pieces.filter((p) => p.type === 'scout').length).toBe(4);
+    expect(s.pieces.filter((p) => p.type === 'medic' || p.type === 'miner').length).toBe(0);
     const trees = s.trees.filter((x) => x > 0).length;
     expect(trees).toBeGreaterThan(20);
     // The forest is the same for both sides.
@@ -111,13 +124,17 @@ describe('levels', () => {
     expect(s.pieces[p.id].xp).toBe(3);
     expect(s.events.some((x) => x.k === 'levelup' && x.level === 2)).toBe(true);
   });
-  it('a level 2 pawn attacks two squares away diagonally; level 3 moves any way', () => {
-    const s = kings(blankGame());
+  it('a level 2 pawn steps and attacks any way; a level 3 pawn can become a level 1 scout', () => {
+    let s = kings(blankGame());
     const p = put(s, 'pawn', 'p1', S(5, 5), { xp: 3 });
-    put(s, 'rook', 'p2', S(7, 7));
-    expect(has(s, { t: 'attack', piece: p.id, to: S(7, 7) })).toBe(true);
-    s.pieces[p.id].xp = 8;
+    put(s, 'rook', 'p2', S(4, 4)); // behind it, on a diagonal
+    expect(has(s, { t: 'attack', piece: p.id, to: S(4, 4) })).toBe(true);
     expect(has(s, { t: 'move', piece: p.id, to: S(5, 4) })).toBe(true);
+    expect(has(s, { t: 'retrain', piece: p.id })).toBe(false);
+    s.pieces[p.id].xp = 8;
+    s = play(s, { t: 'retrain', piece: p.id });
+    expect(s.pieces[p.id].type).toBe('scout');
+    expect(s.pieces[p.id].xp).toBe(0);
   });
   it('kings are never attacked in battle, only checked', () => {
     const s = kings(blankGame());
@@ -162,8 +179,8 @@ describe('check and winning', () => {
     let s = kings(blankGame());
     s.globals = [{ id: 'G-mine', winner: null }, { id: 'G-kill', winner: null }, { id: 'G-tree', winner: null }];
     s.raceDeck = ['G-fork', 'G-check'];
-    const mi = put(s, 'miner', 'p1', S(5, 5));
-    s = play(s, { t: 'mine', piece: mi.id, to: S(5, 6) });
+    const mi = put(s, 'miner', 'p1', S(5, 5), { xp: 3 });
+    s = play(s, { t: 'move', piece: mi.id, to: S(5, 4), mine: true });
     expect(s.globals.map((g) => g.id)).toEqual(['G-fork', 'G-kill', 'G-tree']);
     expect(s.raceDeck).toEqual(['G-check']);
     expect(s.raceDone[0]).toEqual({ id: 'G-mine', winner: 'p1' });
@@ -192,50 +209,87 @@ describe('check and winning', () => {
 });
 
 describe('the new pieces', () => {
-  it('catapult: warning first, the target can step away; a hit destroys it and earns points', () => {
+  it('bombardier: mark (a free step, with a warning), fire on a later turn, then reload; the target can step away', () => {
     let s = kings(blankGame());
     const c = put(s, 'catapult', 'p1', S(5, 2));
     const t = put(s, 'pawn', 'p2', S(5, 5));
     const t2 = put(s, 'knight', 'p2', S(8, 5));
-    s = play(s, { t: 'fire', piece: c.id, to: S(5, 5) });
+    s = play(s, { t: 'mark', piece: c.id, to: S(5, 5) });
+    expect(s.turn).toBe('p1'); // free: still your move
     expect(s.events.some((x) => x.k === 'shot')).toBe(true);
+    expect(acts(s, c.id).some((a) => a.t === 'fire' || a.t === 'mark')).toBe(false); // one step a turn
+    s = quiet(s);
     s = play(s, { t: 'move', piece: t.id, to: S(5, 4) }); // dodges
+    s = play(s, { t: 'fire', piece: c.id });
     expect(s.pieces[t.id].at).toBe(S(5, 4));
     expect(s.events.some((x) => x.k === 'miss')).toBe(true);
-    s = play(s, { t: 'fire', piece: c.id, to: S(8, 5) });
-    s = play(s, { t: 'move', piece: s.pieces.find((p) => p.type === 'king' && p.owner === 'p2')!.id, to: S(14, 15) }); // ignores it
+    expect(s.pieces[c.id].load).toBe('empty');
+    s = quiet(quiet(s));
+    s = play(s, { t: 'reload', piece: c.id });
+    s = quiet(quiet(s));
+    s = play(s, { t: 'mark', piece: c.id, to: S(8, 5) });
+    s = quiet(quiet(s));
+    s = play(s, { t: 'fire', piece: c.id });
     expect(s.pieces[t2.id].at).toBe(-1);
     expect(s.pieces[c.id].xp).toBe(2);
   });
-  it('level 3 catapult: the blast hits the diagonals too and leaves a crater nothing can cross', () => {
+  it('a bombardier needs a crew; it can never be destroyed: beating it only knocks the crew off', () => {
+    let s = kings(blankGame());
+    const empty = put(s, 'catapult', 'p1', S(3, 2), { crew: false });
+    expect(acts(s, empty.id)).toEqual([]);
+    const pawn = put(s, 'pawn', 'p1', S(3, 1));
+    expect(has(s, { t: 'board', piece: pawn.id, catapult: empty.id })).toBe(true);
+    s = play(s, { t: 'board', piece: pawn.id, catapult: empty.id });
+    expect(s.pieces[pawn.id].at).toBe(-1);
+    expect(s.pieces[empty.id].crew).toBe(pawn.id);
+    // An enemy attacks it: the fight is against the crew pawn; the attacker stays put.
+    const q = put(s, 'queen', 'p2', S(3, 6));
+    s = withRolls(s, [6, 1]);
+    s = play(s, { t: 'attack', piece: q.id, to: S(3, 2) });
+    expect(s.pieces[empty.id].at).toBe(S(3, 2));
+    expect(s.pieces[empty.id].crew).toBeUndefined();
+    expect(s.pieces[q.id].at).toBe(S(3, 6));
+    expect(s.fallen.some((f) => f.id === pawn.id)).toBe(true);
+    // Now it can't be attacked at all.
+    s = quiet(s);
+    expect(acts(s, q.id).some((a) => a.t === 'attack' && a.to === S(3, 2))).toBe(false);
+  });
+  it('level 3 bombardier: the blast hits the diagonals too, stuns the rest around, and leaves a crater', () => {
     let s = kings(blankGame());
     const c = put(s, 'catapult', 'p1', S(5, 2), { xp: 8 });
     const centre = put(s, 'pawn', 'p2', S(5, 6));
     const diag = put(s, 'knight', 'p2', S(6, 7));
-    const side = put(s, 'pawn', 'p2', S(6, 6)); // next to it, not diagonal: safe
+    const side = put(s, 'pawn', 'p2', S(6, 6)); // next to it, not diagonal: stunned, not hit
     const rook = put(s, 'rook', 'p1', S(0, 6));
-    expect(legalActions(s).some((a) => a.t === 'fire' && a.piece === c.id && a.to === S(5, 7))).toBe(true); // reach 5
-    expect(legalActions(s).some((a) => a.t === 'fire' && a.piece === c.id && a.to === S(5, 8))).toBe(false); // not 6
-    s = play(s, { t: 'fire', piece: c.id, to: S(5, 6) });
-    s = play(s, { t: 'move', piece: s.pieces.find((p) => p.type === 'king' && p.owner === 'p2')!.id, to: S(14, 15) });
+    expect(has(s, { t: 'mark', piece: c.id, to: S(5, 7) })).toBe(true); // reach 5
+    expect(has(s, { t: 'mark', piece: c.id, to: S(5, 8) })).toBe(false); // not 6
+    s = play(s, { t: 'mark', piece: c.id, to: S(5, 6) });
+    s = quiet(quiet(s));
+    s = play(s, { t: 'fire', piece: c.id });
     expect(s.pieces[centre.id].at).toBe(-1);
     expect(s.pieces[diag.id].at).toBe(-1);
     expect(s.pieces[side.id].at).toBe(S(6, 6));
     expect(s.craters).toContain(S(5, 6));
-    expect(s.events.some((x) => x.k === 'crater')).toBe(true);
+    // Stunned: it sits out Black's next turn.
+    s = quiet(s);
+    expect(acts(s, side.id)).toEqual([]);
+    s = quiet(s);
+    s = quiet(s);
+    expect(acts(s, side.id).length).toBeGreaterThan(0);
+    s = quiet(s);
     // The rook's row is cut at the crater, for good.
-    const rookTo = legalActions(s).filter((a) => a.t === 'move' && a.piece === rook.id).map((a) => (a as { to: number }).to);
+    const rookTo = acts(s, rook.id).map((a) => (a as { to: number }).to);
     expect(rookTo).toContain(S(4, 6));
     expect(rookTo).not.toContain(S(5, 6));
-    expect(legalActions(s).some((a) => 'to' in a && a.to === S(5, 6))).toBe(false); // no piece can go there
   });
-  it('a level 2 rook shields the piece behind it from a catapult', () => {
+  it('a level 2 rook shields the piece behind it from a bombardier', () => {
     let s = kings(blankGame());
     const c = put(s, 'catapult', 'p1', S(5, 2));
     const t = put(s, 'pawn', 'p2', S(5, 6));
     put(s, 'rook', 'p2', S(5, 5), { xp: 3 });
-    s = play(s, { t: 'fire', piece: c.id, to: S(5, 6) });
-    s = play(s, legalActions(s).find((a) => a.t === 'move' && s.pieces[a.piece].type === 'king')!);
+    s = play(s, { t: 'mark', piece: c.id, to: S(5, 6) });
+    s = quiet(quiet(s));
+    s = play(s, { t: 'fire', piece: c.id });
     expect(s.pieces[t.id].at).toBe(S(5, 6));
     expect(s.events.some((x) => x.k === 'shield')).toBe(true);
   });
@@ -264,18 +318,77 @@ describe('the new pieces', () => {
     const bish = put(b, 'bishop', 'p1', S(10, 1), { xp: 8 });
     expect(acts(b, bish.id).some((a) => a.t === 'revive')).toBe(true);
   });
-  it('mines: hidden from the enemy, blow up the first enemy to step on one (kings just clear them)', () => {
+  it('a miner drops its mine on the square it leaves; it is hidden; whoever steps on it falls and the pieces around are stunned', () => {
     let s = kings(blankGame());
-    const mi = put(s, 'miner', 'p1', S(5, 5));
+    const mi = put(s, 'miner', 'p1', S(5, 6), { xp: 3 });
     const foe = put(s, 'rook', 'p2', S(5, 12));
-    s = play(s, { t: 'mine', piece: mi.id, to: S(5, 6) });
-    expect(viewOf(s, 'p2').scouted.has(S(5, 6))).toBe(false);
-    // To the rook it looks like open ground.
+    const near = put(s, 'pawn', 'p2', S(6, 7));
+    // Two steps, never an attack.
+    expect(has(s, { t: 'move', piece: mi.id, to: S(5, 8) })).toBe(true);
+    expect(acts(s, mi.id).some((a) => a.t === 'attack' || a.t === 'strike')).toBe(false);
+    s = play(s, { t: 'move', piece: mi.id, to: S(5, 4), mine: true });
+    expect(s.mines).toEqual([{ at: S(5, 6), owner: 'p1', by: mi.id }]);
+    expect(s.pieces[mi.id].carry).toBe(0);
+    expect(viewOf(s, 'p1').mines.has(S(5, 6))).toBe(true); // your team sees your mines
+    expect(viewOf(s, 'p2').mines.has(S(5, 6))).toBe(false);
     const into = acts(s, foe.id).find((a) => a.t === 'move' && a.to === S(5, 6));
-    expect(into).toBeDefined();
+    expect(into).toBeDefined(); // to the rook it looks like open ground
     s = play(s, into!);
     expect(s.pieces[foe.id].at).toBe(-1);
     expect(s.events.some((x) => x.k === 'boom')).toBe(true);
+    expect(s.pieces[near.id].stunUntil).toBeGreaterThan(s.ply);
+    expect(s.pieces[mi.id].xp).toBe(4); // a mine blast point
+  });
+  it('miners: see mines next to them, defuse by stepping on (1 blows up, 6 keeps it), level 3 from 2 away, reload by a bombardier', () => {
+    const setup = () => {
+      const s = kings(blankGame());
+      const mi = put(s, 'miner', 'p1', S(5, 5), { xp: 3 });
+      s.pieces[mi.id].carry = 0;
+      s.mines.push({ at: S(5, 6), owner: 'p2' });
+      return { s, mi };
+    };
+    let { s, mi } = setup();
+    expect(viewOf(s, 'p1').mines.has(S(5, 6))).toBe(true);
+    s = play(withRolls(s, [3]), { t: 'move', piece: mi.id, to: S(5, 6) });
+    expect(s.mines).toEqual([]);
+    expect(s.pieces[mi.id].at).toBe(S(5, 6));
+    expect(s.pieces[mi.id].xp).toBe(4); // mine cleared
+    ({ s, mi } = setup());
+    s = play(withRolls(s, [6]), { t: 'move', piece: mi.id, to: S(5, 6) });
+    expect(s.pieces[mi.id].carry).toBe(1);
+    ({ s, mi } = setup());
+    const friend = put(s, 'knight', 'p1', S(6, 7));
+    s = play(withRolls(s, [1]), { t: 'move', piece: mi.id, to: S(5, 6) });
+    expect(s.pieces[mi.id].at).toBe(-1);
+    expect(s.pieces[friend.id].stunUntil).toBeGreaterThan(s.ply);
+    // Level 3: from 2 squares away, without stepping on it.
+    ({ s, mi } = setup());
+    s.pieces[mi.id].xp = 8;
+    s.sq[S(5, 5)] = -1; s.pieces[mi.id].at = S(5, 4); s.sq[S(5, 4)] = mi.id;
+    expect(has(s, { t: 'defuse', piece: mi.id, at: S(5, 6) })).toBe(true);
+    s = play(withRolls(s, [4]), { t: 'defuse', piece: mi.id, at: S(5, 6) });
+    expect(s.mines).toEqual([]);
+    // Reload: end a move next to one of your bombardiers.
+    const r = kings(blankGame());
+    const m2 = put(r, 'miner', 'p1', S(5, 5), { xp: 3 });
+    r.pieces[m2.id].carry = 0;
+    put(r, 'catapult', 'p1', S(5, 2));
+    expect(play(r, { t: 'move', piece: m2.id, to: S(5, 3) }).pieces[m2.id].carry).toBe(1);
+  });
+  it('a scout that reaches level 2 picks a job before anything else happens', () => {
+    let s = kings(blankGame());
+    const sc = put(s, 'scout', 'p1', S(6, 3), { xp: 2 });
+    s.pieces[sc.id].role = undefined;
+    s = play(s, { t: 'move', piece: sc.id, to: S(6, 6) }); // the centre: +1, level 2
+    expect(s.choose).toEqual([sc.id]);
+    expect(s.turn).toBe('p2');
+    expect(legalActions(s, 'p2')).toEqual([]);
+    expect(legalActions(s).map((a) => (a as { role: string }).role)).toEqual(['medic', 'miner', 'spy']);
+    s = play(s, { t: 'role', piece: sc.id, role: 'miner' });
+    expect(s.pieces[sc.id].type).toBe('miner');
+    expect(s.pieces[sc.id].carry).toBe(1);
+    expect(legalActions(s).length).toBeGreaterThan(0); // now Black moves
+    expect(viewOf(s, 'p1').scouted.has(S(8, 8))).toBe(true); // still sees like a scout
   });
   it('scouts dash up to 4 squares; level 2 is invisible except to scouts', () => {
     const s = kings(blankGame());

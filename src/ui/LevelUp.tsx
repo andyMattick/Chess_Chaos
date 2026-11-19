@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import {
-  BASE_ICON, LEVEL_AT, LU_PIECES, RACE_FACE_UP, XP, XP_RULES, missionById, type LUType,
+  BASE_ICON, LEVEL_AT, LU_PIECES, LU_ROLES, RACE_FACE_UP, XP, XP_RULES, missionById, type LUType,
 } from '../content/levelup';
 import { chooseAction, type LUBotLevel } from '../levelup/ai';
 import {
-  N, battleOdds, fileOf, identified, inCheck, legalActions, level, newGame, play, rankOf, strikeOdds, viewOf, visible,
+  N, actor, battleOdds, fileOf, identified, inCheck, legalActions, level, newGame, play, rankOf, strikeOdds, stunned, viewOf, visible,
   type LUAction, type LUEvent, type LUPiece, type LUState, type Side,
 } from '../levelup/rules';
 import { activeProfile, updateProfile } from '../storage/storage';
@@ -47,7 +47,7 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
   /** Level-Up actions the server has (the guard for a move sent twice). */
   const served = useRef(mail?.lu?.actions.length ?? 0);
   const [sel, setSel] = useState<number | null>(null);
-  const [mode, setMode] = useState<'go' | 'special'>('go');
+  const [mode, setMode] = useState<'go' | 'special' | 'mark' | 'mine' | 'off' | 'defuse'>('go');
   const [look, setLook] = useState<number | null>(null);
   const [pops, setPops] = useState<Popup[]>([]);
   const [log, setLog] = useState<string[]>(() => (mail ? [`Your challenge against ${them}. ${ME === 'p1' ? 'Blue' : 'Red'} is your army.`] : []));
@@ -55,7 +55,7 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
   const recorded = useRef(false);
 
   const view = useMemo(() => (s ? viewOf(s, ME) : null), [s]);
-  const legal = useMemo(() => (s && s.turn === ME ? legalActions(s) : []), [s]);
+  const legal = useMemo(() => (s && actor(s) === ME ? legalActions(s) : []), [s]);
 
   function start(level: LUBotLevel) {
     const g = newGame((Date.now() ^ Math.floor(Math.random() * 1e9)) | 0);
@@ -94,12 +94,19 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
           else if (e.kind === 'global') lines.push(`🏁 The enemy claimed "${m.name}".`);
           break;
         }
-        case 'shot': lines.push(e.by === ME ? '🎯 Your catapult takes aim. Boom next turn!' : '⚠ A catapult shot is coming! Move off the red target.'); if (e.by !== ME) luSfx.warn(); break;
-        case 'hit': lines.push(`💥 Catapult hit ${label(e.piece)}!`); luSfx.boom(); break;
-        case 'miss': lines.push('💨 The catapult shot missed.'); break;
-        case 'shield': lines.push('🛡 A rook blocked the catapult shot!'); break;
+        case 'shot': lines.push(e.by === ME ? '🎯 Target marked. Fire on your next turn!' : '⚠ A bombardier has marked a target! Move off the red square.'); if (e.by !== ME) luSfx.warn(); break;
+        case 'hit': lines.push(`💥 Bombardier hit ${label(e.piece)}!`); luSfx.boom(); break;
+        case 'miss': lines.push('💨 The shot landed on an empty square.'); break;
+        case 'shield': lines.push('🛡 A rook blocked the shot!'); break;
         case 'boom': lines.push(`💣 A mine blew up ${label(e.piece)}!`); luSfx.boom(); break;
         case 'revive': lines.push(`✚ ${label(e.piece)} is back in the fight!`); break;
+        case 'role': if (next.pieces[e.piece].owner === ME) lines.push(`🎓 Your scout is now a ${LU_ROLES.find((r) => r.role === e.role)?.name}!`); break;
+        case 'reload': if (next.pieces[e.piece].owner === ME) lines.push('🔄 Bombardier reloaded. Mark a target next turn.'); break;
+        case 'defuse': if (next.pieces[e.piece].owner === ME) lines.push(e.roll === 1 ? `🧰 Your miner rolled a 1: the mine went off!` : `🧰 Your miner rolled ${e.roll}: mine defused${e.kept ? ' and picked up!' : '.'}`); else if (seenPiece(e.piece)) lines.push('🧰 An enemy miner defused a mine.'); break;
+        case 'stun': if (seenPiece(e.piece)) lines.push(`💫 ${label(e.piece)} is stunned and misses a turn.`); break;
+        case 'crew': if (next.pieces[e.piece].owner === ME) lines.push(e.on ? '🪖 A pawn climbed onto your bombardier.' : '🪖 Your crew climbed off: the bombardier can\'t fire without one.'); break;
+        case 'crew-lost': lines.push(next.pieces[e.catapult].owner === ME ? '🪖 Your bombardier lost its crew! A pawn next to it can climb on.' : '🪖 An enemy bombardier lost its crew.'); break;
+        case 'retrain': if (next.pieces[e.piece].owner === ME) lines.push('✨ Your pawn trained as a scout!'); break;
         case 'tree': if (e.gone) lines.push('🌲 A barricade crashes down.'); break;
         case 'crater': lines.push('🕳 The blast left a crater. Nobody can cross it now.'); break;
         case 'promote': lines.push(`👑 ${label(e.piece)} reached the far side and became a queen!`); break;
@@ -136,17 +143,17 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
 
   // Challenges: look for the other player's move now and then.
   useEffect(() => {
-    if (!mail || !s || s.result || s.turn === ME) return;
+    if (!mail || !s || s.result || actor(s) === ME) return;
     const t = setInterval(() => {
       if (document.visibilityState === 'hidden') return;
       getGame(mail.id).then((g) => {
         const n = g.lu?.actions.length ?? 0;
         if (n <= served.current) return;
+        // Show each new action in turn (free bombardier steps, then the move).
+        let cur = luReplay({ lu: { seed: g.lu!.seed, actions: g.lu!.actions.slice(0, served.current) } });
+        for (const a of g.lu!.actions.slice(served.current)) { const nx = play(cur, a, false); after(cur, nx); cur = nx; }
         served.current = n;
-        const prev = luReplay({ lu: { seed: g.lu!.seed, actions: g.lu!.actions.slice(0, -1) } });
-        const next = luReplay(g);
-        after(prev, next);
-        setS(next);
+        setS(cur);
       }).catch(() => {});
     }, 6000);
     return () => clearInterval(t);
@@ -154,7 +161,7 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
 
   // The bot's turn, once the pop-ups are cleared.
   useEffect(() => {
-    if (!s || !bot || mail || s.result || s.turn === ME || pops.length) return;
+    if (!s || !bot || mail || s.result || actor(s) === ME || pops.length) return;
     const t = setTimeout(() => {
       const a = chooseAction(s, bot);
       if (a) act(a);
@@ -220,14 +227,26 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
   const py = (sq: number) => (flip ? rankOf(sq) : N - 1 - rankOf(sq)) * CELL;
   const selPiece = sel !== null ? s.pieces[sel] : null;
   const selActs = selPiece ? legal.filter((a) => 'piece' in a && a.piece === selPiece.id) : [];
-  const special = selActs.filter((a) => a.t === 'fire' || a.t === 'revive' || a.t === 'mine');
-  const shown = mode === 'special' ? special : selActs.filter((a) => a.t !== 'fire' && a.t !== 'revive' && a.t !== 'mine');
+  const special = selActs.filter((a) => a.t === 'revive');
+  const tgt = (a: LUAction) => (a.t === 'defuse' ? a.at : 'to' in a ? a.to : -1);
+  const shown = selActs.filter((a) => {
+    switch (mode) {
+      case 'mark': return a.t === 'mark';
+      case 'mine': return a.t === 'move' && !!a.mine;
+      case 'off': return a.t === 'unboard';
+      case 'defuse': return a.t === 'defuse';
+      case 'special': return false;
+      default: return (a.t === 'move' && !a.mine) || a.t === 'attack' || a.t === 'strike' || a.t === 'castle';
+    }
+  });
+  const pick = (t: LUAction['t']) => selActs.find((a) => a.t === t);
   const looked = look !== null ? s.pieces[look] : selPiece;
-  const myTurn = s.turn === ME && !s.result && !pops.length;
+  const myTurn = actor(s) === ME && !s.result && !pops.length;
+  const roles = legal.filter((a): a is Extract<LUAction, { t: 'role' }> => a.t === 'role');
 
   function tap(sq: number) {
-    if (!s || !myTurn) return;
-    const target = shown.find((a) => 'to' in a && a.to === sq && a.t !== 'revive');
+    if (!s || !myTurn || roles.length) return;
+    const target = shown.find((a) => tgt(a) === sq);
     if (target) { act(target); return; }
     const q = s.sq[sq] >= 0 ? s.pieces[s.sq[sq]] : null;
     if (q && q.owner === ME) { luSfx.select(); setSel(q.id === sel ? null : q.id); setMode('go'); setLook(null); return; }
@@ -247,7 +266,7 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
     if ((s.craters ?? []).includes(sq)) things.push(<image key={`c${sq}`} href={spriteUrl('crater')} x={x} y={y} width={CELL} height={CELL} />);
     if (s.trees[sq] > 0) things.push(<image key={`t${sq}`} href={spriteUrl(s.trees[sq] > 1 ? 'tree' : 'stump')} x={x} y={y} width={CELL} height={CELL} />);
     const mine = s.mines.find((m) => m.at === sq);
-    if (mine && (mine.owner === ME || v.scouted.has(sq))) things.push(<image key={`m${sq}`} href={spriteUrl('mine')} x={x} y={y} width={CELL} height={CELL} opacity={0.9} />);
+    if (mine && v.mines.has(sq)) things.push(<image key={`m${sq}`} href={spriteUrl('mine')} x={x} y={y} width={CELL} height={CELL} opacity={0.9} />);
   }
   const pieces = s.pieces.filter((q) => q.at >= 0 && visible(s, v, ME, q)).map((q) => {
     const x = px(q.at), y = py(q.at);
@@ -260,6 +279,8 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
         <image href={spriteUrl(known ? q.type : 'mystery', q.owner)} x={x} y={y} width={CELL} height={CELL} opacity={q.owner === ME && q.type === 'scout' && lv >= 2 ? 0.6 : 1} />
         {known && lv > 1 && <text x={x + CELL - 0.5} y={y + 3.6} className="lu-lv" textAnchor="end">{lv === 3 ? '★' : '2'}</text>}
         {known && <text x={x + 0.6} y={y + CELL - 0.6} className={`lu-base ${q.owner}`}>{BASE_ICON[q.base]}</text>}
+        {stunned(s, q) && <text x={x + CELL / 2} y={y + 3.4} textAnchor="middle" className="lu-stun">💫</text>}
+        {q.type === 'catapult' && (q.owner === ME || known) && <text x={x + CELL - 0.5} y={y + CELL - 0.6} textAnchor="end" className="lu-load">{q.crew === undefined ? '∅' : q.owner !== ME ? '♟' : q.load === 'loaded' ? '●' : q.load === 'aimed' ? '◎' : '○'}</text>}
       </g>
     );
   });
@@ -271,18 +292,20 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
     marks.push(<g key={`s${shot.at}`} className={shot.by === ME ? 'lu-aim' : 'lu-incoming'}><rect x={x + 0.5} y={y + 0.5} width={CELL - 1} height={CELL - 1} /><text x={x + CELL / 2} y={y + CELL / 2 + 2.5} textAnchor="middle">{shot.by === ME ? '◎' : '!'}</text></g>);
   }
   if (s.last) for (const sq of [s.last.from, s.last.to]) if (sq >= 0 && v.seen.has(sq)) marks.push(<rect key={`l${sq}`} x={px(sq) + 0.4} y={py(sq) + 0.4} width={CELL - 0.8} height={CELL - 0.8} className="lu-last" />);
+  if (mode === 'mine' && selPiece) marks.push(<text key="drop" x={px(selPiece.at) + CELL / 2} y={py(selPiece.at) + CELL / 2 + 2.5} textAnchor="middle" className="lu-drop">💣</text>);
   for (const a of shown) {
-    if (!('to' in a)) continue;
-    const x = px(a.to), y = py(a.to);
-    const enemy = s.sq[a.to] >= 0 ? s.pieces[s.sq[a.to]] : null;
+    const to = tgt(a);
+    if (to < 0) continue;
+    const x = px(to), y = py(to);
+    const enemy = a.t === 'attack' || a.t === 'strike' ? s.pieces[s.sq[to]] : null;
     let odds = '';
     if (enemy && selPiece && (a.t === 'attack' || a.t === 'strike')) {
       const w = a.t === 'attack' ? battleOdds(s, selPiece, enemy).win : strikeOdds(selPiece).win;
       odds = identified(v, ME, enemy) || a.t === 'strike' ? `${Math.round(w * 100)}%` : '?';
     }
-    const kind = a.t === 'attack' || a.t === 'strike' ? 'hit' : a.t === 'fire' ? 'fire' : a.t === 'mine' ? 'mine' : 'go';
+    const kind = a.t === 'attack' || a.t === 'strike' ? 'hit' : a.t === 'mark' ? 'fire' : a.t === 'defuse' ? 'mine' : 'go';
     marks.push(
-      <g key={`a${a.t}${a.to}`} className={`lu-target ${kind}`} onClick={() => tap(a.to)}>
+      <g key={`a${a.t}${to}`} className={`lu-target ${kind}`} onClick={() => tap(to)}>
         <rect x={x} y={y} width={CELL} height={CELL} />
         {kind === 'go' && <rect x={x + 4.5} y={y + 4.5} width={3} height={3} className="lu-dot" />}
         {kind === 'fire' && <text x={x + CELL / 2} y={y + CELL / 2 + 2.5} textAnchor="middle">◎</text>}
@@ -293,6 +316,41 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
   }
 
   const revives = selActs.filter((a): a is Extract<LUAction, { t: 'revive' }> => a.t === 'revive');
+
+  /** The buttons for the picked piece: modes for squares to tap, and one-tap actions. */
+  function Controls() {
+    if (!selPiece || !myTurn) return null;
+    const p = selPiece;
+    const modeBtn = (m: typeof mode, label: string) => <button key={m} className={`lu-btn ${mode === m ? 'on' : ''}`} onClick={() => setMode(m)}>{label}</button>;
+    const now = (a: LUAction | undefined, label: string) => a && <button key={a.t} className="lu-btn" onClick={() => act(a)}>{label}</button>;
+    const btns: (ReactElement | undefined | false)[] = [];
+    let note = '';
+    if (p.type === 'catapult') {
+      note = p.crew === undefined ? 'No crew: a pawn next to it must climb on before it can move or fire.'
+        : `Crew on board · ${p.load === 'loaded' ? 'loaded' : p.load === 'aimed' ? 'target marked' : 'empty'}. Mark, fire and reload are free (one a turn) and don't use your move.`;
+      if (pick('move')) btns.push(modeBtn('go', 'Move'));
+      if (pick('mark')) btns.push(modeBtn('mark', '🎯 Mark target'));
+      btns.push(now(pick('fire'), '💥 Fire!'), now(pick('reload'), '🔄 Reload'));
+      if (pick('unboard')) btns.push(modeBtn('off', '🪖 Crew climbs off'));
+    } else if (p.type === 'miner') {
+      note = `Mines carried: ${p.carry ?? 0}. Step on a mine to defuse it (roll: 1 blows up, 6 keeps it).`;
+      btns.push(modeBtn('go', 'Move'));
+      if (selActs.some((a) => a.t === 'move' && a.mine)) btns.push(modeBtn('mine', '💣 Move + drop mine'));
+      if (pick('defuse')) btns.push(modeBtn('defuse', '🧰 Defuse from here'));
+    } else {
+      if (special.length) btns.push(modeBtn('go', 'Move'), modeBtn('special', '✚ Revive'));
+      for (const a of selActs) if (a.t === 'board') btns.push(<button key={`b${a.catapult}`} className="lu-btn" onClick={() => act(a)}>🪖 Climb onto the bombardier</button>);
+      btns.push(now(pick('retrain'), '✨ Become a scout'));
+    }
+    if (stunned(s!, p)) note = '💫 Stunned: it misses this turn.';
+    const shownBtns = btns.filter(Boolean);
+    return (
+      <>
+        {note && <p className="lu-small">{note}</p>}
+        {shownBtns.length > 0 && <div className="lu-row">{shownBtns}</div>}
+      </>
+    );
+  }
   const myKingInCheck = inCheck(s, ME);
 
   return (
@@ -311,10 +369,10 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
       <div className="lu-side">
         <div className="lu-win">
           <div className="lu-row between">
-            <b>{s.result ? 'BATTLE OVER' : s.turn === ME ? (myKingInCheck ? '⚠ CHECK! YOUR TURN' : '▶ YOUR TURN') : mail ? `${them.toUpperCase()}'S TURN…` : 'ENEMY TURN…'}</b>
+            <b>{s.result ? 'BATTLE OVER' : roles.length ? '🎓 PICK A JOB' : s.turn === ME ? (myKingInCheck ? '⚠ CHECK! YOUR TURN' : '▶ YOUR TURN') : mail ? `${them.toUpperCase()}'S TURN…` : 'ENEMY TURN…'}</b>
             <span className="lu-small">Turn {Math.floor(s.ply / 2) + 1}</span>
           </div>
-          {mail && <p className="lu-small">⚔ Challenge vs {them} · you are {ME === 'p1' ? 'Blue' : 'Red'}{s.turn !== ME && !s.result ? ' · come back later, we will tell you when it is your move' : ''}</p>}
+          {mail && <p className="lu-small">⚔ Challenge vs {them} · you are {ME === 'p1' ? 'Blue' : 'Red'}{actor(s) !== ME && !s.result ? ' · come back later, we will tell you when it is your move' : ''}</p>}
           {note && <p className="lu-small" style={{ color: '#ff8a8a' }}>{note}</p>}
         </div>
 
@@ -330,12 +388,7 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
                 </ul>
               </>
             ) : <p><b>??? Unknown enemy</b><br /><span className="lu-small">Watch how it moves, fight it, or get your scout close to find out what it is.</span></p>}
-            {selPiece && looked === selPiece && special.length > 0 && (
-              <div className="lu-row">
-                <button className={`lu-btn ${mode === 'go' ? 'on' : ''}`} onClick={() => setMode('go')}>Move</button>
-                <button className={`lu-btn ${mode === 'special' ? 'on' : ''}`} onClick={() => setMode('special')}>{selPiece.type === 'catapult' ? 'Fire!' : selPiece.type === 'miner' ? 'Lay mine' : 'Revive'}</button>
-              </div>
-            )}
+            {selPiece && looked === selPiece && <Controls />}
             {mode === 'special' && revives.length > 0 && (
               <div className="lu-row">{revives.map((a) => <button key={a.fallen} className="lu-btn" onClick={() => act(a)}>✚ {nameOf(s.pieces[a.fallen])} (Lv {level(s.pieces[a.fallen])})</button>)}</div>
             )}
@@ -399,6 +452,21 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
           )}
         </div>
       )}
+      {!top && !s.result && roles.length > 0 && (
+        <div className="lu-modal">
+          <div className="lu-win lu-pop">
+            <h2>🎓 PICK A JOB</h2>
+            <img className="lu-big" src={spriteUrl('scout', ME)} alt="" />
+            <p>Your scout reached level 2! What should it be now? It keeps its scout eyes.</p>
+            <div className="lu-roles">
+              {roles.map((a) => {
+                const r = LU_ROLES.find((x) => x.role === a.role)!;
+                return <button key={a.role} className="lu-btn" onClick={() => act(a)}><b>{r.name}</b><br /><span className="lu-small">{r.text}</span></button>;
+              })}
+            </div>
+          </div>
+        </div>
+      )}
       {!top && s.result && (
         <div className="lu-modal">
           <div className="lu-win lu-pop">
@@ -437,8 +505,10 @@ function Menu({ which, close }: { which: 'points' | 'help'; close: () => void })
               <li>Every attack is a dice battle: each side rolls a die and adds its power. Higher wins. Lose by 4 or more and the attacker falls.</li>
               <li>Ties: attack with a friend next to the target and you win. Otherwise the bases decide: ▲ beats ●, ● beats ■, ■ beats ▲.</li>
               <li>The fog hides what your pieces can't see. Enemies show as ??? until they fight, or your scout gets close.</li>
-              <li>Catapult shots land on your next turn: the target gets a warning. Rooks at level 2 block shots. A level 3 catapult's blast also hits the 4 diagonal squares and leaves a crater nobody can cross.</li>
-              <li>Medics bring fallen friends back within 3 turns. Mines blow up the first enemy to step on them.</li>
+              <li>Bombardiers can't be destroyed, but need a pawn crew on them. Each turn, as well as your move, a bombardier can mark a target, fire at a marked target (they get a turn to escape), or reload. Everything next to a shot is stunned and misses a turn. Rooks at level 2 block shots. A level 3 blast also hits the 4 diagonal squares and leaves a crater nobody can cross.</li>
+              <li>Your two scouts pick a job at level 2: Medic (brings fallen friends back), Miner (hides and clears mines) or Spy (invisible, then an Assassin).</li>
+              <li>Mines blow up whoever steps on them and stun everything around. Your team sees your mines; miners see mines next to them.</li>
+              <li>Pawns at level 2 step any way and attack diagonally any way. At level 3 a pawn can train as a scout.</li>
               <li>Battles shake the forest: barricades next to a fight take a hit, and fall after two.</li>
               <li>Race cards: three face up for both players. First to do one claims it, and a new card turns over.</li>
             </ul>

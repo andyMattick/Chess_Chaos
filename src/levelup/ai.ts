@@ -1,6 +1,6 @@
 import { LU_PIECES } from '../content/levelup';
 import {
-  attacked, battleOdds, dist, identified, inCheck, isCentre, legalActions, level, pieceAt, play, rankOf, strikeOdds, threats, viewOf, visible,
+  actor, attacked, battleOdds, dist, identified, inCheck, isCentre, isFree, legalActions, level, pieceAt, play, rankOf, strikeOdds, threats, viewOf, visible,
   type LUAction, type LUPiece, type LUState, type Side,
 } from './rules';
 
@@ -22,7 +22,7 @@ export function scoreAction(s: LUState, a: LUAction, side: Side): number {
   if (a.t === 'resign') return -1e9;
   const v = viewOf(s, side);
   const me = s.pieces[a.piece];
-  const target = 'to' in a ? pieceAt(s, a.to) : undefined;
+  const target = 'to' in a && a.t !== 'mark' && a.t !== 'unboard' ? pieceAt(s, a.to) : undefined;
   const enemy = target && target.owner !== side ? target : undefined;
   const known = (q: LUPiece) => identified(v, side, q);
   let score = 0;
@@ -40,21 +40,33 @@ export function scoreAction(s: LUState, a: LUAction, side: Side): number {
       score += o.win * (worth(enemy, known(enemy)) + 12) - o.crushed * worth(me);
       break;
     }
-    case 'fire': {
+    case 'mark': {
       const q = pieceAt(s, a.to);
-      // Only shoot at what you can see; they get a turn to step away, so it's a threat more than a hit.
+      // Only aim at what you can see; they get a turn to step away, so it's a threat more than a hit.
       if (!q || q.owner === side || !visible(s, v, side, q) || q.type === 'king') return -20;
       score += 0.4 * worth(q, known(q)) + 3;
       break;
     }
-    case 'revive': score += worth(s.pieces[a.fallen]) + 5; break;
-    case 'mine': {
-      const ahead = side === 'p1' ? rankOf(a.to) : 15 - rankOf(a.to);
-      score += 2 + Math.min(6, ahead) * 0.5;
+    case 'fire': {
+      const shot = s.shots.find((x) => x.catapult === me.id);
+      const q = shot ? pieceAt(s, shot.at) : undefined;
+      score += q && q.owner !== side && q.type !== 'king' ? 0.8 * worth(q) + 4 : 1;
       break;
     }
+    case 'reload': score += 5; break;
+    case 'role': score += a.role === 'spy' ? 3 : 2; break;
+    case 'board': score += 6; break;
+    case 'unboard': score -= 12; break;
+    case 'retrain': score -= 4; break;
+    case 'defuse': { const m = s.mines.find((x) => x.at === a.at); score += m && m.owner !== side ? 6 : -10; break; }
+    case 'revive': score += worth(s.pieces[a.fallen]) + 5; break;
     case 'castle': score += 14; break;
-    case 'move': break;
+    case 'move': {
+      if (a.mine) { const ahead = side === 'p1' ? rankOf(me.at) : 15 - rankOf(me.at); score += 2 + Math.min(6, ahead) * 0.5; }
+      // Don't walk onto a mine you can see (your miner may try to defuse an enemy one).
+      if (v.mines.has(a.to)) { const m = s.mines.find((x) => x.at === a.to)!; score += me.type === 'miner' && m.owner !== side ? 4 : -60; }
+      break;
+    }
   }
   // Where the piece ends up.
   if (a.t === 'move' || a.t === 'castle' || a.t === 'attack') {
@@ -86,8 +98,17 @@ export function scoreAction(s: LUState, a: LUAction, side: Side): number {
 
 /** Pick an action for `side`. `rand` is only for the bot's choice, never the game's dice. */
 export function chooseAction(s: LUState, level: LUBotLevel = 'normal', rand: () => number = Math.random): LUAction | null {
-  const side = s.turn;
-  const moves = legalActions(s);
+  const side = actor(s);
+  const all = legalActions(s);
+  if (!all.length) return null;
+  // Free things first: a job pick, then any bombardier step worth taking.
+  const free = all.filter(isFree);
+  if (free.length) {
+    if (free[0].t === 'role') return free[Math.floor(rand() * free.length)];
+    const best = free.map((a) => ({ a, v: scoreAction(s, a, side) })).sort((x, y) => y.v - x.v)[0];
+    if (best.v > 0) return best.a;
+  }
+  const moves = all.filter((a) => !isFree(a));
   if (!moves.length) return null;
   // A win on the board right now beats everything.
   const king = s.pieces.find((p) => p.type === 'king' && p.owner !== side && p.at >= 0);

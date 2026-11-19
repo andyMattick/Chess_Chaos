@@ -23,16 +23,16 @@ export interface LUPieceDef {
 }
 
 export const LU_PIECES: Record<LUType, LUPieceDef> = {
-  pawn: { type: 'pawn', name: 'Pawn', value: 1, levels: ['Steps forward, attacks one square diagonally forward.', 'Can also attack two squares away diagonally.', 'Final form: moves and attacks one square in any direction.'] },
+  pawn: { type: 'pawn', name: 'Pawn', value: 1, levels: ['Steps forward, attacks one square diagonally forward. Can climb onto an empty bombardier next to it to crew it.', 'Steps one square any way, and attacks diagonally any way.', 'Final form: can turn into a level 1 scout (it starts again at 0 points).'] },
   knight: { type: 'knight', name: 'Knight', value: 3, levels: ['Jumps in an L, over anything.', 'Can also jump two-and-two.', 'Final form: charges with a rider: +1 in battle and wins ties.'] },
   bishop: { type: 'bishop', name: 'Bishop', value: 3, levels: ['Slides diagonally.', 'Can also step one or two squares straight forward.', 'Final form: brings a fallen friend back from anywhere, next to itself.'] },
   rook: { type: 'rook', name: 'Rook', value: 4, levels: ['Slides in straight lines.', 'A shield: the piece right behind it is safe from catapult shots.', 'Final form: shields every piece around it from catapult shots.'] },
   queen: { type: 'queen', name: 'Queen', value: 5, levels: ['Slides in any straight line.', '+1 in every battle she starts.', 'Final form: can also jump like a knight.'] },
   king: { type: 'king', name: 'King', value: 4, levels: ['Steps one square. Keep him out of check!', 'Can dash two squares in a straight line.', 'Final form: friends next to him get +1 when attacked.'] },
-  catapult: { type: 'catapult', name: 'Catapult', value: 2, levels: ['Moves one square, or fires 2 to 4 squares away. The target gets a warning and one turn to escape.', 'Fires up to 5 squares away.', 'Final form: the blast also hits the 4 diagonal squares around the target, and leaves a crater nobody can ever cross.'] },
-  medic: { type: 'medic', name: 'Medic', value: 1, levels: ['Walks up to 3 squares. Brings back a friend who fell within 2 squares, up to 3 turns after.', 'Reaches fallen friends 3 squares away.', 'Final form: reaches 4 squares away and has 5 turns to do it.'] },
-  miner: { type: 'miner', name: 'Mine layer', value: 1, levels: ['Steps one square, or hides a mine next to itself (3 at a time). An enemy that steps on a mine is blown up.', 'Up to 5 mines at a time.', 'Final form: can hide a mine two squares away.'] },
-  scout: { type: 'scout', name: 'Scout', value: 1, levels: ['Dashes up to 4 squares in a straight line and lights up the fog around it. Moves OR strikes a piece next to it (die roll).', 'Spy: invisible to the enemy (except their scout).', 'Final form, Assassin: +1 on strikes and the only piece that can take a king, which wins at once. Never gives check.'] },
+  catapult: { type: 'catapult', name: 'Bombardier', value: 2, levels: ['Can never be destroyed, but only works with a pawn crew on it. Each turn, as well as your move, it can do one step: mark a target 2 to 4 squares away (they see a warning), fire at the marked square, or reload.', 'Marks targets up to 5 squares away.', 'Final form: the blast also hits the 4 diagonal squares around the target, and leaves a crater nobody can ever cross.'] },
+  medic: { type: 'medic', name: 'Medic', value: 1, levels: ['A scout that picked Medic at level 2.', 'Medic: walks up to 3 squares and brings back a friend who fell within 3 squares, up to 3 turns after. Still sees like a scout.', 'Final form: reaches 4 squares away and has 5 turns to do it.'] },
+  miner: { type: 'miner', name: 'Miner', value: 1, levels: ['A scout that picked Miner at level 2.', 'Miner: walks up to 2 squares, never attacks. Can drop its mine on the square it just left. Gets a new mine next to a bombardier. Clears enemy mines it steps on. Still sees like a scout.', 'Final form: carries 2 mines at a time.'] },
+  scout: { type: 'scout', name: 'Scout', value: 1, levels: ['Dashes up to 4 squares in a straight line and lights up the fog around it. Moves OR strikes a piece next to it (die roll). At level 2 it picks a job: Medic, Miner or Spy.', 'Spy: invisible to the enemy (except their scouts).', 'Final form, Assassin: +1 on strikes and the only piece that can take a king, which wins at once. Never gives check.'] },
 };
 
 /** Level thresholds: 3 points to reach level 2, then 5 more (8 in all) for level 3. */
@@ -51,7 +51,9 @@ export const XP_RULES: XPRule[] = [
   { id: 'pin', points: 2, label: 'Pin!', tip: 'Line up on a piece with a bigger one behind it.' },
   { id: 'castle', points: 2, label: 'Castle', tip: 'Tuck your king away with a rook.' },
   { id: 'revive', points: 1, label: 'Save a friend', tip: 'Bring a fallen piece back.' },
-  { id: 'hit', points: 1, label: 'Bullseye', tip: 'A catapult shot finds its target.' },
+  { id: 'hit', points: 1, label: 'Bullseye', tip: 'A bombardier shot finds its target.' },
+  { id: 'trap', points: 1, label: 'Mine blast', tip: 'Your miner\'s mine blows up an enemy.' },
+  { id: 'sweep', points: 1, label: 'Mine cleared', tip: 'Your miner clears an enemy mine.' },
   { id: 'secret', points: 3, label: 'Secret mission', tip: 'Complete your secret mission.' },
   { id: 'global', points: 2, label: 'First!', tip: 'Be first to finish a mission everyone can see.' },
 ];
@@ -100,7 +102,15 @@ export const WIN_GRADES = {
 
 /** Board: 16 x 16. Armies 12 wide in files 2-13. Barricade forest in ranks 5-10. */
 export const LU_SIZE = 16;
-export const LU_BACK: LUType[] = ['catapult', 'medic', 'rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook', 'scout', 'miner'];
+/** Owner, 2026-11-19: the outside extras are always bombardiers; the inside extras start as scouts and pick a job at level 2. */
+export const LU_BACK: LUType[] = ['catapult', 'scout', 'rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook', 'scout', 'catapult'];
+/** The jobs a scout can pick at level 2. A Spy stays a scout (and becomes an Assassin at level 3). */
+export type LURole = 'medic' | 'miner' | 'spy';
+export const LU_ROLES: { role: LURole; name: string; text: string }[] = [
+  { role: 'medic', name: 'Medic', text: 'Brings fallen friends back.' },
+  { role: 'miner', name: 'Miner', text: 'Hides mines, clears enemy mines.' },
+  { role: 'spy', name: 'Spy', text: 'Invisible to the enemy. Becomes an Assassin at level 3.' },
+];
 export const LU_FIRST_FILE = 2;
 export const FOREST_RANKS: [number, number] = [5, 10];
 /** About this share of forest squares start with a barricade (FIRST BUILD). */
@@ -110,9 +120,12 @@ export const BARRICADE_HP = 2;
 /** Medic: revive window in the owner's own turns (design doc: 3). */
 export const REVIVE_TURNS = [3, 3, 5];
 export const REVIVE_RANGE = [2, 3, 4];
-export const MINE_LIMIT = [3, 5, 5];
+/** Mines a miner carries at once, by level (it only becomes a miner at level 2). */
+export const MINER_CARRY = [0, 1, 2];
 /** Level 2 reaches further; level 3 keeps that reach and gets the blast (owner, 2026-11-19). */
 export const CATAPULT_RANGE = [4, 5, 5];
+/** A bombardier needs a target at least this far away. */
+export const CATAPULT_MIN = 2;
 /** Scout sight radius by level (squares; FIRST BUILD: the doc's "3 across" grows to 5, 7, 9 across). */
 export const SCOUT_SIGHT = [2, 3, 4];
 /** A defender that out-rolls the attacker by this much destroys it ("a really bad roll"). */
