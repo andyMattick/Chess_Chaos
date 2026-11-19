@@ -365,11 +365,14 @@ export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back:
       <g key={`p${q.id}`} className={`lu-piece ${sel === q.id ? 'sel' : ''}`}>
         <title>{known ? `${q.owner === ME ? '' : 'Enemy '}${pieceLine(q)} · ${q.base} base` : 'Unknown enemy: watch how it moves!'}</title>
         {sel === q.id && <rect x={x + 0.3} y={y + 0.3} width={CELL - 0.6} height={CELL - 0.6} className="lu-selbox" />}
-        <image href={sprite(known ? q.type : 'mystery', q.owner)} x={x} y={y} width={CELL} height={CELL} opacity={q.owner === ME && q.type === 'scout' && lv >= 2 ? 0.6 : 1} />
+        <image href={sprite(known ? q.type : 'mystery', q.owner)} x={x} y={y} width={CELL} height={CELL} opacity={(q.owner === ME && q.type === 'scout' && lv >= 2) || (q.type === 'catapult' && q.crew === undefined) ? 0.55 : 1} />
         {known && lv > 1 && <text x={x + CELL - 0.5} y={y + 3.6} className="lu-lv" textAnchor="end">{lv === 3 ? '★' : '2'}</text>}
         {known && <text x={x + 0.6} y={y + CELL - 0.6} className={`lu-base ${q.owner}`}>{BASE_ICON[q.base]}</text>}
         {stunned(s, q) && <text x={x + CELL / 2} y={y + 3.4} textAnchor="middle" className="lu-stun">💫</text>}
-        {q.type === 'catapult' && (q.owner === ME || known) && <text x={x + CELL - 0.5} y={y + CELL - 0.6} textAnchor="end" className="lu-load">{q.crew === undefined ? '∅' : q.owner !== ME ? '♟' : q.load === 'loaded' ? '●' : q.load === 'aimed' ? '◎' : '○'}</text>}
+        {/* The crew pawn rides on the bombardier: drawn small on top. No crew: a faded bombardier with "no crew". */}
+        {q.type === 'catapult' && q.crew !== undefined && <image href={sprite('pawn', q.owner)} x={x + CELL * 0.02} y={y - CELL * 0.04} width={CELL * 0.52} height={CELL * 0.52} />}
+        {q.type === 'catapult' && q.crew === undefined && <text x={x + CELL / 2} y={y + 3.6} textAnchor="middle" className="lu-nocrew">NO CREW</text>}
+        {q.type === 'catapult' && q.owner === ME && q.crew !== undefined && <text x={x + CELL - 0.5} y={y + CELL - 0.6} textAnchor="end" className="lu-load">{q.load === 'loaded' ? '●' : q.load === 'aimed' ? '◎' : '○'}</text>}
       </g>
     );
   });
