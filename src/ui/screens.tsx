@@ -13,6 +13,7 @@ import { dueCount } from '../systems/openings';
 import { DAILY_ALL_BONUS, dailyById, dailyFor, dayKey, type DailyMission, type DailyState } from '../systems/daily';
 import { claimDaily } from '../storage/daily';
 import { setFriendsOnly } from '../storage/world';
+import { luSession } from '../net/luClient';
 import { POWER_CARDS } from '../content/cards';
 import type { GameConfig } from './GameScreen';
 
@@ -64,6 +65,9 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
           <span className="big-sub">Surprise mode, missions, cards</span>
         </button>
       </div>
+      {p && luSession.savedCode() && (
+        <button className="live-banner" onClick={() => go('levelup')}>⚡ Your live Level-Up room {luSession.savedCode()} is still open. Tap to go back.</button>
+      )}
       {p && <DailyPanel daily={p.daily} go={go} />}
       <h3 className="home-section">More ways to play</h3>
       <div className="tiles">

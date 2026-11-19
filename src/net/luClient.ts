@@ -38,8 +38,10 @@ class LUSession {
   private set(patch: Partial<LUSnapshot>) { this.snap = { ...this.snap, ...patch }; this.listeners.forEach((l) => l()); }
 
   private saved(): { code: string; token: string } | null {
-    try { return JSON.parse(sessionStorage.getItem(KEY) ?? 'null'); } catch { return null; }
+    try { return JSON.parse(localStorage.getItem(KEY) ?? 'null'); } catch { return null; }
   }
+  /** The live room this device is in (kept when you step away or close the app). */
+  savedCode(): string | null { return this.saved()?.code ?? null; }
 
   private connect() {
     const url = roomServerUrl();
@@ -62,12 +64,12 @@ class LUSession {
       try { m = JSON.parse(String(e.data)); } catch { return; }
       if (!m || typeof m.t !== 'string' || !m.t.startsWith('lu-')) return;
       if (m.t === 'lu-joined') {
-        try { sessionStorage.setItem(KEY, JSON.stringify({ code: m.code, token: m.token })); } catch { /* private mode */ }
+        try { localStorage.setItem(KEY, JSON.stringify({ code: m.code, token: m.token })); } catch { /* private mode */ }
         this.set({ code: m.code, seat: m.seat, error: null });
       } else if (m.t === 'lu-room') this.set({ code: m.code, seed: m.seed, actions: m.actions, seats: m.seats, rematch: m.rematch, score: m.score, games: m.games });
       else if (m.t === 'lu-emote') this.set({ emote: { from: m.from, id: m.id, at: Date.now() } });
       else if (m.t === 'lu-error') {
-        if (m.message === 'That game has ended.') { try { sessionStorage.removeItem(KEY); } catch { /* */ } this.set({ ...EMPTY, status: this.snap.status, error: m.message }); }
+        if (m.message === 'That game has ended.') { try { localStorage.removeItem(KEY); } catch { /* */ } this.set({ ...EMPTY, status: this.snap.status, error: m.message }); }
         else this.set({ error: m.message });
       }
     };
@@ -91,13 +93,15 @@ class LUSession {
   rematchVote() { this.send({ t: 'lu-rematch' }); }
   /** Rejoin a room this tab was in (after a reload). */
   resume(): boolean {
-    if (!this.saved()) return false;
+    const saved = this.saved();
+    if (!saved) return false;
     if (!this.ws) this.connect();
+    else if (this.ws.readyState === WebSocket.OPEN && this.snap.code !== saved.code) this.ws.send(JSON.stringify({ t: 'lu-rejoin', ...saved }));
     return true;
   }
   leave() {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ t: 'lu-leave' }));
-    try { sessionStorage.removeItem(KEY); } catch { /* */ }
+    try { localStorage.removeItem(KEY); } catch { /* */ }
     this.wantOpen = false;
     this.ws?.close();
     this.ws = null;

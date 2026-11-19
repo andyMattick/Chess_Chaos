@@ -80,6 +80,9 @@ export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back:
   const view = useMemo(() => (s ? viewOf(s, ME) : null), [s, ME]);
   const legal = useMemo(() => (s && actor(s) === ME ? legalActions(s) : []), [s, ME]);
 
+  // A live room this device is in: reconnect now, so the box shows who is there and the seat stays ours.
+  useEffect(() => { if (!live && hasLiveGame()) luSession.resume(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Live: follow the room. A new seed is a new game; new actions are played in turn (with their pop-ups).
   useEffect(() => {
     if (!live || room.seed === null) return;
@@ -261,7 +264,11 @@ export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back:
             </>
           ) : <p>{room.error ?? (room.status === 'connecting' ? 'Connecting…' : 'Opening a room…')}</p>}
           {room.error && room.code && <p className="lu-small">{room.error}</p>}
-          <button className="lu-btn" onClick={() => { luSession.leave(); setLive(false); setS(null); }}>◀ Leave</button>
+          <div className="lu-row">
+            <button className="lu-btn" onClick={() => { setLive(false); setS(null); }}>⏸ Step away (keep the room)</button>
+            <button className="lu-btn" onClick={() => { luSession.leave(); setLive(false); setS(null); }}>✖ Close the room</button>
+          </div>
+          <p className="lu-small">Stepping away keeps your room open: come back from the Level-Up screen. A room with nobody in it closes after 10 minutes.</p>
         </div>
       </div>
     );
@@ -269,6 +276,19 @@ export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back:
   if (!s || (!bot && !mail && !live)) {
     return (
       <div className={`lu ${art}`}>
+        {hasLiveGame() && (
+          <div className="lu-win lu-back">
+            <h2>⚡ Your live room {luSession.savedCode()} is still open</h2>
+            {room.code && (() => {
+              const other = room.seats[room.seat === 'p1' ? 'p2' : 'p1'];
+              return <p className="lu-small">{other ? `${other.name} is in the room${other.connected ? '' : ' (away)'}.` : 'Nobody has joined yet.'}</p>;
+            })()}
+            <div className="lu-row">
+              <button className="lu-btn on" onClick={() => { luSession.resume(); liveSeed.current = null; liveApplied.current = 0; setS(null); setLive(true); }}>↩ Back to it</button>
+              <button className="lu-btn" onClick={() => { luSession.leave(); setS(null); }}>✖ Close it</button>
+            </div>
+          </div>
+        )}
         <div className="lu-win lu-title">
           <h1>LEVEL-UP CHESS</h1>
           <p>Every good move earns points. Pieces level up and gain new powers. Every attack is a dice battle. The forest hides the enemy.</p>
@@ -513,7 +533,8 @@ export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back:
           <button className="lu-btn" onClick={() => setArt(art === '8bit' ? 'storybook' : '8bit')}>{art === '8bit' ? '🎨 Storybook look' : '👾 8-bit look'}</button>
           <button className="lu-btn" onClick={() => setMenu('help')}>Help</button>
           {!s.result && <button className="lu-btn" onClick={() => act({ t: 'resign', by: ME })}>Give up</button>}
-          <button className="lu-btn" onClick={() => (mail ? back() : live ? (luSession.leave(), setLive(false), setS(null)) : (setS(null), setBot(null)))}>◀ Leave</button>
+          {live && !s.result && <button className="lu-btn" onClick={() => { setLive(false); setS(null); }}>⏸ Step away</button>}
+          <button className="lu-btn" onClick={() => (mail ? back() : live ? (luSession.leave(), setLive(false), setS(null)) : (setS(null), setBot(null)))}>{live && !s.result ? '✖ Leave (gives up)' : '◀ Leave'}</button>
         </div>
         {live && (
           <div className="lu-row">
@@ -701,14 +722,13 @@ function LiveWindow({ name, go }: { name: string; go: () => void }) {
       <div className="lu-row">
         <input className="lu-input" aria-label="Room code" placeholder="CODE" maxLength={4} value={code} onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))} />
         <button className="lu-btn" disabled={code.length !== 4} onClick={() => { luSession.join(code, name); go(); }}>▶ Join</button>
-        {hasLiveGame() && <button className="lu-btn" onClick={() => { luSession.resume(); go(); }}>↩ Back to my live game</button>}
       </div>
     </div>
   );
 }
 
 function hasLiveGame(): boolean {
-  try { return !!sessionStorage.getItem('chess-chaos:lu-room'); } catch { return false; }
+  return !!luSession.savedCode();
 }
 
 /**
