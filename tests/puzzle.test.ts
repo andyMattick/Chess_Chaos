@@ -1,18 +1,28 @@
 import { describe, expect, it } from 'vitest';
-import { BUILT_IN, builtInPuzzles, checkMove, currentStreak, EMPTY_PROGRESS, isMate, puzzleFrom, recordSolve } from '../src/systems/puzzle';
+import { ALL_BUILT_IN, builtInPuzzles, checkMove, currentStreak, EMPTY_PROGRESS, isMate, puzzleFrom, recordSolve } from '../src/systems/puzzle';
 import { play, legalActions } from '../src/core/rules';
 import { parseSAN } from '../src/core/san';
 
 describe('puzzles', () => {
   it('every built-in puzzle reads fully, and mate puzzles end in mate', () => {
     const ps = builtInPuzzles();
-    expect(ps.length).toBe(BUILT_IN.length);
+    expect(ps.length).toBe(ALL_BUILT_IN.length);
+    expect(new Set(ALL_BUILT_IN.map((x) => x.id)).size).toBe(ALL_BUILT_IN.length);
     for (const [i, p] of ps.entries()) {
-      expect(p.line.length, p.id).toBe(BUILT_IN[i].san.length);
+      expect(p.line.length, p.id).toBe(ALL_BUILT_IN[i].san.length);
+      // The solver has the last word.
+      expect(p.line.length % 2, p.id).toBe(1);
       let s = p.start;
       for (const m of p.line) s = play(s, m);
-      if (BUILT_IN[i].san.at(-1)!.endsWith('#')) expect(isMate(s), p.id).toBe(true);
+      if (ALL_BUILT_IN[i].san.at(-1)!.endsWith('#')) expect(isMate(s), p.id).toBe(true);
     }
+  });
+  it('built-ins run easy to hard, and simple one-move mates are a small part', () => {
+    const levels = ALL_BUILT_IN.map((x) => x.level);
+    expect(levels).toEqual([...levels].sort((a, b) => a - b));
+    const mateInOne = ALL_BUILT_IN.filter((x) => x.san.length === 1 && x.san[0].endsWith('#')).length;
+    expect(ALL_BUILT_IN.length).toBeGreaterThanOrEqual(40);
+    expect(mateInOne / ALL_BUILT_IN.length).toBeLessThan(0.2);
   });
 
   it('reads a Chess.com style PGN with black to move', () => {

@@ -1,3 +1,4 @@
+import { GENERATED_PUZZLES } from '../content/puzzles';
 import { parsePGN } from '../chesscom/pgn';
 import { inCheck } from '../core/movegen';
 import { legalActions, play, sameMove } from '../core/rules';
@@ -136,6 +137,31 @@ export const BUILT_IN: { id: string; title: string; fen: string; san: string[] }
   { id: 'bi-fork', title: 'Knight attacks two at once', fen: 'q3k3/8/8/1N6/8/8/8/4K3 w - - 0 1', san: ['Nc7+', 'Kd7', 'Nxa8'] },
 ];
 
+/** Difficulty of the hand-written ones (1 easy, 4 hard), to mix them in with the generated set. */
+const HAND_LEVEL: Record<string, number> = { 'bi-fork': 2 };
+
+/**
+ * Every built-in puzzle, easy to hard: the hand-written classics above and the
+ * set made by scripts/gen-puzzles.ts (forks, checks, discovered attacks, saves,
+ * quiet moves, mates in 2: one clearly best move each; owner, 2026-11-19).
+ */
+export const ALL_BUILT_IN: { id: string; title: string; fen: string; san: string[]; level: number; theme: string }[] = (() => {
+  const all = [
+    // The back-rank mate twice is once too many (owner: "an awful lot relying on simple finishing moves").
+    ...BUILT_IN.filter((b) => b.id !== 'bi-black-backrank').map((b) => ({ ...b, level: HAND_LEVEL[b.id] ?? 1, theme: b.id === 'bi-fork' ? 'fork' : 'mate1' })),
+    ...GENERATED_PUZZLES,
+  ];
+  // Easy to hard; inside each level the themes take turns, so no long run of the same idea.
+  const turn = new Map<string, number>();
+  const ranked = all.map((x, i) => {
+    const k = `${x.level}:${x.theme}`;
+    const n = turn.get(k) ?? 0;
+    turn.set(k, n + 1);
+    return { x, i, n };
+  });
+  return ranked.sort((a, b) => a.x.level - b.x.level || a.n - b.n || a.i - b.i).map(({ x }) => x);
+})();
+
 export function builtInPuzzles(): Puzzle[] {
-  return BUILT_IN.map((b) => puzzleFrom({ ...b, source: 'built-in' })!).filter(Boolean);
+  return ALL_BUILT_IN.map((b) => puzzleFrom({ ...b, source: 'built-in' })!).filter(Boolean);
 }
