@@ -9,6 +9,9 @@ import {
 } from '../levelup/rules';
 import { activeProfile, updateProfile } from '../storage/storage';
 import { luReplay, type MailGame } from '../net/world';
+import { luSession, useLuRoom } from '../net/luClient';
+import { roomServerUrl } from '../net/client';
+import { EMOTES } from '../net/protocol';
 import { fetchLadder, getGame, joinLadder, labelFor, ladderChallenge, leaveLadder, resignMail, sendLuMove } from '../storage/world';
 import { LADDER_REACH, type LadderRow } from '../net/world';
 import { vaultBase } from '../storage/cloud';
@@ -41,9 +44,15 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
   const save = useSave();
   const p = activeProfile(save);
   // A challenge: you play your seat against a friend, a move at a time (owner, 2026-11-19).
-  const ME: Side = mail && mail.players.p2 === p?.cloud?.number ? 'p2' : 'p1';
+  // Live: a room with a code, moves as they happen (owner, 2026-11-19).
+  const room = useLuRoom();
+  const [live, setLive] = useState(false);
+  const ME: Side = live ? room.seat ?? 'p1' : mail && mail.players.p2 === p?.cloud?.number ? 'p2' : 'p1';
   const flip = ME === 'p2';
-  const them = mail ? labelFor(p, mail.players[ME === 'p1' ? 'p2' : 'p1']) : '';
+  const them = mail ? labelFor(p, mail.players[ME === 'p1' ? 'p2' : 'p1']) : live ? room.seats[ME === 'p1' ? 'p2' : 'p1']?.name ?? 'your friend' : '';
+  /** Live: how many of the room's actions this screen has played, and for which game (seed). */
+  const liveApplied = useRef(0);
+  const liveSeed = useRef<number | null>(null);
   const [bot, setBot] = useState<LUBotLevel | null>(null);
   const [s, setS] = useState<LUState | null>(() => (mail?.lu ? luReplay(mail) : null));
   const [note, setNote] = useState<string | null>(null);
@@ -59,8 +68,32 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
   const [menu, setMenu] = useState<'points' | 'help' | null>(null);
   const recorded = useRef(false);
 
-  const view = useMemo(() => (s ? viewOf(s, ME) : null), [s]);
-  const legal = useMemo(() => (s && actor(s) === ME ? legalActions(s) : []), [s]);
+  const view = useMemo(() => (s ? viewOf(s, ME) : null), [s, ME]);
+  const legal = useMemo(() => (s && actor(s) === ME ? legalActions(s) : []), [s, ME]);
+
+  // Live: follow the room. A new seed is a new game; new actions are played in turn (with their pop-ups).
+  useEffect(() => {
+    if (!live || room.seed === null) return;
+    if (room.seed !== liveSeed.current || room.actions.length < liveApplied.current) {
+      let g = newGame(room.seed);
+      for (const a of room.actions) g = play(g, a, false);
+      const fresh = room.seed !== liveSeed.current;
+      liveSeed.current = room.seed;
+      liveApplied.current = room.actions.length;
+      setS(g); setSel(null); setPops([]);
+      if (fresh) { recorded.current = false; setLog([`Live game! You are ${room.seat === 'p1' ? 'Blue (you move first)' : 'Red'}. Room ${room.code}.`]); }
+      return;
+    }
+    if (room.actions.length > liveApplied.current && s) {
+      let cur = s;
+      for (const a of room.actions.slice(liveApplied.current)) { const nx = play(cur, a, false); after(cur, nx); cur = nx; }
+      liveApplied.current = room.actions.length;
+      setS(cur);
+    }
+  }, [live, room.seed, room.actions]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (live && room.emote && room.emote.from !== ME) setLog((l) => [`${them}: ${EMOTES.find((e) => e.id === room.emote!.id)?.text}`, ...l].slice(0, 30));
+  }, [room.emote?.at]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function start(level: LUBotLevel) {
     const g = newGame((Date.now() ^ Math.floor(Math.random() * 1e9)) | 0);
@@ -135,6 +168,10 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
     setSel(null); setMode('go');
     after(s, next);
     setS(next);
+    if (live) {
+      luSession.act(a, liveApplied.current);
+      liveApplied.current++;
+    }
     if (mail) {
       const ply = served.current;
       setNote(null);
@@ -167,7 +204,7 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
 
   // The bot's turn, once the pop-ups are cleared.
   useEffect(() => {
-    if (!s || !bot || mail || s.result || actor(s) === ME || pops.length) return;
+    if (!s || !bot || mail || live || s.result || actor(s) === ME || pops.length) return;
     const t = setTimeout(() => {
       const a = chooseAction(s, bot);
       if (a) act(a);
@@ -200,7 +237,27 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
   if (!p) return null;
 
   // ---- Title screen ----
-  if (!s || (!bot && !mail)) {
+  const bothIn = !!room.seats.p1 && !!room.seats.p2;
+  if (live && (!s || !bothIn)) {
+    return (
+      <div className="lu">
+        <div className="lu-win lu-title">
+          <h1>LIVE LEVEL-UP</h1>
+          {room.code ? (
+            <>
+              <p>Room code</p>
+              <p className="lu-code">{room.code}</p>
+              <p className="lu-small">Tell your friend: Level-Up Chess → Play live → Join, and type this code. You are {room.seat === 'p1' ? 'Blue (you move first)' : 'Red'}.</p>
+              <p className="lu-small">{bothIn ? 'Starting…' : 'Waiting for your friend…'}</p>
+            </>
+          ) : <p>{room.error ?? (room.status === 'connecting' ? 'Connecting…' : 'Opening a room…')}</p>}
+          {room.error && room.code && <p className="lu-small">{room.error}</p>}
+          <button className="lu-btn" onClick={() => { luSession.leave(); setLive(false); setS(null); }}>◀ Leave</button>
+        </div>
+      </div>
+    );
+  }
+  if (!s || (!bot && !mail && !live)) {
     return (
       <div className="lu">
         <div className="lu-win lu-title">
@@ -216,9 +273,10 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
           </div>
           {p.levelUp && <p className="lu-small">Battles fought: {p.levelUp.played} · won: {p.levelUp.won}</p>}
         </div>
+        {roomServerUrl() && <LiveWindow name={p.nickname} go={() => { liveSeed.current = null; liveApplied.current = 0; setS(null); setLive(true); }} />}
         {challengeFriend && (
           <div className="lu-win">
-            <h2>▶ Play a person</h2>
+            <h2>▶ Play a person, a move at a time</h2>
             <p className="lu-small">Challenge a friend by their player number. You each take your turn whenever you like (a move at a time), and the game waits in 📬 Challenges. Or join the ladder below.</p>
             <button className="lu-btn" onClick={challengeFriend}>⚔ Challenge a friend</button>
           </div>
@@ -389,9 +447,10 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
       <div className="lu-side">
         <div className="lu-win">
           <div className="lu-row between">
-            <b>{s.result ? 'BATTLE OVER' : roles.length ? '🎓 PICK A JOB' : s.turn === ME ? (myKingInCheck ? '⚠ CHECK! YOUR TURN' : '▶ YOUR TURN') : mail ? `${them.toUpperCase()}'S TURN…` : 'ENEMY TURN…'}</b>
+            <b>{s.result ? 'BATTLE OVER' : roles.length ? '🎓 PICK A JOB' : s.turn === ME ? (myKingInCheck ? '⚠ CHECK! YOUR TURN' : '▶ YOUR TURN') : mail || live ? `${them.toUpperCase()}'S TURN…` : 'ENEMY TURN…'}</b>
             <span className="lu-small">Turn {Math.floor(s.ply / 2) + 1}</span>
           </div>
+          {live && <p className="lu-small">⚡ Live vs {them}{room.seats[ME === 'p1' ? 'p2' : 'p1']?.connected === false ? ' (reconnecting…)' : ''} · you are {ME === 'p1' ? 'Blue' : 'Red'} · room {room.code}</p>}
           {mail && <p className="lu-small">⚔ Challenge vs {them} · you are {ME === 'p1' ? 'Blue' : 'Red'}{actor(s) !== ME && !s.result ? ' · come back later, we will tell you when it is your move' : ''}</p>}
           {note && <p className="lu-small" style={{ color: '#ff8a8a' }}>{note}</p>}
         </div>
@@ -435,8 +494,13 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
           <button className="lu-btn" onClick={() => setMenu('points')}>Points menu</button>
           <button className="lu-btn" onClick={() => setMenu('help')}>Help</button>
           {!s.result && <button className="lu-btn" onClick={() => act({ t: 'resign', by: ME })}>Give up</button>}
-          <button className="lu-btn" onClick={() => (mail ? back() : (setS(null), setBot(null)))}>◀ Leave</button>
+          <button className="lu-btn" onClick={() => (mail ? back() : live ? (luSession.leave(), setLive(false), setS(null)) : (setS(null), setBot(null)))}>◀ Leave</button>
         </div>
+        {live && (
+          <div className="lu-row">
+            {EMOTES.map((e) => <button key={e.id} className="lu-btn lu-emote" onClick={() => luSession.emote(e.id)}>{e.text}</button>)}
+          </div>
+        )}
       </div>
 
       {top && (
@@ -494,9 +558,13 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
           <div className="lu-win lu-pop">
             <h2>{s.result.winner === ME ? `★ ${s.result.grade.toUpperCase()} ★` : s.result.winner ? 'DEFEAT…' : 'A DRAW'}</h2>
             <p>{s.result.reason === 'assassin' ? (s.result.winner === ME ? 'Your assassin struck the king!' : 'An assassin struck your king!') : s.result.reason === 'checkmate' ? 'Checkmate!' : s.result.reason === 'resign' ? 'Someone gave up.' : 'Nobody can move.'}</p>
+            {live && room.games > 0 && <p className="lu-small">Score: you {room.score[ME] ?? 0} – {room.score[ME === 'p1' ? 'p2' : 'p1'] ?? 0} {them}</p>}
             <p className="lu-small">Your pieces: {s.pieces.filter((q) => q.owner === ME && level(q) >= 2).length} reached level 2+, {s.pieces.filter((q) => q.owner === ME && level(q) >= 3).length} reached level 3.</p>
             <div className="lu-row">
-              {mail ? <button className="lu-btn" onClick={back}>◀ Challenges</button> : <>
+              {live ? <>
+                <button className="lu-btn" disabled={room.rematch.includes(ME)} onClick={() => luSession.rematchVote()}>{room.rematch.includes(ME) ? 'Waiting for them…' : room.rematch.length ? '▶ They want a rematch! Yes' : '▶ Rematch'}</button>
+                <button className="lu-btn" onClick={() => { luSession.leave(); setLive(false); setS(null); }}>◀ Leave</button>
+              </> : mail ? <button className="lu-btn" onClick={back}>◀ Challenges</button> : <>
                 <button className="lu-btn" onClick={() => start(bot!)}>▶ Fight again</button>
                 <button className="lu-btn" onClick={() => { setS(null); setBot(null); }}>◀ Title</button>
               </>}
@@ -597,4 +665,29 @@ function LadderWindow() {
       )}
     </div>
   );
+}
+
+/** Live games with a room code: make a room, or join a friend's. */
+function LiveWindow({ name, go }: { name: string; go: () => void }) {
+  const [code, setCode] = useState('');
+  const [colour, setColour] = useState<'p1' | 'p2' | 'random'>('random');
+  return (
+    <div className="lu-win">
+      <h2>⚡ Play live with a friend</h2>
+      <p className="lu-small">Both play at the same time. One of you makes a room and shares the code; the other joins.</p>
+      <div className="lu-row">
+        {(['p1', 'p2', 'random'] as const).map((c) => <button key={c} className={`lu-btn ${colour === c ? 'on' : ''}`} onClick={() => setColour(c)}>{c === 'p1' ? '🟦 Blue' : c === 'p2' ? '🟥 Red' : '🎲 Either'}</button>)}
+        <button className="lu-btn" onClick={() => { luSession.create(name, colour); go(); }}>▶ Make a room</button>
+      </div>
+      <div className="lu-row">
+        <input className="lu-input" aria-label="Room code" placeholder="CODE" maxLength={4} value={code} onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))} />
+        <button className="lu-btn" disabled={code.length !== 4} onClick={() => { luSession.join(code, name); go(); }}>▶ Join</button>
+        {hasLiveGame() && <button className="lu-btn" onClick={() => { luSession.resume(); go(); }}>↩ Back to my live game</button>}
+      </div>
+    </div>
+  );
+}
+
+function hasLiveGame(): boolean {
+  try { return !!sessionStorage.getItem('chess-chaos:lu-room'); } catch { return false; }
 }

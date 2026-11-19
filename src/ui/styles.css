@@ -839,3 +839,6 @@ body[data-calm] .die { animation: none; }
 .lu-ladder-list li.me { color: #ffe066; }
 .lu-ladder .number-prompt, .lu-ladder .cloud-card { color: #222; }
 .daily-toast { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); z-index: 80; max-width: min(92vw, 460px); background: #fff8d6; color: #222; border: 3px solid #222; border-radius: 14px; box-shadow: 3px 3px 0 #222; padding: 10px 14px; font: inherit; font-weight: 700; cursor: pointer; animation: lu-pop 0.25s ease-out; }
+.lu-code { font-size: 2.6rem; letter-spacing: 8px; color: #ffe066; margin: 4px 0; text-shadow: 2px 2px 0 #000; }
+.lu-input { font: inherit; font-size: 1.2rem; letter-spacing: 4px; width: 7ch; text-transform: uppercase; background: #000; color: #fff; border: 2px solid #fff; border-radius: 6px; padding: 6px 8px; }
+.lu-emote { font-size: 0.8rem; padding: 4px 8px; min-height: 32px; }

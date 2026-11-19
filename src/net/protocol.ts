@@ -2,6 +2,7 @@ import { PLAYABLE_CARDS } from '../core/cards';
 import { armyCost, DRAFT_BUDGET } from '../core/modes2';
 import type { GameRecord } from '../core/record';
 import type { Action, PlayerId } from '../core/types';
+import type { LUClientMsg, LUServerMsg } from './luRoom';
 
 /**
  * Online room protocol (docs/09 section 2). The server is authoritative: it
@@ -129,7 +130,9 @@ export type ClientMsg =
   | { t: 'army'; pieces: string[] }
   /** hand: power cards for the next party game (some may have burned). */
   | { t: 'rematch'; hand?: string[] }
-  | { t: 'leave' };
+  | { t: 'leave' }
+  /** Live Level-Up rooms (src/net/luRoom.ts). */
+  | LUClientMsg;
 
 export type ServerMsg =
   | { t: 'joined'; code: string; seat: PlayerId; token: string }
@@ -137,7 +140,8 @@ export type ServerMsg =
   | { t: 'friend'; number: string; name: string }
   | { t: 'room'; code: string; record: GameRecord; seats: Partial<Record<PlayerId, SeatInfo>>; seatIds: PlayerId[]; game: RoomGame; host: PlayerId | null; rematchVotes: PlayerId[]; clock: ClockState | null; score?: Partial<Record<PlayerId, number>>; gamesPlayed?: number; wheelsAsk?: WheelsAsk | null; extrasVote?: ExtrasVote | null; missionsOn?: boolean; friendOffers?: PlayerId[]; armies?: Partial<Record<PlayerId, 'ready' | 'buying'>> }
   | { t: 'emote'; from: PlayerId; id: EmoteId }
-  | { t: 'error'; message: string };
+  | { t: 'error'; message: string }
+  | LUServerMsg;
 
 const NAME_BLOCK = /(fuck|shit|bitch|cunt|dick|nigg|fag|slut|whore|rape|nazi|porn|sex)/i;
 

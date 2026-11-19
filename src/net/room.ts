@@ -1,3 +1,4 @@
+import { LURoomServer, type LUClientMsg } from './luRoom';
 import { chooseMove, strengthFor } from '../ai/strength';
 import { newBattleRecord, newRecord, replay, type GameRecord } from '../core/record';
 import { BOTS } from '../content/bots';
@@ -537,8 +538,12 @@ export class Room {
 export class RoomServer {
   rooms = new Map<string, Room>();
   private connRoom = new Map<string, Room>();
+  /** Live Level-Up rooms share the connection and the server. */
+  lu: LURoomServer;
 
-  constructor(private now: () => number = Date.now) {}
+  constructor(private now: () => number = Date.now) {
+    this.lu = new LURoomServer(now);
+  }
 
   private newCode(): string {
     for (;;) {
@@ -549,6 +554,7 @@ export class RoomServer {
   }
 
   handle(conn: Conn, msg: ClientMsg) {
+    if (msg.t.startsWith('lu-')) return this.lu.handle(conn, msg as LUClientMsg);
     if (msg.t === 'create') {
       this.leaveCurrent(conn);
       const game = ROOM_GAMES.some((g) => g.id === msg.game) ? msg.game! : 'standard';
@@ -598,10 +604,12 @@ export class RoomServer {
 
   close(conn: Conn) {
     this.leaveCurrent(conn);
+    this.lu.close(conn);
   }
 
   /** Run every few seconds: bot takeovers and deleting idle rooms. */
   tick() {
+    this.lu.tick();
     for (const [code, room] of this.rooms) {
       room.tick();
       if (room.emptySince !== null && this.now() - room.emptySince >= ROOM_IDLE_MS) this.rooms.delete(code);
