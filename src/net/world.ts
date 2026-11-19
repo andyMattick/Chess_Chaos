@@ -153,6 +153,8 @@ async function reachable(store: WorldStore, to: string, from: string): Promise<b
   if (!pv?.fo) return true;
   return pv.friends.includes(from) || !!(await store.get(`fs:${to}:${from}`));
 }
+/** A live-room invite lasts this long (the room itself closes when empty). */
+export const LIVE_INVITE_MS = 15 * 60 * 1000;
 export const FRIENDS_ONLY_MSG = 'This player only plays with friends. Ask them to add you.';
 
 /**
@@ -214,6 +216,34 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
       if (!body?.friendsOnly) { await store.delete(`pv:${n}`); return json({ ok: true }); }
       const friends = [...new Set((Array.isArray(body.friends) ? body.friends : []).map((x) => String(x)).filter(isNumber))].slice(0, 200);
       await store.put(`pv:${n}`, JSON.stringify({ fo: true, friends } satisfies Privacy));
+      return json({ ok: true });
+    }
+    return bad('method', 405);
+  }
+
+  // ---- Live Level-Up invites (owner, 2026-11-19) -------------------------
+  // li:<to>:<from> = { code, at }: "come and play in my live room". Numbers and a room code only; gone after 15 minutes.
+  if (parts[0] === 'live') {
+    if (!who) return bad('no key', 401);
+    if (req.method === 'GET' && !parts[1]) {
+      const out: { n: string; code: string; at: number }[] = [];
+      for (const [k, v] of await store.list(`li:${who}:`)) {
+        const x = JSON.parse(v) as { code: string; at: number };
+        if (now - x.at > LIVE_INVITE_MS) { await store.delete(k); continue; }
+        out.push({ n: k.split(':')[2], ...x });
+      }
+      return json({ invites: out.sort((a, b) => b.at - a.at) });
+    }
+    const other = parts[1];
+    if (!other || !isNumber(other) || other === who) return bad('That is not a player number.');
+    if (req.method === 'DELETE') { await store.delete(`li:${who}:${other}`); return json({ ok: true }); }
+    if (req.method === 'POST') {
+      const body = (await req.json().catch(() => null)) as { code?: string } | null;
+      const code = String(body?.code ?? '').toUpperCase();
+      if (!/^L[A-Z]{3}$/.test(code)) return bad('That is not a Level-Up room code.');
+      if (!(await exists(other))) return bad('No player has that number.', 404);
+      if (!(await reachable(store, other, who))) return bad(FRIENDS_ONLY_MSG, 403);
+      await store.put(`li:${other}:${who}`, JSON.stringify({ code, at: now }));
       return json({ ok: true });
     }
     return bad('method', 405);

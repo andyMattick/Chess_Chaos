@@ -851,3 +851,5 @@ body[data-calm] .die { animation: none; }
 .lu.storybook .lu-fog { fill: #0c1226; opacity: 0.72; }
 .lu.storybook .lu-duel img, .lu.storybook .lu-big { image-rendering: auto; }
 .lu-preview img { width: 36px; height: 36px; }
+.lu-invite { text-align: left; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.lu-invite h2 { margin: 8px 0 0; font-size: 1.1rem; }

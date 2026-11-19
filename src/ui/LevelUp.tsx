@@ -12,7 +12,7 @@ import { luReplay, type MailGame } from '../net/world';
 import { luSession, useLuRoom } from '../net/luClient';
 import { roomServerUrl } from '../net/client';
 import { EMOTES } from '../net/protocol';
-import { fetchLadder, getGame, joinLadder, labelFor, ladderChallenge, leaveLadder, resignMail, sendLuMove } from '../storage/world';
+import { fetchLadder, getGame, joinLadder, labelFor, ladderChallenge, leaveLadder, resignMail, sendLiveInvite, sendLuMove } from '../storage/world';
 import { LADDER_REACH, type LadderRow } from '../net/world';
 import { vaultBase } from '../storage/cloud';
 import { NumberPrompt } from './CloudSave';
@@ -41,7 +41,7 @@ function pieceLine(p: LUPiece): string {
   return lv >= 3 ? `${nameOf(p)} · Lv 3 · ${p.xp} pts · MAX` : `${nameOf(p)} · Lv ${lv} · ${p.xp}/${(LEVEL_AT as readonly number[])[lv]} pts to Lv ${lv + 1}`;
 }
 
-export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => void; mail?: MailGame; challengeFriend?: () => void }) {
+export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back: () => void; mail?: MailGame; challengeFriend?: () => void; joinCode?: string }) {
   const save = useSave();
   const p = activeProfile(save);
   const art: LUArt = save.settings.luArt ?? '8bit';
@@ -50,7 +50,12 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
   // A challenge: you play your seat against a friend, a move at a time (owner, 2026-11-19).
   // Live: a room with a code, moves as they happen (owner, 2026-11-19).
   const room = useLuRoom();
-  const [live, setLive] = useState(false);
+  // Opened from an invite or a link: join that room straight away.
+  const [live, setLive] = useState(() => {
+    if (!joinCode) return false;
+    luSession.join(joinCode, activeProfile()?.nickname ?? 'Player');
+    return true;
+  });
   const ME: Side = live ? room.seat ?? 'p1' : mail && mail.players.p2 === p?.cloud?.number ? 'p2' : 'p1';
   const flip = ME === 'p2';
   const them = mail ? labelFor(p, mail.players[ME === 'p1' ? 'p2' : 'p1']) : live ? room.seats[ME === 'p1' ? 'p2' : 'p1']?.name ?? 'your friend' : '';
@@ -251,8 +256,8 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
             <>
               <p>Room code</p>
               <p className="lu-code">{room.code}</p>
-              <p className="lu-small">Tell your friend: Level-Up Chess → Play live → Join, and type this code. You are {room.seat === 'p1' ? 'Blue (you move first)' : 'Red'}.</p>
-              <p className="lu-small">{bothIn ? 'Starting…' : 'Waiting for your friend…'}</p>
+              <p className="lu-small">You are {room.seat === 'p1' ? 'Blue (you move first)' : 'Red'}. {bothIn ? 'Starting…' : 'Waiting for your friend…'}</p>
+              {!bothIn && <InviteBox code={room.code} />}
             </>
           ) : <p>{room.error ?? (room.status === 'connecting' ? 'Connecting…' : 'Opening a room…')}</p>}
           {room.error && room.code && <p className="lu-small">{room.error}</p>}
@@ -701,4 +706,51 @@ function LiveWindow({ name, go }: { name: string; go: () => void }) {
 
 function hasLiveGame(): boolean {
   try { return !!sessionStorage.getItem('chess-chaos:lu-room'); } catch { return false; }
+}
+
+/**
+ * On the waiting screen: send the room code (share menu or copy, with a link
+ * that opens the room), or invite a friend straight away (a pop-up in their
+ * app; numbers and the code only).
+ */
+function InviteBox({ code }: { code: string }) {
+  const save = useSave();
+  const p = activeProfile(save);
+  const [sent, setSent] = useState<Record<string, string>>({});
+  const [shared, setShared] = useState<string | null>(null);
+  const link = `${location.origin}${location.pathname}?lu=${code}`;
+  const text = `Play Level-Up Chess with me! Room code ${code}`;
+  const share = async () => {
+    try {
+      if (navigator.share) { await navigator.share({ title: 'Level-Up Chess', text, url: link }); setShared('Sent!'); return; }
+      await navigator.clipboard.writeText(`${text}: ${link}`);
+      setShared('Copied! Paste it in a message to your friend.');
+    } catch { setShared(`Tell them the code: ${code}`); }
+  };
+  const invite = (n: string) => {
+    setSent((x) => ({ ...x, [n]: 'Sending…' }));
+    sendLiveInvite(n, code).then(() => setSent((x) => ({ ...x, [n]: '✔ Invited' }))).catch((e) => setSent((x) => ({ ...x, [n]: (e as Error).message })));
+  };
+  const friends = p?.friends ?? [];
+  return (
+    <div className="lu-invite">
+      <button className="lu-btn" onClick={() => void share()}>📤 Send the code</button>
+      {shared && <p className="lu-small">{shared}</p>}
+      <h2>👫 Invite a friend</h2>
+      {!p?.cloud ? <p className="lu-small">Get a player number (⚙️ Settings) to invite friends straight from here.</p>
+        : friends.length === 0 ? <p className="lu-small">No friends yet. Add them in 📬 Challenges, or send the code.</p>
+        : (
+          <ul className="lu-ladder-list">
+            {friends.slice(0, 12).map((n) => (
+              <li key={n}>
+                <span>{labelFor(p, n)}</span>
+                <span />
+                {sent[n] ? <span className="lu-small">{sent[n]}</span> : <button className="lu-btn" onClick={() => invite(n)}>⚡ Invite</button>}
+              </li>
+            ))}
+          </ul>
+        )}
+      <p className="lu-small">They get a pop-up in Chess Chaos with a Join button. Or they can open Level-Up Chess → Play live and type {code}.</p>
+    </div>
+  );
 }

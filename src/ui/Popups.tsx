@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { mailLabel, mailTurn, type MailGame, type Tournament } from '../net/world';
 import { vaultBase } from '../storage/cloud';
 import { activeProfile } from '../storage/storage';
-import { acceptFriend, declineFriend, friendInbox, labelFor, myGames, myTournaments, takeAccepted } from '../storage/world';
+import { acceptFriend, declineFriend, dismissLiveInvite, friendInbox, labelFor, liveInvites, myGames, myTournaments, takeAccepted } from '../storage/world';
 import { showNumber } from '../net/vault';
 import { sfx } from './sound';
 import { useSave } from './store';
@@ -13,7 +13,7 @@ import { useSave } from './store';
  * The app asks the server every 45 seconds while it is open (and when it comes
  * back to the front). Each pop-up shows once; "Later" leaves it in 📬 Challenges.
  */
-export interface Pop { id: string; emoji: string; text: string; kind: 'open' | 'friend' | 'info'; n?: string }
+export interface Pop { id: string; emoji: string; text: string; kind: 'open' | 'friend' | 'info' | 'live'; n?: string; code?: string }
 
 const POLL_MS = 45_000;
 const SEEN_KEY = 'chess-chaos:seen-pops';
@@ -52,7 +52,7 @@ export function popsFrom(me: string, games: MailGame[], tours: Tournament[], inc
 }
 
 /** `inChallenges`: the player is looking at 📬 Challenges, so everything there counts as seen. `quiet`: in a game, wait. */
-export function Popups({ openChallenges, quiet, inChallenges }: { openChallenges: () => void; quiet: boolean; inChallenges: boolean }) {
+export function Popups({ openChallenges, openLive, quiet, inChallenges }: { openChallenges: () => void; openLive: (code: string) => void; quiet: boolean; inChallenges: boolean }) {
   const save = useSave();
   const p = activeProfile(save);
   const number = p?.cloud?.number;
@@ -94,7 +94,29 @@ export function Popups({ openChallenges, quiet, inChallenges }: { openChallenges
     return () => { stop = true; clearInterval(t); document.removeEventListener('visibilitychange', onShow); };
   }, [number]);
 
+  // Live Level-Up invites need a quick answer: look every 15 seconds (owner, 2026-11-19).
+  useEffect(() => {
+    if (!number || !vaultBase()) return;
+    let stop = false;
+    const look = async () => {
+      if (document.visibilityState === 'hidden') return;
+      try {
+        const prof = activeProfile();
+        const seen = seenSet();
+        const fresh: Pop[] = (await liveInvites()).map((x) => ({ id: `li:${x.n}:${x.code}`, emoji: '⚡', text: `${labelFor(prof, x.n)} invited you to a live Level-Up game!`, kind: 'live' as const, n: x.n, code: x.code })).filter((x) => !seen.has(x.id));
+        if (!stop && fresh.length) {
+          setQueue((q) => [...fresh.filter((x) => !q.some((y) => y.id === x.id)), ...q]);
+          sfx.promote();
+        }
+      } catch { /* offline */ }
+    };
+    void look();
+    const t = setInterval(() => void look(), 15_000);
+    return () => { stop = true; clearInterval(t); };
+  }, [number]);
+
   const top = queue[0];
+  // A live invite still shows during other things (not during a game).
   if (!top || quiet) return null;
   const done = () => { markSeen(top.id); setQueue((q) => q.slice(1)); };
   return (
@@ -103,11 +125,15 @@ export function Popups({ openChallenges, quiet, inChallenges }: { openChallenges
       <span className="popup-text">{top.text}{queue.length > 1 && <small className="muted"> (+{queue.length - 1} more)</small>}</span>
       <span className="row">
         {top.kind === 'open' && <button className="btn small primary" onClick={() => { done(); openChallenges(); }}>Open</button>}
+        {top.kind === 'live' && top.code && <>
+          <button className="btn small primary" onClick={() => { void dismissLiveInvite(top.n!).catch(() => undefined); done(); openLive(top.code!); }}>⚡ Join</button>
+          <button className="btn small" onClick={() => { void dismissLiveInvite(top.n!).catch(() => undefined); done(); }}>No thanks</button>
+        </>}
         {top.kind === 'friend' && top.n && <>
           <button className="btn small primary" onClick={() => { void acceptFriend(top.n!).catch(() => undefined); done(); }}>Yes!</button>
           <button className="btn small" onClick={() => { void declineFriend(top.n!).catch(() => undefined); done(); }}>No thanks</button>
         </>}
-        <button className="btn small" onClick={done}>{top.kind === 'info' ? 'OK' : 'Later'}</button>
+        {top.kind !== 'live' && <button className="btn small" onClick={done}>{top.kind === 'info' ? 'OK' : 'Later'}</button>}
       </span>
     </div>
   );

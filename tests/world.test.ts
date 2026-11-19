@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { authToken, handleBox, handleVault, memoryBoxes, newSaveKey, playerExists, verifyPlayer, vaultRoute } from '../src/net/vault';
-import { handleWorld, memoryWorld, maskNumber, MAIL_TIMEOUT_MS, BOARD_TOP, ladderAfter, luReplay, mailTurn, type MailGame } from '../src/net/world';
+import { handleWorld, memoryWorld, maskNumber, MAIL_TIMEOUT_MS, BOARD_TOP, LIVE_INVITE_MS, ladderAfter, luReplay, mailTurn, type MailGame } from '../src/net/world';
 import { chooseAction } from '../src/levelup/ai';
 import { legalActions, parseSAN, replay } from '../src/core';
 
@@ -175,6 +175,24 @@ describe('Level-Up challenges', () => {
     const done = ((await (await b.call('GET', '/games')).json()).games as MailGame[]).find((x) => x.id === g.id)!;
     expect(done.status).toBe('done');
     expect(done.record.meta.result?.winners).toEqual(['p2']);
+  });
+});
+
+describe('live Level-Up invites', () => {
+  it('invite a friend to a live room: they see it; it goes after 15 minutes; friends only is respected', async () => {
+    const sv = server();
+    const a = await sv.player(), b = await sv.player(), c = await sv.player();
+    expect((await a.call('POST', `/live/${b.number}`, { code: 'ABCD' })).status).toBe(400); // not a Level-Up code
+    expect((await a.call('POST', `/live/${b.number}`, { code: 'lxyz' })).status).toBe(200);
+    const got = (await (await b.call('GET', '/live')).json()).invites;
+    expect(got).toEqual([{ n: a.number, code: 'LXYZ', at: expect.any(Number) }]);
+    await b.call('DELETE', `/live/${a.number}`);
+    expect((await (await b.call('GET', '/live')).json()).invites).toEqual([]);
+    await a.call('POST', `/live/${b.number}`, { code: 'LXYZ' });
+    sv.later(LIVE_INVITE_MS + 1);
+    expect((await (await b.call('GET', '/live')).json()).invites).toEqual([]);
+    await b.call('POST', `/privacy/${b.number}`, { friendsOnly: true, friends: [] });
+    expect((await c.call('POST', `/live/${b.number}`, { code: 'LXYZ' })).status).toBe(403);
   });
 });
 

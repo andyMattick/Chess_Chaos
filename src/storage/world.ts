@@ -229,3 +229,14 @@ export async function leaveLadder(): Promise<void> {
 export async function ladderChallenge(to: string): Promise<MailGame> {
   return (await answer<{ game: MailGame }>(await call(activeProfile()!, 'POST', '/ladder/challenge', { to }))).game;
 }
+
+/* ---- Live Level-Up invites (numbers and a room code only) ---- */
+export async function sendLiveInvite(to: string, code: string): Promise<void> {
+  await answer(await call(activeProfile()!, 'POST', `/live/${to}`, { code }));
+}
+export async function liveInvites(): Promise<{ n: string; code: string; at: number }[]> {
+  return (await answer<{ invites: { n: string; code: string; at: number }[] }>(await call(activeProfile()!, 'GET', '/live'))).invites;
+}
+export async function dismissLiveInvite(from: string): Promise<void> {
+  await answer(await call(activeProfile()!, 'DELETE', `/live/${from}`));
+}

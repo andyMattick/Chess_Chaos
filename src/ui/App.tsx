@@ -45,14 +45,16 @@ type Screen =
   | { name: 'minis' }
   | { name: 'openings'; botId?: string }
   | { name: 'battle' }
-  | { name: 'levelup'; mail?: MailGame; key?: number }
+  | { name: 'levelup'; mail?: MailGame; key?: number; join?: string }
   | { name: 'battle-game'; local: LocalBattle; key: number }
   | { name: 'game'; config: GameConfig; key: number; review?: GameRecord };
 
 export function App() {
   const save = useSave();
   const linkCode = roomFromUrl();
-  const [screen, setScreen] = useState<Screen>(() => (!activeProfile(save) ? { name: 'profiles' } : linkCode ? { name: 'online', code: linkCode } : { name: 'home' }));
+  // A shared live Level-Up link: ?lu=LABC (owner, 2026-11-19).
+  const luLink = (() => { try { const c = new URLSearchParams(location.search).get('lu')?.toUpperCase() ?? ''; return /^L[A-Z]{3}$/.test(c) ? c : null; } catch { return null; } })();
+  const [screen, setScreen] = useState<Screen>(() => (!activeProfile(save) ? { name: 'profiles' } : luLink ? { name: 'levelup', join: luLink, key: Date.now() } : linkCode ? { name: 'online', code: linkCode } : { name: 'home' }));
   const home = () => setScreen({ name: 'home' });
   const startGame = (config: GameConfig) => setScreen({ name: 'game', config, key: Date.now() });
   const openRecord = (rec: GameRecord) => setScreen({ name: 'game', key: Date.now(), review: rec, config: { kind: 'local', humanSeat: 'p1', names: rec.meta.players } });
@@ -107,7 +109,7 @@ export function App() {
   return (
     <main className="app">
       <DailyToast />
-      <Popups openChallenges={() => setScreen({ name: 'challenges' })} quiet={inGame || askOpen} inChallenges={screen.name === 'challenges'} />
+      <Popups openChallenges={() => setScreen({ name: 'challenges' })} openLive={(code) => setScreen({ name: 'levelup', join: code, key: Date.now() })} quiet={inGame || askOpen} inChallenges={screen.name === 'challenges'} />
       {askOpen && askP && (
         <div className="number-modal" role="dialog" aria-label="Get a player number">
           <div>
@@ -121,7 +123,7 @@ export function App() {
           go={(s) => setScreen((s === 'online' ? { name: 'online' } : { name: s }) as Screen)}
         />
       )}
-      {screen.name === 'profiles' && <Profiles done={() => (linkCode ? setScreen({ name: 'online', code: linkCode }) : home())} />}
+      {screen.name === 'profiles' && <Profiles done={() => (luLink ? setScreen({ name: 'levelup', join: luLink, key: Date.now() }) : linkCode ? setScreen({ name: 'online', code: linkCode }) : home())} />}
       {screen.name === 'online' && <OnlineLobby back={home} initialCode={screen.code} />}
       {screen.name === 'wardrobe' && <Wardrobe back={home} />}
       {screen.name === 'train' && <TrainSetup start={startGame} back={home} />}
@@ -144,7 +146,7 @@ export function App() {
         />
       )}
       {screen.name === 'challenges' && <Challenges key={`${screen.to ?? ''}${screen.game ?? ''}`} initialTo={screen.to} initialGame={screen.game} back={home} play={startGame} playLevelUp={(g) => setScreen({ name: 'levelup', mail: g, key: Date.now() })} />}
-      {screen.name === 'levelup' && <LevelUpScreen key={screen.key} back={screen.mail ? () => setScreen({ name: 'challenges' }) : home} mail={screen.mail} challengeFriend={() => setScreen({ name: 'challenges', game: 'levelup' })} />}
+      {screen.name === 'levelup' && <LevelUpScreen key={screen.key} back={screen.mail ? () => setScreen({ name: 'challenges' }) : home} mail={screen.mail} joinCode={screen.join} challengeFriend={() => setScreen({ name: 'challenges', game: 'levelup' })} />}
       {screen.name === 'minis' && <MinisScreen back={home} play={startGame} />}
       {screen.name === 'game' && (
         <GameScreen key={screen.key} config={screen.config} reviewRecord={screen.review} onExit={screen.config.kind === 'mail' ? () => setScreen({ name: 'challenges' }) : screen.config.mini || screen.config.mode === 'pawn-wars' ? () => setScreen({ name: 'minis' }) : home} onRematch={startGame} />
