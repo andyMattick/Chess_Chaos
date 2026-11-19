@@ -7,6 +7,7 @@ import { startCloudSync, vaultBase } from '../storage/cloud';
 import { NumberPrompt } from './CloudSave';
 import { Popups } from './Popups';
 import { DailyToast } from './DailyToast';
+import { LadderAsk } from './LadderAsk';
 import { GameScreen, type GameConfig } from './GameScreen';
 import { landscapeById } from './landscapes';
 import { OnlineLobby, roomFromUrl } from './OnlineLobby';
@@ -109,6 +110,7 @@ export function App() {
   return (
     <main className="app">
       <DailyToast />
+      <LadderAsk quiet={inGame || askOpen || screen.name === 'profiles' || screen.name === 'levelup'} openLevelUp={() => setScreen({ name: 'levelup', key: Date.now() })} />
       <Popups openChallenges={() => setScreen({ name: 'challenges' })} openLive={(code) => setScreen({ name: 'levelup', join: code, key: Date.now() })} quiet={inGame || askOpen} inChallenges={screen.name === 'challenges'} />
       {askOpen && askP && (
         <div className="number-modal" role="dialog" aria-label="Get a player number">

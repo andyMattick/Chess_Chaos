@@ -58,6 +58,8 @@ export interface Profile {
   worldBoard?: boolean;
   /** Only friends can challenge or friend-request this player (strangers from the world leaderboard can't). */
   friendsOnly?: boolean;
+  /** Asked once (at start-up) whether to join the Level-Up ladder; yes or no, not asked again. */
+  ladderAsked?: boolean;
   /** Names this player gave to player numbers, on this device only. */
   contacts?: Record<string, string>;
   /** Friends' player numbers (newest first), on this device only. Names are in contacts. */
