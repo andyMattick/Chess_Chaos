@@ -242,6 +242,8 @@ describe('the new pieces', () => {
     s = play(s, { t: 'board', piece: pawn.id, catapult: empty.id });
     expect(s.pieces[pawn.id].at).toBe(-1);
     expect(s.pieces[empty.id].crew).toBe(pawn.id);
+    // It stays on for good: no climbing off.
+    expect(legalActions(quiet(s)).some((x) => x.t === "unboard")).toBe(false);
     // An enemy attacks it: the fight is against the crew pawn; the attacker stays put.
     const q = put(s, 'queen', 'p2', S(3, 6));
     s = withRolls(s, [6, 1]);

@@ -444,7 +444,6 @@ export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back:
       if (pick('move')) btns.push(modeBtn('go', 'Move'));
       if (pick('mark')) btns.push(modeBtn('mark', '🎯 Mark target'));
       btns.push(now(pick('fire'), '💥 Fire!'), now(pick('reload'), '🔄 Reload'));
-      if (pick('unboard')) btns.push(modeBtn('off', '🪖 Crew climbs off'));
     } else if (p.type === 'miner') {
       note = `Mines carried: ${p.carry ?? 0}. Step on a mine to defuse it (roll: 1 blows up, 6 keeps it).`;
       btns.push(modeBtn('go', 'Move'));
@@ -635,7 +634,7 @@ function Menu({ which, close }: { which: 'points' | 'help'; close: () => void })
               <li>Every attack is a dice battle: each side rolls a die and adds its power. Higher wins. Lose by 4 or more and the attacker falls.</li>
               <li>Ties: attack with a friend next to the target and you win. Otherwise the bases decide: ▲ beats ●, ● beats ■, ■ beats ▲.</li>
               <li>The fog hides what your pieces can't see. Enemies show as ??? until they fight, or your scout gets close.</li>
-              <li>Bombardiers can't be destroyed, but need a pawn crew on them. Each turn, as well as your move, a bombardier can mark a target, fire at a marked target (they get a turn to escape), or reload. Everything next to a shot is stunned and misses a turn. Level 2 rooks protect the friends next to them from shots. A level 3 blast also hits the 4 diagonal squares and leaves a crater nobody can cross.</li>
+              <li>Bombardiers can't be destroyed, but need a pawn crew on them. The crew stays on for good; an attack on a bombardier fights the crew, and only the crew can die. Each turn, as well as your move, a bombardier can mark a target, fire at a marked target (they get a turn to escape), or reload. Everything next to a shot is stunned and misses a turn. Level 2 rooks protect the friends next to them from shots. A level 3 blast also hits the 4 diagonal squares and leaves a crater nobody can cross.</li>
               <li>Your two scouts pick a job at level 2: Medic (brings fallen friends back), Miner (hides and clears mines) or Spy (invisible, then an Assassin).</li>
               <li>Mines blow up whoever steps on them and stun everything around. Your team sees your mines; miners see mines next to them.</li>
               <li>Pawns at level 2 step any way and attack diagonally any way. At level 3 a pawn can train as a scout.</li>

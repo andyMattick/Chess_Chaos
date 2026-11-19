@@ -313,8 +313,7 @@ export function pieceActions(s: LUState, p: LUPiece): LUAction[] {
       // A bombardier that took its step can't also move that turn (owner, 2026-11-19).
       if (p.stepPly === s.ply) break;
       for (const [df, dr] of ALL) { const t = step(p.at, df, dr); if (free(t)) out.push({ t: 'move', piece: p.id, to: t }); }
-      // The crew climbs off.
-      for (const [df, dr] of ALL) { const t = step(p.at, df, dr); if (free(t)) out.push({ t: 'unboard', piece: p.id, to: t }); }
+      // The crew never climbs off (owner, 2026-11-19): it stays until it is killed. (`unboard` is kept only so older games replay.)
       if (p.load === 'loaded') {
         const range = CATAPULT_RANGE[lv - 1];
         for (let sq = 0; sq < N * N; sq++) {
