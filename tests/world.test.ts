@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { authToken, handleBox, handleVault, memoryBoxes, newSaveKey, playerExists, verifyPlayer, vaultRoute } from '../src/net/vault';
-import { handleWorld, memoryWorld, maskNumber, MAIL_TIMEOUT_MS, BOARD_TOP, luReplay, mailTurn, type MailGame } from '../src/net/world';
+import { handleWorld, memoryWorld, maskNumber, MAIL_TIMEOUT_MS, BOARD_TOP, ladderAfter, luReplay, mailTurn, type MailGame } from '../src/net/world';
 import { chooseAction } from '../src/levelup/ai';
 import { legalActions, parseSAN, replay } from '../src/core';
 
@@ -175,6 +175,38 @@ describe('Level-Up challenges', () => {
     const done = ((await (await b.call('GET', '/games')).json()).games as MailGame[]).find((x) => x.id === g.id)!;
     expect(done.status).toBe('done');
     expect(done.record.meta.result?.winners).toEqual(['p2']);
+  });
+});
+
+describe('Level-Up ladder', () => {
+  it('join at the bottom; challenge 1 or 2 above; the winner takes the place', async () => {
+    const sv = server();
+    const [a, b, c, d] = [await sv.player(), await sv.player(), await sv.player(), await sv.player()];
+    for (const x of [a, b, c, d]) await x.call('POST', '/ladder');
+    const rows = async () => ((await (await sv.fetch(new Request('https://x.dev/world/ladder'))).json()).rows as { n: string }[]).map((r) => r.n);
+    expect(await rows()).toEqual([a.number, b.number, c.number, d.number]);
+    // d (4th) can reach b (2nd) and c (3rd), not a (1st); nobody challenges down.
+    expect((await d.call('POST', '/ladder/challenge', { to: a.number })).status).toBe(400);
+    expect((await b.call('POST', '/ladder/challenge', { to: d.number })).status).toBe(400);
+    const g = (await (await d.call('POST', '/ladder/challenge', { to: b.number })).json()).game as MailGame;
+    expect(g.ladder).toBe(true);
+    expect(g.game).toBe('levelup');
+    expect((await d.call('POST', '/ladder/challenge', { to: b.number })).status).toBe(400); // one at a time
+    await b.call('POST', `/games/${g.id}/accept`, {});
+    // b gives up: d takes 2nd place, b and c move down one.
+    await b.call('POST', `/games/${g.id}/resign`, {});
+    expect(await rows()).toEqual([a.number, d.number, b.number, c.number]);
+    const board = (await (await sv.fetch(new Request('https://x.dev/world/ladder'))).json()).rows;
+    expect(board[1]).toMatchObject({ rank: 2, n: d.number, w: 1, l: 0 });
+    // Leaving.
+    await c.call('DELETE', `/ladder/${c.number}`);
+    expect(await rows()).toEqual([a.number, d.number, b.number]);
+  });
+  it('a defender who wins stays put', () => {
+    const l = { order: ['1', '2', '3'], stats: {} };
+    expect(ladderAfter(l, '3', '1', '1').order).toEqual(['1', '2', '3']);
+    expect(ladderAfter(l, '3', '2', '3').order).toEqual(['1', '3', '2']);
+    expect(ladderAfter(l, '3', '2', null).order).toEqual(['1', '2', '3']);
   });
 });
 

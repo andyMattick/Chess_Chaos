@@ -9,7 +9,10 @@ import {
 } from '../levelup/rules';
 import { activeProfile, updateProfile } from '../storage/storage';
 import { luReplay, type MailGame } from '../net/world';
-import { getGame, labelFor, resignMail, sendLuMove } from '../storage/world';
+import { fetchLadder, getGame, joinLadder, labelFor, ladderChallenge, leaveLadder, resignMail, sendLuMove } from '../storage/world';
+import { LADDER_REACH, type LadderRow } from '../net/world';
+import { vaultBase } from '../storage/cloud';
+import { NumberPrompt } from './CloudSave';
 import { noteDaily } from '../storage/daily';
 import { luSfx } from './sound';
 import { spriteUrl } from './luSprites';
@@ -215,6 +218,7 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
           <button className="lu-btn" onClick={() => setMenu('points')}>How to earn points</button>
           <button className="lu-btn" onClick={back}>◀ Back</button>
         </div>
+        {vaultBase() && <LadderWindow />}
         {menu && <Menu which={menu} close={() => setMenu(null)} />}
       </div>
     );
@@ -516,6 +520,62 @@ function Menu({ which, close }: { which: 'points' | 'help'; close: () => void })
         )}
         <button className="lu-btn" onClick={close}>▶ Close</button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The Level-Up ladder (owner, 2026-11-19): join at the bottom, challenge anyone
+ * 1 or 2 places above you; win and you take their place. Games are challenges
+ * played a move at a time (they show in 📬 Challenges). Numbers only.
+ */
+function LadderWindow() {
+  const save = useSave();
+  const p = activeProfile(save);
+  const [rows, setRows] = useState<LadderRow[] | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const load = () => fetchLadder().then(setRows).catch((e) => setMsg((e as Error).message));
+  useEffect(() => { if (open) void load(); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!p) return null;
+  const me = rows?.find((r) => r.me);
+  const run = (f: () => Promise<unknown>, done: string) => { setMsg('…'); f().then(() => { setMsg(done); return load(); }).catch((e) => setMsg((e as Error).message)); };
+  const name = (r: LadderRow) => (r.me ? `${p.nickname} (you)` : (p.friends ?? []).includes(r.n) ? `👫 ${labelFor(p, r.n)}` : labelFor(p, r.n));
+  return (
+    <div className="lu-win lu-ladder">
+      <div className="lu-row between">
+        <h2>🪜 LEVEL-UP LADDER</h2>
+        <button className="lu-btn" onClick={() => setOpen(!open)}>{open ? 'Hide' : 'Show'}</button>
+      </div>
+      {open && (
+        <>
+          <p className="lu-small">Join at the bottom. Challenge anyone 1 or {LADDER_REACH} places above you. Win and you take their place. Games are played a move at a time in 📬 Challenges.</p>
+          {!p.cloud ? <NumberPrompt why="Get a player number to join the ladder." /> : rows && (
+            <>
+              <div className="lu-row">
+                {me ? <button className="lu-btn" onClick={() => run(leaveLadder, 'You left the ladder.')}>Leave the ladder</button>
+                  : <button className="lu-btn" onClick={() => run(joinLadder, 'You joined the ladder!')}>▶ Join the ladder</button>}
+                {me && <span className="lu-small">You are #{me.rank} of {rows.length}</span>}
+              </div>
+              {rows.length === 0 ? <p className="lu-small">Nobody yet. Be the first!</p> : (
+                <ol className="lu-ladder-list">
+                  {rows.map((r) => {
+                    const reach = me && r.rank < me.rank && me.rank - r.rank <= LADDER_REACH;
+                    return (
+                      <li key={r.n} className={r.me ? 'me' : ''}>
+                        <span>#{r.rank} {name(r)}</span>
+                        <span className="lu-small">{r.w}W {r.l}L</span>
+                        {reach && <button className="lu-btn" onClick={() => run(() => ladderChallenge(r.n), 'Challenge sent! Find it in 📬 Challenges.')}>⚔ Challenge</button>}
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </>
+          )}
+          {msg && <p className="lu-small">{msg}</p>}
+        </>
+      )}
     </div>
   );
 }

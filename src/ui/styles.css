@@ -834,3 +834,7 @@ body[data-calm] .die { animation: none; }
 .lu-drop { font-size: 6px; pointer-events: none; }
 .lu-roles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
 .lu-roles .lu-btn { min-height: 72px; }
+.lu-ladder-list { list-style: none; padding: 0; margin: 6px 0 0; }
+.lu-ladder-list li { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px solid #ffffff22; }
+.lu-ladder-list li.me { color: #ffe066; }
+.lu-ladder .number-prompt, .lu-ladder .cloud-card { color: #222; }

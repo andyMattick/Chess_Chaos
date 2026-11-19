@@ -47,6 +47,35 @@ export function mailTurn(g: MailGame): PlayerId {
   return g.lu ? luActor(luReplay(g)) : replay(g.record).at(-1)!.turn;
 }
 
+/* ---- The Level-Up ladder (owner, 2026-11-19) -----------------------------
+ * Opt in to join at the bottom. Challenge anyone 1 or 2 places above you to
+ * Level-Up Chess. Win and you take their place (everyone in between moves down
+ * one); lose and nothing moves. Numbers only.
+ */
+export const LADDER_REACH = 2;
+export interface Ladder { order: string[]; stats: Record<string, { w: number; l: number }> }
+export interface LadderRow { rank: number; n: string; w: number; l: number; me: boolean }
+async function loadLadder(store: WorldStore): Promise<Ladder> {
+  const v = await store.get('ladder');
+  return v ? (JSON.parse(v) as Ladder) : { order: [], stats: {} };
+}
+const saveLadder = (store: WorldStore, l: Ladder) => store.put('ladder', JSON.stringify(l));
+/** Move people on the ladder after a ladder game. */
+export function ladderAfter(l: Ladder, challenger: string, defender: string, winner: string | null): Ladder {
+  const stats = { ...l.stats };
+  const add = (n: string, k: 'w' | 'l') => { stats[n] = { w: stats[n]?.w ?? 0, l: stats[n]?.l ?? 0, [k]: (stats[n]?.[k] ?? 0) + 1 } as { w: number; l: number }; };
+  if (winner) { add(winner, 'w'); add(winner === challenger ? defender : challenger, 'l'); }
+  const order = [...l.order];
+  const ci = order.indexOf(challenger), di = order.indexOf(defender);
+  if (winner === challenger && ci > di && di >= 0) { order.splice(ci, 1); order.splice(di, 0, challenger); }
+  return { order, stats };
+}
+async function ladderResult(store: WorldStore, g: MailGame) {
+  const w = g.record.meta.result?.winners[0] as 'p1' | 'p2' | undefined;
+  const defender = g.players.p1 === g.from ? g.players.p2 : g.players.p1;
+  await saveLadder(store, ladderAfter(await loadLadder(store), g.from, defender, w ? g.players[w] : null));
+}
+
 /** Copy a Level-Up result into the record's result, so lists and records read it like any game. */
 function luFinish(g: MailGame, s: LUState) {
   if (!s.result) return;
@@ -74,6 +103,8 @@ export interface MailGame {
   game: MailChoice;
   /** Level-Up Chess: its own seed and moves (the record then only carries players and the result). */
   lu?: { seed: number; actions: LUAction[] };
+  /** A Level-Up ladder challenge: `from` challenged someone above them. */
+  ladder?: boolean;
   status: 'invited' | 'playing' | 'done' | 'declined' | 'expired';
   from: string;
   /** Part of a tournament (its id). */
@@ -275,6 +306,7 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
           g.lu = { ...g.lu, actions: [...g.lu.actions, a] };
           luFinish(g, luPlay(s, a, false));
           await save(g);
+          if (g.ladder) await ladderResult(store, g);
         }
         if (g.status === 'playing' && now - g.updatedAt > MAIL_TIMEOUT_MS) {
           const s = replay(g.record).at(-1)!;
@@ -360,6 +392,7 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
       g.lu = { ...g.lu, actions: [...g.lu.actions, a] };
       luFinish(g, n);
       await save(g);
+      if (n.result && g.ladder) await ladderResult(store, g);
       return json({ game: view(g) });
     }
     if (act === 'move' || act === 'resign') {
@@ -388,6 +421,52 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
     }
     return bad('Unknown action.', 404);
   }
+  // ---- Level-Up ladder ---------------------------------------------------
+  if (parts[0] === 'ladder') {
+    const l = await loadLadder(store);
+    if (req.method === 'GET') {
+      const me = url.searchParams.get('me');
+      const rows: LadderRow[] = l.order.map((n, i) => ({ rank: i + 1, n, w: l.stats[n]?.w ?? 0, l: l.stats[n]?.l ?? 0, me: n === me }));
+      return json({ rows });
+    }
+    if (!who) return bad('no key', 401);
+    if (req.method === 'POST' && !parts[1]) {
+      if (!l.order.includes(who)) { l.order.push(who); await saveLadder(store, l); }
+      return json({ rank: l.order.indexOf(who) + 1 });
+    }
+    if (req.method === 'DELETE' && parts[1] === who) {
+      l.order = l.order.filter((n) => n !== who);
+      await saveLadder(store, l);
+      return json({ ok: true });
+    }
+    if (req.method === 'POST' && parts[1] === 'challenge') {
+      const body = (await req.json().catch(() => null)) as { to?: string; rating?: number } | null;
+      const to = String(body?.to ?? '');
+      const ci = l.order.indexOf(who), di = l.order.indexOf(to);
+      if (ci < 0) return bad('Join the ladder first.');
+      if (di < 0) return bad('That player is not on the ladder.', 404);
+      if (di >= ci || ci - di > LADDER_REACH) return bad(`You can challenge players 1 or ${LADDER_REACH} places above you.`);
+      // One ladder game at a time between the same two players.
+      for (const k of (await store.list(`i:${who}:`)).keys()) {
+        const v = await store.get(`g:${k.split(':')[2]}`);
+        const og = v ? (JSON.parse(v) as MailGame) : null;
+        if (og?.ladder && (og.status === 'invited' || og.status === 'playing') && (og.players.p1 === to || og.players.p2 === to)) return bad('You already have a ladder game with that player.');
+      }
+      const iAmBlue = Math.random() < 0.5;
+      const players = iAmBlue ? { p1: who, p2: to } : { p1: to, p2: who };
+      const seed = (Math.random() * 0xffffffff) | 0;
+      const g: MailGame = {
+        id: newId(), players, ratings: { p1: 600, p2: 600 }, game: 'levelup', lu: { seed, actions: [] }, ladder: true,
+        status: 'invited', from: who, record: newRecord(seed, { p1: `#${players.p1}`, p2: `#${players.p2}` }), createdAt: now, updatedAt: now,
+      };
+      await store.put(`g:${g.id}`, JSON.stringify(g));
+      await store.put(`i:${players.p1}:${g.id}`, '1');
+      await store.put(`i:${players.p2}:${g.id}`, '1');
+      return json({ game: view(g) }, 201);
+    }
+    return bad('Unknown action.', 404);
+  }
+
   // ---- Tournaments ------------------------------------------------------
   if (parts[0] === 'tournaments') {
     if (!who) return bad('no key', 401);

@@ -1,5 +1,5 @@
 import { authToken } from '../net/vault';
-import type { MailChoice, MailGame, Tournament, TournamentBot } from '../net/world';
+import type { LadderRow, MailChoice, MailGame, Tournament, TournamentBot } from '../net/world';
 import type { LUAction } from '../levelup/rules';
 export type { Tournament };
 import type { RoomGame } from '../net/protocol';
@@ -210,4 +210,22 @@ export async function fetchModeVotes(): Promise<ModeVotes> {
 export async function postModeVotes(p: Profile | undefined = activeProfile()): Promise<void> {
   if (!p?.cloud || p.worldBoard === false || !p.modePrefs || !Object.keys(p.modePrefs).length) return;
   await call(p, 'POST', `/modes/${p.cloud.number}`, p.modePrefs);
+}
+
+/* ---- Level-Up ladder (numbers only) ---- */
+export async function fetchLadder(): Promise<LadderRow[]> {
+  const base = vaultBase();
+  if (!base) throw new Error('No server here.');
+  const me = activeProfile()?.cloud?.number ?? '';
+  return (await answer<{ rows: LadderRow[] }>(await fetch(`${base}/world/ladder?me=${me}`))).rows;
+}
+export async function joinLadder(): Promise<void> {
+  await answer(await call(activeProfile()!, 'POST', '/ladder'));
+}
+export async function leaveLadder(): Promise<void> {
+  const p = activeProfile()!;
+  await answer(await call(p, 'DELETE', `/ladder/${p.cloud!.number}`));
+}
+export async function ladderChallenge(to: string): Promise<MailGame> {
+  return (await answer<{ game: MailGame }>(await call(activeProfile()!, 'POST', '/ladder/challenge', { to }))).game;
 }

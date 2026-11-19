@@ -129,7 +129,7 @@ export function Challenges({ back, play, playLevelUp, initialTo }: { back: () =>
     );
   };
   const row = (g: MailGame, actions: React.ReactNode) => (
-    <li key={g.id} className="mail-row">{who(g)}<small>{g.tournament ? '🏆 Tournament · ' : ''}{modeLabel(g)} · you play {g.lu ? (mySeat(g) === 'p1' ? 'Blue' : 'Red') : mySeat(g) === 'p1' ? 'White' : 'Black'}</small><span className="row wrap">{actions}</span></li>
+    <li key={g.id} className="mail-row">{who(g)}<small>{g.tournament ? '🏆 Tournament · ' : g.ladder ? '🪜 Ladder · ' : ''}{modeLabel(g)} · you play {g.lu ? (mySeat(g) === 'p1' ? 'Blue' : 'Red') : mySeat(g) === 'p1' ? 'White' : 'Black'}</small><span className="row wrap">{actions}</span></li>
   );
 
   return (
