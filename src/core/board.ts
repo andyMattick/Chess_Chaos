@@ -32,12 +32,13 @@ export function stepDir(b: BoardShape, sq: number, df: number, dr: number): [num
   const f = fileOf(b, sq), r = triRank(b, sq);
   const f2 = f + df, r2 = r + dr;
   if (f2 < 0 || f2 > 7 || r2 < 0) return [-1, df, dr];
-  if (r2 < TRI_RANKS) return [triSq(s, f2, r2), df, dr];
+  const open = (t: number) => (b.blocked[t] ? -1 : t);
+  if (r2 < TRI_RANKS) return [open(triSq(s, f2, r2)), df, dr];
   // Crossing the middle line.
-  if (f === 3 && f2 === 4) return [triSq((s + 1) % 3, 4, 3), 1, -1];
-  if (f === 4 && f2 === 3) return [triSq((s + 2) % 3, 3, 3), -1, -1];
+  if (f === 3 && f2 === 4) return [open(triSq((s + 1) % 3, 4, 3)), 1, -1];
+  if (f === 4 && f2 === 3) return [open(triSq((s + 2) % 3, 3, 3)), -1, -1];
   const to = f2 <= 3 ? (s + 2) % 3 : (s + 1) % 3;
-  return [triSq(to, 7 - f2, 3), -df || 0, -1];
+  return [open(triSq(to, 7 - f2, 3)), -df || 0, -1];
 }
 
 /** Squares a leaper (knight, camel...) reaches: walk the long leg then the short one, or the other way round. */

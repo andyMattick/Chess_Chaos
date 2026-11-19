@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { fileOf, triRank, triSector } from '../core/board';
 import { inCheck } from '../core/movegen';
+import { TRI_HOLE } from '../core/variants';
 import { baseType } from '../core/pieces';
 import { skinFor } from '../content/cosmetics';
 import { landscapeById } from './landscapes';
@@ -66,9 +67,12 @@ export function TriBoard({ state, bottom, selected, targets, lastMove, landscape
   const targetSquares = new Map<number, boolean>();
   for (const m of targets) targetSquares.set(m.to, state.sq[m.to] >= 0);
 
-  const ground = useMemo(() => CELLS.map((x) => (
-    <polygon key={x.sq} points={pts(x.poly)} fill={x.light ? land.light : land.dark} stroke={land.dark} strokeWidth={1} />
-  )), [land]);
+  const blocked = state.board.blocked;
+  const holeKey = TRI_HOLE.map((sq) => (blocked[sq] ? 1 : 0)).join('');
+  const ground = useMemo(() => CELLS.map((x) => (blocked[x.sq]
+    ? <polygon key={x.sq} points={pts(x.poly)} fill={land.frame} stroke="#241f33" strokeWidth={2} />
+    : <polygon key={x.sq} points={pts(x.poly)} fill={x.light ? land.light : land.dark} stroke={land.dark} strokeWidth={1} />
+  )), [land, holeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const PIECE = 68;
   const upright = (c: P) => `translate(${c[0]} ${c[1]}) rotate(${-rot}) translate(${-PIECE / 2} ${-PIECE / 2}) scale(${PIECE / 100})`;
@@ -81,7 +85,7 @@ export function TriBoard({ state, bottom, selected, targets, lastMove, landscape
         {/* Each player's own edge, in their colour. */}
         {[0, 1, 2].map((s) => <line key={s} x1={V[2 * s][0]} y1={V[2 * s][1]} x2={V[2 * s + 1][0]} y2={V[2 * s + 1][1]} stroke={['#f4efe2', '#3a3550', '#ffcf3a'][s]} strokeWidth={12} strokeLinecap="round" />)}
         <g>
-          {CELLS.map((x) => {
+          {CELLS.filter((x) => !blocked[x.sq]).map((x) => {
             let fill = 'transparent';
             if (checked.has(x.sq)) fill = 'rgba(255,40,40,0.55)';
             else if (overlays?.tint?.has(x.sq) && selected !== x.sq) fill = overlays.tint.get(x.sq)!;

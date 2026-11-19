@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { addPiece, emptyState } from '../src/core/setup';
 import { legalActions, play } from '../src/core';
 import { leapTargets, stepDir } from '../src/core/board';
-import { triStart } from '../src/core/variants';
+import { TRI_HOLE, triStart } from '../src/core/variants';
+import { initialState, newBattleRecord } from '../src/core/record';
 import { pseudoMovesFor } from '../src/core/movegen';
 import type { GameState, Seat } from '../src/core/types';
 
@@ -85,6 +86,39 @@ describe('three-player hexagon', () => {
       x = (x * 1103515245 + 12345) % 2147483648;
       s = play(s, moves[x % moves.length]);
       for (const p of s.pieces) if (p.at >= 0) expect(s.sq[p.at]).toBe(p.id);
+    }
+  });
+  it('new games leave out the six middle squares; old records keep them', () => {
+    const rec = newBattleRecord(5, {}, 'tri');
+    const s = initialState(rec);
+    expect(TRI_HOLE.every((sq) => s.board.blocked[sq])).toBe(true);
+    expect(legalActions(s).length).toBe(18) // the d- and e-pawns have no two-step (it would land in the hole);
+    const old = initialState({ ...rec, setup: { kind: 'battle', battle: 'tri', mode: 'battle' } });
+    expect(old.board.blocked.some(Boolean)).toBe(false);
+  });
+  it('nothing moves into or through the hole', () => {
+    const s = triStart('battle', 1, true);
+    for (const sq of [...s.sq.keys()]) if (s.sq[sq] >= 0) s.pieces[s.sq[sq]].at = -1;
+    s.sq.fill(-1);
+    addPiece(s, 'bishop', 'p1', T(0, 2, 2));
+    addPiece(s, 'rook', 'p1', T(0, 3, 0));
+    addPiece(s, 'pawn', 'p1', T(0, 4, 2));
+    const b = targets(s, T(0, 2, 2));
+    expect(b).not.toContain(T(0, 3, 3));
+    expect(b).not.toContain(T(1, 4, 3));
+    const r = targets(s, T(0, 3, 0));
+    expect(r).toContain(T(0, 3, 2));
+    expect(r.some((t) => TRI_HOLE.includes(t) || Math.floor(t / 32) !== 0)).toBe(false);
+    expect(targets(s, T(0, 4, 2))).not.toContain(T(0, 4, 3));
+  });
+  it('200 random moves on the holed board stay off the hole', () => {
+    let s = initialState(newBattleRecord(9, {}, 'tri'));
+    for (let i = 0; i < 200 && !s.result; i++) {
+      const moves = legalActions(s);
+      if (!moves.length) break;
+      const m = moves[(i * 7919) % moves.length];
+      if (m.t === 'move') expect(TRI_HOLE).not.toContain(m.to);
+      s = play(s, m);
     }
   });
 });

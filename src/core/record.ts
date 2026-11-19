@@ -15,7 +15,7 @@ import { battleStart, type BattleKind } from './variants';
 export interface GameRecord {
   version: 1;
   id: string;
-  setup: ({ kind: 'fen'; fen: string; mode: string } | { kind: 'battle'; battle: BattleKind; mode: string }) & {
+  setup: ({ kind: 'fen'; fen: string; mode: string } | { kind: 'battle'; battle: BattleKind; mode: string; /** Hexagon without its six middle squares (games from 2026-11-19 on). */ hole?: boolean }) & {
     /** Party match extras: public modifiers and each player's secret mission ('?' when hidden from you). */
     /** Mode setup choices: who has the boss, drafted armies, survival position. */
     extra?: ModeExtra;
@@ -43,7 +43,7 @@ export function newRecord(seed: number, players: Record<string, string>, fen = S
 }
 
 export function initialState(rec: GameRecord): GameState {
-  let s: GameState = rec.setup.kind === 'battle' ? battleStart(rec.setup.battle, rec.setup.mode, rec.seed) : { ...fromFEN(rec.setup.fen, rec.seed), mode: rec.setup.mode };
+  let s: GameState = rec.setup.kind === 'battle' ? battleStart(rec.setup.battle, rec.setup.mode, rec.seed, !!rec.setup.hole) : { ...fromFEN(rec.setup.fen, rec.seed), mode: rec.setup.mode };
   // Deterministic picks for setup randomness (shuffled back rank, missing pawn…).
   let r = rec.seed ^ 0x5bd1e995;
   const pick = (n: number) => { const [v, next] = rngInt(r, n); r = next; return v; };
@@ -58,7 +58,7 @@ export function initialState(rec: GameRecord): GameState {
 }
 
 export function newBattleRecord(seed: number, players: Record<string, string>, battle: BattleKind, mode = 'battle'): GameRecord {
-  return { ...newRecord(seed, players), setup: { kind: 'battle', battle, mode } };
+  return { ...newRecord(seed, players), setup: battle === 'tri' ? { kind: 'battle', battle, mode, hole: true } : { kind: 'battle', battle, mode } };
 }
 
 /** Every state from the start to the end of the record. */

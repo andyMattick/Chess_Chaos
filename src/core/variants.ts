@@ -36,10 +36,14 @@ function battleSeats(kind: BattleKind): Seat[] {
  * half-board is stored with its own back row at local rank 0, so every seat's
  * pawns start by walking "up" (forward [0, 1]); promo.value is the seat's half.
  */
-export function triStart(mode = 'battle', seed = 1): GameState {
+/** The six middle squares (every player's d4 and e4), left out of the board since 2026-11-19 (owner). */
+export const TRI_HOLE = [0, 1, 2].flatMap((s) => [(s * 4 + 3) * 8 + 3, (s * 4 + 3) * 8 + 4]);
+
+export function triStart(mode = 'battle', seed = 1, hole = false): GameState {
   const seats: Seat[] = (['p1', 'p2', 'p3'] as PlayerId[]).map((id, i) => ({ id, name: ['White', 'Black', 'Gold'][i], forward: [0, 1], promo: { axis: 'r', value: i }, status: 'active' }));
   const s = emptyState(8, 12, seats, seed);
   s.board.topology = 'tri';
+  if (hole) for (const sq of TRI_HOLE) s.board.blocked[sq] = true;
   seats.forEach((seat, i) => {
     for (let f = 0; f < 8; f++) {
       addPiece(s, BACK[f], seat.id, (i * 4) * 8 + f);
@@ -51,8 +55,8 @@ export function triStart(mode = 'battle', seed = 1): GameState {
   return s;
 }
 
-export function battleStart(kind: BattleKind, mode = 'battle', seed = 1): GameState {
-  if (kind === 'tri') return triStart(mode, seed);
+export function battleStart(kind: BattleKind, mode = 'battle', seed = 1, hole = false): GameState {
+  if (kind === 'tri') return triStart(mode, seed, hole);
   const seats = battleSeats(kind);
   const s = emptyState(N, N, seats, seed);
   for (let f = 0; f < N; f++) for (let r = 0; r < N; r++) {
