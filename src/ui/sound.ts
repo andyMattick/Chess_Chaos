@@ -67,6 +67,23 @@ function noise(start: number, dur: number, vol = 0.25, lowpass = 1800) {
   src.start(t);
 }
 
+/** Level-Up Chess sounds: square-wave blips in an old-school style (our own little tunes). */
+export const luSfx = {
+  select() { tone(880, 0, 0.05, 'square', 0.06); },
+  dice() { for (let i = 0; i < 5; i++) tone(300 + i * 90, i * 0.05, 0.04, 'square', 0.05); },
+  clash() { noise(0, 0.18, 0.3, 2400); tone(160, 0, 0.15, 'square', 0.08, 90); },
+  win() { tone(523, 0, 0.08); tone(784, 0.08, 0.14); },
+  lose() { tone(330, 0, 0.12, 'square', 0.08, 220); tone(196, 0.12, 0.2, 'square', 0.08); },
+  boom() { noise(0, 0.4, 0.45, 900); tone(90, 0, 0.35, 'sawtooth', 0.1, 40); },
+  warn() { tone(988, 0, 0.07, 'square', 0.06); tone(988, 0.14, 0.07, 'square', 0.06); },
+  levelUp() {
+    // A short climbing tune, then a held note.
+    const notes = [392, 494, 587, 784, 698, 784, 988];
+    notes.forEach((f, i) => tone(f, i * 0.09, i === notes.length - 1 ? 0.45 : 0.09, 'square', 0.09));
+  },
+  mission() { [659, 784, 1047].forEach((f, i) => tone(f, i * 0.07, 0.12, 'triangle', 0.1)); },
+};
+
 export const sfx = {
   /** Dice rattling. */
   dice() {

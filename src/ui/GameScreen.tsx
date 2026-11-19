@@ -17,6 +17,7 @@ import { newSeed } from '../core/rng';
 import type { Action, GameState, MoveAction, PlayerId } from '../core/types';
 import { online, roomSkins, timeLeft } from '../net/client';
 import { EMOTES } from '../net/protocol';
+import { dailyFor, dayKey, noteKind } from '../systems/daily';
 import { boardSkins, lookOf, activeProfile, addGame, noteOpponent, refreshOpponentRating, update, updateProfile, upsertProfile } from '../storage/storage';
 import { updateRating } from '../systems/rating';
 import { coinsFor, type CoinAward } from '../systems/coins';
@@ -439,6 +440,14 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
         });
         setCoinAward(award);
         p = { ...p, coins: (p.coins ?? 0) + award.total };
+      }
+      // Daily missions (systems/daily.ts).
+      {
+        let daily = dailyFor(p.daily, dayKey());
+        if (config.mini) daily = noteKind(daily, 'mini');
+        else if (partySetup) daily = noteKind(daily, 'party');
+        else if (bot && !isMail && rec.actions.length >= 4) { daily = noteKind(daily, 'bot-play'); if (won) daily = noteKind(daily, 'bot-win'); }
+        p = { ...p, daily };
       }
       if (oppRating !== undefined && rec.actions.length >= 2 && !forFun && !config.unrated) {
         const score = won ? 1 : drawn ? 0.5 : 0;

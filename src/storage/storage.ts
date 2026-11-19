@@ -12,6 +12,8 @@ import { DEFAULT_SKINS, FREE_LANDSCAPES, FREE_SKINS, type LandscapeId, type Skin
  * never breaks the app; the app then runs with in-memory data.
  */
 
+import type { DailyState } from '../systems/daily';
+
 export interface Profile {
   id: string;
   nickname: string;
@@ -66,6 +68,10 @@ export interface Profile {
   partyHand?: string[];
   /** How often each mode should come up in Party matches, 0 (never) to 3 (favourite). */
   modePrefs?: Record<string, number>;
+  /** Level-Up Chess battles fought and won against the bots. */
+  levelUp?: { played: number; won: number };
+  /** Today's three daily missions (systems/daily.ts). */
+  daily?: DailyState;
 }
 
 export interface MiniProgress {

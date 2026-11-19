@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { GameRecord } from '../core/record';
+import { LevelUpScreen } from './LevelUp';
 import { askToKeepStorage, lookOf, activeProfile, updateProfile } from '../storage/storage';
 import { startCloudSync, vaultBase } from '../storage/cloud';
 import { NumberPrompt } from './CloudSave';
@@ -42,6 +43,7 @@ type Screen =
   | { name: 'minis' }
   | { name: 'openings'; botId?: string }
   | { name: 'battle' }
+  | { name: 'levelup' }
   | { name: 'battle-game'; local: LocalBattle; key: number }
   | { name: 'game'; config: GameConfig; key: number; review?: GameRecord };
 
@@ -139,6 +141,7 @@ export function App() {
         />
       )}
       {screen.name === 'challenges' && <Challenges back={home} play={startGame} />}
+      {screen.name === 'levelup' && <LevelUpScreen back={home} />}
       {screen.name === 'minis' && <MinisScreen back={home} play={startGame} />}
       {screen.name === 'game' && (
         <GameScreen key={screen.key} config={screen.config} reviewRecord={screen.review} onExit={screen.config.kind === 'mail' ? () => setScreen({ name: 'challenges' }) : screen.config.mini || screen.config.mode === 'pawn-wars' ? () => setScreen({ name: 'minis' }) : home} onRematch={startGame} />

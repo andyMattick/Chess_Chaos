@@ -7,6 +7,7 @@ import { legalActions } from '../core/rules';
 import type { GameState, MoveAction } from '../core/types';
 import { hanging } from '../tactics/attacks';
 import { guardsAll, isMate, isSpotlightBest, pathMoves, pathPar, pathStars, pathState, pathStep, shuffled, sqOf, tradeMove } from '../systems/minis';
+import { noteDaily } from '../storage/daily';
 import { activeProfile, boardSkins, lookOf, updateProfile, type MiniProgress } from '../storage/storage';
 import { Board, type BoardOverlays } from './Board';
 import type { GameConfig } from './GameScreen';
@@ -81,6 +82,7 @@ export function MinisScreen({ back, play }: { back: () => void; play: (c: GameCo
 }
 
 function record(id: string, f: (g: MiniProgress) => MiniProgress) {
+  noteDaily('mini');
   updateProfile((p) => ({ ...p, minis: { ...(p.minis ?? {}), [id]: f(p.minis?.[id] ?? {}) } }));
 }
 

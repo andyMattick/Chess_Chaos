@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { BOTS, botById, type Bot } from '../content/bots';
 import { legalActions } from '../core/rules';
 import type { GameState, MoveAction } from '../core/types';
+import { noteDaily } from '../storage/daily';
 import { activeProfile, boardSkins, lookOf, updateProfile } from '../storage/storage';
 import { MIRROR_KEY, NEMESIS_PREFIX, nemesisBot } from '../systems/nemesis';
 import { cardKey, grade, isLineMove, lineMoves, sessionLines, trainerLines, trainerStats, type Colour } from '../systems/openings';
@@ -86,6 +87,7 @@ export function OpeningTrainer({ back, botId: startBot }: { back: () => void; bo
     const card = grade(before, slipsRef.current, Date.now());
     updateProfile((x) => ({ ...x, openings: { ...(x.openings ?? {}), [k]: card } }));
     setResults((r) => [...r, { line: queue[idx], slips: slipsRef.current, days: Math.round((card.due - Date.now()) / 86400000) }]);
+    noteDaily('opening');
     if (slipsRef.current === 0) sfx.promote();
     setPhase('line-done');
   }

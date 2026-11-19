@@ -10,6 +10,8 @@ import { useMailCount } from './Challenges';
 import { useSave } from './store';
 import { currentStreak, EMPTY_PROGRESS } from '../systems/puzzle';
 import { dueCount } from '../systems/openings';
+import { DAILY_ALL_BONUS, dailyById, dailyFor, dayKey, type DailyMission, type DailyState } from '../systems/daily';
+import { claimDaily } from '../storage/daily';
 import { POWER_CARDS } from '../content/cards';
 import type { GameConfig } from './GameScreen';
 
@@ -28,7 +30,7 @@ export function ProfileChip({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train' | 'chesscom' | 'battle' | 'leaderboard' | 'party' | 'puzzles' | 'cards' | 'modes' | 'challenges' | 'minis' | 'openings') => void }) {
+export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'history' | 'wardrobe' | 'train' | 'chesscom' | 'battle' | 'leaderboard' | 'party' | 'puzzles' | 'cards' | 'modes' | 'challenges' | 'minis' | 'openings' | 'levelup') => void }) {
   const mail = useMailCount();
   const save = useSave();
   const p = activeProfile(save);
@@ -61,8 +63,10 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
           <span className="big-sub">Surprise mode, missions, cards</span>
         </button>
       </div>
+      {p && <DailyPanel daily={p.daily} go={go} />}
       <h3 className="home-section">More ways to play</h3>
       <div className="tiles">
+        <Tile emoji="🗡️" title="Level-Up Chess" sub={p?.levelUp ? `${p.levelUp.won} battles won` : 'NEW! Pieces level up'} c="#3b5bdb" onClick={() => go('levelup')} disabled={!p} />
         <Tile emoji="🎮" title="Game modes" sub="25 ways to play" c="#36c5c5" onClick={() => go('modes')} disabled={!p} />
         <Tile emoji="⚔️" title="Battles" sub="3 and 4 players" c="#ff5a3c" onClick={() => go('battle')} disabled={!p} />
         <Tile emoji="📬" title="Challenges" sub={mail ? `${mail} waiting for you!` : 'Play a friend, a move at a time'} c="#5bd17a" onClick={() => go('challenges')} disabled={!p} />
@@ -81,6 +85,38 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
       </div>
       {p && <Settings />}
     </div>
+  );
+}
+
+function DailyPanel({ daily, go }: { daily: DailyState | undefined; go: (s: DailyMission['go']) => void }) {
+  const d = dailyFor(daily, dayKey());
+  const all = d.ids.every((id) => d.claimed.includes(id));
+  return (
+    <section className="daily" aria-label="Daily missions">
+      <h3 className="home-section">📅 Daily missions {all && <span className="daily-all">All done! See you tomorrow ⭐</span>}</h3>
+      <div className="daily-list">
+        {d.ids.map((id) => {
+          const m = dailyById(id);
+          if (!m) return null;
+          const got = d.progress[id] ?? 0;
+          const done = got >= m.need;
+          const claimed = d.claimed.includes(id);
+          return (
+            <div key={id} className={`daily-card ${done ? 'done' : ''} ${claimed ? 'claimed' : ''}`}>
+              <div className="daily-text">{claimed ? '✅ ' : ''}{m.text}</div>
+              <div className="daily-bar"><span style={{ width: `${(Math.min(got, m.need) / m.need) * 100}%` }} /></div>
+              <div className="daily-foot">
+                <span className="small">{Math.min(got, m.need)} / {m.need}</span>
+                {claimed ? <span className="small">🪙 {m.coins} collected</span>
+                  : done ? <button className="btn primary small" onClick={() => claimDaily(id)}>Collect 🪙 {m.coins}</button>
+                  : <button className="btn small" onClick={() => go(m.go)}>Go ▶</button>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {!all && <p className="muted small">Finish all three for {DAILY_ALL_BONUS} bonus coins. New missions every day.</p>}
+    </section>
   );
 }
 

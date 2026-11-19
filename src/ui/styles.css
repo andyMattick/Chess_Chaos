@@ -751,3 +751,81 @@ body[data-calm] .die { animation: none; }
 .popup-text { font-weight: 700; }
 @keyframes popup-in { from { transform: translate(-50%, 30px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .popup { animation: none; } }
+
+/* ---------- Daily missions (home) ---------- */
+.daily-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.daily-card { background: #fff; border: 3px solid #222; border-radius: 14px; padding: 10px 12px; box-shadow: 3px 3px 0 #222; display: flex; flex-direction: column; gap: 6px; }
+.daily-card.done { background: #fff8d6; }
+.daily-card.claimed { opacity: 0.65; }
+.daily-text { font-weight: 700; }
+.daily-bar { height: 10px; border: 2px solid #222; border-radius: 6px; overflow: hidden; background: #eee; }
+.daily-bar span { display: block; height: 100%; background: #5bd17a; transition: width 0.3s; }
+.daily-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.daily-all { font-size: 0.95rem; margin-left: 8px; color: #2e8b57; }
+
+/* ---------- Level-Up Chess: retro RPG windows ---------- */
+.lu { --lu-blue1: #2a3bb8; --lu-blue2: #0d1660; min-height: 100vh; padding: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; justify-content: center;
+  background: #0b0b1a; color: #fff; font-family: 'Courier New', ui-monospace, monospace; image-rendering: pixelated; }
+.lu-win { background: linear-gradient(180deg, var(--lu-blue1), var(--lu-blue2)); border: 3px solid #fff; border-radius: 8px; box-shadow: 0 0 0 2px #000, inset 0 0 0 2px #6a7bff55; padding: 10px 12px; }
+.lu-win h1, .lu-win h2 { margin: 0 0 8px; letter-spacing: 2px; text-shadow: 2px 2px 0 #000; }
+.lu-title { max-width: 640px; text-align: center; width: 100%; }
+.lu-title h1 { font-size: clamp(1.6rem, 6vw, 2.6rem); color: #ffe066; }
+.lu-small { font-size: 0.85rem; opacity: 0.9; }
+.lu-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.lu-row.between { justify-content: space-between; }
+.lu-btn { font: inherit; color: #fff; background: #11197a; border: 2px solid #fff; border-radius: 6px; padding: 8px 12px; cursor: pointer; text-shadow: 1px 1px 0 #000; min-height: 40px; }
+.lu-btn:hover, .lu-btn.on { background: #3446d6; }
+.lu-btn:active { transform: translateY(1px); }
+.lu > .lu-win:not(.lu-pop), .lu > .lu-row { width: min(640px, 100%); }
+.lu-board-wrap { flex: 1 1 520px; max-width: min(92vh, 760px); }
+.lu-board { width: 100%; height: auto; display: block; border: 3px solid #fff; border-radius: 6px; box-shadow: 0 0 0 2px #000; touch-action: manipulation; }
+.lu-side { flex: 0 1 340px; display: flex; flex-direction: column; gap: 8px; min-width: 260px; }
+.lu-fog { fill: #0b0b1a; opacity: 0.78; pointer-events: none; }
+.lu-hit rect { fill: transparent; cursor: pointer; }
+.lu-selbox { fill: #ffe06655; stroke: #ffe066; stroke-width: 0.8px; pointer-events: none; }
+.lu-lv { font-size: 3.6px; font-weight: 700; fill: #ffe066; stroke: #000; stroke-width: 0.6px; paint-order: stroke; pointer-events: none; }
+.lu-base { font-size: 3.4px; fill: #fff; stroke: #000; stroke-width: 0.5px; paint-order: stroke; pointer-events: none; }
+.lu-last { fill: none; stroke: #ffe066; stroke-width: 0.6px; stroke-dasharray: 2 1.5; pointer-events: none; }
+.lu-target { pointer-events: none; }
+.lu-target rect { fill: #ffffff22; stroke: #fff; stroke-width: 0.4px; }
+.lu-target .lu-dot { fill: #fff; stroke: none; }
+.lu-target.hit rect:first-child { fill: #ff3b3b44; stroke: #ff5050; stroke-width: 0.7px; }
+.lu-target.fire rect { fill: #ff9f1c44; stroke: #ff9f1c; }
+.lu-target.mine rect { fill: #a0a0a044; stroke: #ccc; }
+.lu-target text { font-size: 6px; fill: #fff; stroke: #000; stroke-width: 0.4px; paint-order: stroke; }
+.lu-target text.odds { font-size: 3.4px; fill: #ffe066; }
+.lu-incoming rect { fill: #ff000055; stroke: #ff2a2a; stroke-width: 0.8px; animation: lu-blink 0.6s steps(2) infinite; pointer-events: none; }
+.lu-aim rect { fill: #ff9f1c33; stroke: #ff9f1c; stroke-width: 0.6px; pointer-events: none; }
+.lu-incoming text, .lu-aim text { font-size: 6px; fill: #fff; stroke: #000; stroke-width: 0.4px; paint-order: stroke; pointer-events: none; }
+@keyframes lu-blink { 50% { opacity: 0.35; } }
+.lu-xp { height: 8px; border: 2px solid #fff; background: #000; margin: 6px 0 2px; }
+.lu-xp span { display: block; height: 100%; background: linear-gradient(90deg, #ffe066, #ff9f1c); }
+.lu-powers { margin: 6px 0; padding-left: 18px; font-size: 0.85rem; }
+.lu-powers li { opacity: 0.55; }
+.lu-powers li.have { opacity: 1; color: #ffe066; }
+.lu-race { margin: 4px 0 0; padding-left: 4px; list-style: none; font-size: 0.85rem; }
+.lu-race li { margin: 3px 0; }
+.lu-race li.won { color: #7dffa0; }
+.lu-race li.lost { color: #ff8a8a; }
+.lu-log p { margin: 2px 0; font-size: 0.85rem; }
+.lu-log p.old { opacity: 0.6; }
+.lu-modal { position: fixed; inset: 0; background: #000a; display: grid; place-items: center; z-index: 50; padding: 12px; }
+.lu-pop { max-width: 420px; width: 100%; text-align: center; animation: lu-pop 0.25s ease-out; }
+@keyframes lu-pop { from { transform: scale(0.7); opacity: 0; } }
+.lu-pop h2.good { color: #7dffa0; }
+.lu-pop h2.bad { color: #ff8a8a; }
+.lu-duel { display: flex; justify-content: space-around; align-items: center; gap: 8px; margin: 8px 0; }
+.lu-duel > div { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.lu-duel img { width: 56px; height: 56px; image-rendering: pixelated; }
+.lu-vs { font-size: 1rem; line-height: 1.6; }
+.lu-die { display: inline-block; min-width: 28px; padding: 2px 6px; background: #fff; color: #000; border-radius: 5px; font-weight: 700; animation: lu-roll 0.5s steps(6); }
+@keyframes lu-roll { from { transform: rotate(-360deg) scale(0.4); } }
+.lu-levelup h2 { color: #ffe066; animation: lu-blink 0.5s steps(2) 4; }
+.lu-big { width: 96px; height: 96px; image-rendering: pixelated; animation: lu-jump 0.6s ease-in-out 3; }
+@keyframes lu-jump { 50% { transform: translateY(-14px); } }
+.lu-menu { max-height: 85vh; overflow: auto; text-align: left; }
+.lu-menu table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; }
+.lu-menu td { border-bottom: 1px solid #ffffff33; padding: 5px 4px; vertical-align: top; }
+.lu-menu td.pts { color: #ffe066; font-weight: 700; width: 36px; }
+.lu-help { padding-left: 18px; }
+.lu-help li { margin: 5px 0; }

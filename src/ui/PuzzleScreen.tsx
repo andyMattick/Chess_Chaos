@@ -7,6 +7,7 @@ import { slipReady, SLIPS_PER_SESSION, type Slip } from '../systems/slips';
 import { mergeMiss } from '../systems/review';
 import { legalActions, play } from '../core/rules';
 import type { GameState, MoveAction } from '../core/types';
+import { noteDaily } from '../storage/daily';
 import { activeProfile, boardSkins, load as loadSave, lookOf, updateProfile } from '../storage/storage';
 import { builtInPuzzles, checkMove, puzzleFrom, currentStreak, EMPTY_PROGRESS, recordSolve, solverMoves, type Puzzle } from '../systems/puzzle';
 import { Board } from './Board';
@@ -153,6 +154,7 @@ export function PuzzleScreen({ back, startGame }: { back: () => void; startGame?
     const r = recordSolve(progress, pz, hint);
     updateProfile((x) => ({ ...x, coins: (x.coins ?? 0) + r.coins, puzzles: { ...r.progress, gauntletBest: Math.max(x.puzzles?.gauntletBest ?? 0, score) } }));
     setReward({ coins: r.coins, streakUp: r.streakUp, streak: r.progress.streak });
+    noteDaily('puzzle');
   }
 
   function commit(m: MoveAction) {
