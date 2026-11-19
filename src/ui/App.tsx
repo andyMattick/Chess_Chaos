@@ -6,6 +6,7 @@ import { askToKeepStorage, lookOf, activeProfile, updateProfile } from '../stora
 import { startCloudSync, vaultBase } from '../storage/cloud';
 import { NumberPrompt } from './CloudSave';
 import { Popups } from './Popups';
+import { DailyToast } from './DailyToast';
 import { GameScreen, type GameConfig } from './GameScreen';
 import { landscapeById } from './landscapes';
 import { OnlineLobby, roomFromUrl } from './OnlineLobby';
@@ -40,7 +41,7 @@ type Screen =
   | { name: 'puzzles' }
   | { name: 'cards' }
   | { name: 'modes' }
-  | { name: 'challenges'; to?: string }
+  | { name: 'challenges'; to?: string; game?: 'levelup' }
   | { name: 'minis' }
   | { name: 'openings'; botId?: string }
   | { name: 'battle' }
@@ -105,6 +106,7 @@ export function App() {
 
   return (
     <main className="app">
+      <DailyToast />
       <Popups openChallenges={() => setScreen({ name: 'challenges' })} quiet={inGame || askOpen} inChallenges={screen.name === 'challenges'} />
       {askOpen && askP && (
         <div className="number-modal" role="dialog" aria-label="Get a player number">
@@ -141,8 +143,8 @@ export function App() {
           open={openRecord}
         />
       )}
-      {screen.name === 'challenges' && <Challenges key={screen.to ?? ''} initialTo={screen.to} back={home} play={startGame} playLevelUp={(g) => setScreen({ name: 'levelup', mail: g, key: Date.now() })} />}
-      {screen.name === 'levelup' && <LevelUpScreen key={screen.key} back={screen.mail ? () => setScreen({ name: 'challenges' }) : home} mail={screen.mail} />}
+      {screen.name === 'challenges' && <Challenges key={`${screen.to ?? ''}${screen.game ?? ''}`} initialTo={screen.to} initialGame={screen.game} back={home} play={startGame} playLevelUp={(g) => setScreen({ name: 'levelup', mail: g, key: Date.now() })} />}
+      {screen.name === 'levelup' && <LevelUpScreen key={screen.key} back={screen.mail ? () => setScreen({ name: 'challenges' }) : home} mail={screen.mail} challengeFriend={() => setScreen({ name: 'challenges', game: 'levelup' })} />}
       {screen.name === 'minis' && <MinisScreen back={home} play={startGame} />}
       {screen.name === 'game' && (
         <GameScreen key={screen.key} config={screen.config} reviewRecord={screen.review} onExit={screen.config.kind === 'mail' ? () => setScreen({ name: 'challenges' }) : screen.config.mini || screen.config.mode === 'pawn-wars' ? () => setScreen({ name: 'minis' }) : home} onRematch={startGame} />

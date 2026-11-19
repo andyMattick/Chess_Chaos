@@ -838,3 +838,4 @@ body[data-calm] .die { animation: none; }
 .lu-ladder-list li { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px solid #ffffff22; }
 .lu-ladder-list li.me { color: #ffe066; }
 .lu-ladder .number-prompt, .lu-ladder .cloud-card { color: #222; }
+.daily-toast { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); z-index: 80; max-width: min(92vw, 460px); background: #fff8d6; color: #222; border: 3px solid #222; border-radius: 14px; box-shadow: 3px 3px 0 #222; padding: 10px 14px; font: inherit; font-weight: 700; cursor: pointer; animation: lu-pop 0.25s ease-out; }

@@ -444,7 +444,8 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
       // Daily missions (systems/daily.ts).
       {
         let daily = dailyFor(p.daily, dayKey());
-        if (config.mini) daily = noteKind(daily, 'mini');
+        // Pawn wars is a mini-game too (it starts from 🌀 Mini-games with no ladder step).
+        if (config.mini || config.mode === 'pawn-wars') daily = noteKind(daily, 'mini');
         else if (partySetup) daily = noteKind(daily, 'party');
         else if (bot && !isMail && rec.actions.length >= 4) { daily = noteKind(daily, 'bot-play'); if (won) daily = noteKind(daily, 'bot-win'); }
         p = { ...p, daily };

@@ -37,7 +37,7 @@ function pieceLine(p: LUPiece): string {
   return lv >= 3 ? `${nameOf(p)} · Lv 3 · ${p.xp} pts · MAX` : `${nameOf(p)} · Lv ${lv} · ${p.xp}/${(LEVEL_AT as readonly number[])[lv]} pts to Lv ${lv + 1}`;
 }
 
-export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGame }) {
+export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => void; mail?: MailGame; challengeFriend?: () => void }) {
   const save = useSave();
   const p = activeProfile(save);
   // A challenge: you play your seat against a friend, a move at a time (owner, 2026-11-19).
@@ -216,6 +216,13 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
           </div>
           {p.levelUp && <p className="lu-small">Battles fought: {p.levelUp.played} · won: {p.levelUp.won}</p>}
         </div>
+        {challengeFriend && (
+          <div className="lu-win">
+            <h2>▶ Play a person</h2>
+            <p className="lu-small">Challenge a friend by their player number. You each take your turn whenever you like (a move at a time), and the game waits in 📬 Challenges. Or join the ladder below.</p>
+            <button className="lu-btn" onClick={challengeFriend}>⚔ Challenge a friend</button>
+          </div>
+        )}
         <div className="lu-row">
           <button className="lu-btn" onClick={() => setMenu('help')}>How to play</button>
           <button className="lu-btn" onClick={() => setMenu('points')}>How to earn points</button>
