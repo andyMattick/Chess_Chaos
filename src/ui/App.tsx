@@ -40,7 +40,7 @@ type Screen =
   | { name: 'puzzles' }
   | { name: 'cards' }
   | { name: 'modes' }
-  | { name: 'challenges' }
+  | { name: 'challenges'; to?: string }
   | { name: 'minis' }
   | { name: 'openings'; botId?: string }
   | { name: 'battle' }
@@ -124,7 +124,7 @@ export function App() {
       {screen.name === 'wardrobe' && <Wardrobe back={home} />}
       {screen.name === 'train' && <TrainSetup start={startGame} back={home} />}
       {screen.name === 'chesscom' && <ChessCom back={home} open={openRecord} play={startGame} />}
-      {screen.name === 'leaderboard' && <Leaderboard back={home} />}
+      {screen.name === 'leaderboard' && <Leaderboard back={home} challenge={(n) => setScreen({ name: 'challenges', to: n })} />}
       {screen.name === 'puzzles' && <PuzzleScreen back={home} startGame={startGame} />}
       {screen.name === 'cards' && <CardsScreen back={home} />}
       {screen.name === 'modes' && <ModesScreen start={startGame} back={home} />}
@@ -141,7 +141,7 @@ export function App() {
           open={openRecord}
         />
       )}
-      {screen.name === 'challenges' && <Challenges back={home} play={startGame} playLevelUp={(g) => setScreen({ name: 'levelup', mail: g, key: Date.now() })} />}
+      {screen.name === 'challenges' && <Challenges key={screen.to ?? ''} initialTo={screen.to} back={home} play={startGame} playLevelUp={(g) => setScreen({ name: 'levelup', mail: g, key: Date.now() })} />}
       {screen.name === 'levelup' && <LevelUpScreen key={screen.key} back={screen.mail ? () => setScreen({ name: 'challenges' }) : home} mail={screen.mail} />}
       {screen.name === 'minis' && <MinisScreen back={home} play={startGame} />}
       {screen.name === 'game' && (

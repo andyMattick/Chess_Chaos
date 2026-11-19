@@ -113,6 +113,8 @@ export function addFriend(n: string, name?: string) {
     const contacts = name?.trim() ? { ...(x.contacts ?? {}), [num]: name.trim().slice(0, 16) } : x.contacts;
     return { ...x, contacts, friends: [num, ...(x.friends ?? []).filter((f) => f !== num)].slice(0, 100) };
   });
+  // A friends-only player lets new friends in.
+  if (activeProfile()?.friendsOnly) void syncPrivacy();
 }
 
 /* ---- Friend requests through the server (numbers only) ---- */
@@ -151,6 +153,18 @@ export async function takeAccepted(inbox: FriendInbox): Promise<string[]> {
 
 export function removeFriend(n: string) {
   updateProfile((x) => ({ ...x, friends: (x.friends ?? []).filter((f) => f !== n) }));
+  syncPrivacy();
+}
+
+/** Tell the server this player's "friends only" choice, with the friend numbers allowed in. */
+export async function syncPrivacy(p: Profile | undefined = activeProfile()): Promise<void> {
+  if (!p?.cloud || !vaultBase()) return;
+  if (p.friendsOnly) await call(p, 'POST', `/privacy/${p.cloud.number}`, { friendsOnly: true, friends: p.friends ?? [] }).catch(() => undefined);
+  else await call(p, 'DELETE', `/privacy/${p.cloud.number}`).catch(() => undefined);
+}
+export async function setFriendsOnly(on: boolean): Promise<void> {
+  updateProfile((x) => ({ ...x, friendsOnly: on }));
+  await syncPrivacy();
 }
 
 /** Overall wins, losses and draws: every rated game against bots, online players and challenges. */

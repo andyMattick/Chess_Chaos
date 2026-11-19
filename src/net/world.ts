@@ -3,10 +3,12 @@
  * and challenges (games played a move at a time). Shared by the Cloudflare
  * worker, the local dev server and the tests, so Web APIs and core only.
  *
- * Kid safety: no names and no messages on the server. The leaderboard shows
- * other players' numbers masked ("••••5678"), so strangers cannot challenge
- * someone they saw there; a challenge needs the full number, which a player
- * only gets from a friend. Every write needs that number's save key.
+ * Kid safety: no names and no messages on the server. Owner, 2026-11-19: the
+ * world leaderboard is open: anyone on it can challenge or friend-request anyone
+ * else on it. A player (or a parent) can switch on "friends only" (pv:<n>): their
+ * number is then masked on the board and the server refuses challenges,
+ * tournament invites and friend requests from anyone not on the friend list
+ * they sent (or anyone they asked first). Every write needs that number's save key.
  */
 import { replay, play, newRecord } from '../core';
 import type { Action, GameRecord, PlayerId } from '../core';
@@ -108,6 +110,20 @@ function view(g: MailGame) {
   return g;
 }
 
+/** Privacy choice for a player: friends only, and the friend numbers allowed in. */
+interface Privacy { fo: boolean; friends: string[] }
+async function privacyOf(store: WorldStore, n: string): Promise<Privacy | null> {
+  const v = await store.get(`pv:${n}`);
+  return v ? (JSON.parse(v) as Privacy) : null;
+}
+/** May `from` challenge or friend-request `to`? */
+async function reachable(store: WorldStore, to: string, from: string): Promise<boolean> {
+  const pv = await privacyOf(store, to);
+  if (!pv?.fo) return true;
+  return pv.friends.includes(from) || !!(await store.get(`fs:${to}:${from}`));
+}
+export const FRIENDS_ONLY_MSG = 'This player only plays with friends. Ask them to add you.';
+
 /**
  * Handle /world/... . `who` is the player number already checked against its
  * save key (null when the request had none); `exists(n)` says whether a
@@ -132,7 +148,10 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
       const me = url.searchParams.get('me');
       // Friends: numbers the asker already knows in full (max 100). Shown in full, so the phone can put its own names on them.
       const look = new Set((url.searchParams.get('look') ?? '').split(',').filter(isNumber).slice(0, 100));
-      const known = (n: string) => n === me || look.has(n);
+      // Open board (owner, 2026-11-19): every number shows in full, except players who chose friends only.
+      const closed = new Set<string>();
+      for (const [k, v] of await store.list('pv:')) if ((JSON.parse(v) as Privacy).fo) closed.add(k.slice(3));
+      const known = (n: string) => n === me || look.has(n) || !closed.has(n);
       const show = (x: BoardEntry & { n: string }, i: number): BoardRow => ({ rank: i + 1, n: known(x.n) ? x.n : maskNumber(x.n), r: x.r, g: x.g, w: x.w ?? 0, l: x.l ?? 0, d: x.d ?? 0, me: x.n === me });
       const mine = me ? rows.findIndex((x) => x.n === me) : -1;
       const friends = rows.map((x, i) => [x, i] as const).filter(([x]) => look.has(x.n)).map(([x, i]) => show(x, i));
@@ -149,6 +168,21 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
       const count = (x: unknown) => Math.max(0, Math.min(100000, Math.round(Number(x)) || 0));
       const entry: BoardEntry = { r: Math.max(100, Math.min(3000, r)), g: count(g), w: count(body?.w), l: count(body?.l), d: count(body?.d), at: now };
       await store.put(`b:${n}`, JSON.stringify(entry));
+      return json({ ok: true });
+    }
+    return bad('method', 405);
+  }
+
+  // ---- Privacy: friends only ---------------------------------------------
+  if (parts[0] === 'privacy') {
+    const n = parts[1];
+    if (!n || !isNumber(n) || who !== n) return bad('wrong player', 403);
+    if (req.method === 'DELETE') { await store.delete(`pv:${n}`); return json({ ok: true }); }
+    if (req.method === 'POST') {
+      const body = (await req.json().catch(() => null)) as { friendsOnly?: boolean; friends?: unknown[] } | null;
+      if (!body?.friendsOnly) { await store.delete(`pv:${n}`); return json({ ok: true }); }
+      const friends = [...new Set((Array.isArray(body.friends) ? body.friends : []).map((x) => String(x)).filter(isNumber))].slice(0, 200);
+      await store.put(`pv:${n}`, JSON.stringify({ fo: true, friends } satisfies Privacy));
       return json({ ok: true });
     }
     return bad('method', 405);
@@ -179,11 +213,17 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
       await store.delete(`fr:${other}:${who}`);
       await store.delete(`fs:${who}:${other}`);
       await store.put(`fa:${other}:${who}`, String(now));
+      // Friends-only players let their new friend in straight away.
+      for (const [x, y] of [[who, other], [other, who]]) {
+        const pv = await privacyOf(store, x);
+        if (pv?.fo && !pv.friends.includes(y)) await store.put(`pv:${x}`, JSON.stringify({ fo: true, friends: [y, ...pv.friends].slice(0, 200) } satisfies Privacy));
+      }
     };
     if (req.method === 'POST' && !parts[2]) {
       if (!(await exists(other))) return bad('No player has that number.', 404);
       // They already asked you: that's a yes from both.
       if (await store.get(`fr:${who}:${other}`)) { await befriend(); return json({ status: 'friends' }); }
+      if (!(await reachable(store, other, who))) return bad(FRIENDS_ONLY_MSG, 403);
       if ([...(await store.list(`fr:${other}:`))].length >= FRIEND_REQUEST_MAX) return bad('They have too many friend requests waiting.', 429);
       await store.put(`fr:${other}:${who}`, String(now));
       await store.put(`fs:${who}:${other}`, String(now));
@@ -265,6 +305,7 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
       if (to === who) return bad('You cannot challenge yourself.');
       const game: MailChoice = MAIL_CHOICES.includes(body?.game as MailChoice) ? (body!.game as MailChoice) : 'standard';
       if (!(await exists(to))) return bad('No player has that number.', 404);
+      if (!(await reachable(store, to, who))) return bad(FRIENDS_ONLY_MSG, 403);
       const open = (await mine()).filter((g) => g.status === 'invited' || g.status === 'playing');
       if (open.length >= MAX_OPEN_GAMES) return bad(`You already have ${MAX_OPEN_GAMES} games going. Finish one first.`, 429);
       const iAmWhite = body?.colour === 'p2' ? false : body?.colour === 'p1' ? true : Math.random() < 0.5;
@@ -370,6 +411,7 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
       if (botList.some((b) => !b)) return bad('A bot was not right.');
       if (others.length + botList.length < 1 || others.length + botList.length > TOURNAMENT_MAX - 1) return bad(`Pick 1 to ${TOURNAMENT_MAX - 1} friends or bots.`);
       for (const n of others) if (!(await exists(n))) return bad(`No player has the number ${n}.`, 404);
+      for (const n of others) if (!(await reachable(store, n, who))) return bad(`${n.slice(0, 4)} ${n.slice(4)}: ${FRIENDS_ONLY_MSG}`, 403);
       const game = MAIL_GAMES.includes(body?.game as RoomGame) ? (body!.game as RoomGame) : 'standard';
       const bots: Record<string, TournamentBot> = {};
       botList.forEach((b, i) => { bots[`bot-${i + 1}`] = b!; });

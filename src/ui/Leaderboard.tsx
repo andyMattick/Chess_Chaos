@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { vaultBase } from '../storage/cloud';
-import { labelFor, setOnBoard, type BoardRow } from '../storage/world';
+import { labelFor, requestFriend, setFriendsOnly, setOnBoard, type BoardRow } from '../storage/world';
 import { StatsLine, useWorldBoard } from './FriendStats';
 import { NumberPrompt } from './CloudSave';
 import { activeProfile, type Opponent } from '../storage/storage';
@@ -13,13 +13,13 @@ import { useSave } from './store';
  * met, ranked by rating. Saved on this device only; ratings are as of the
  * last game against each person.
  */
-export function Leaderboard({ back }: { back: () => void }) {
+export function Leaderboard({ back, challenge }: { back: () => void; challenge?: (n: string) => void }) {
   const save = useSave();
   const p = activeProfile(save);
   const [tab, setTab] = useState<'mine' | 'world'>('mine');
   const { board } = useWorldBoard();
   if (!p) return null;
-  if (tab === 'world') return <WorldBoard back={back} mine={() => setTab('mine')} />;
+  if (tab === 'world') return <WorldBoard back={back} mine={() => setTab('mine')} challenge={challenge} />;
   // An online opponent you also added as a friend (same name): their live world stats.
   const friendFor = (name: string) => (p.friends ?? []).find((n) => labelFor(p, n).trim().toLowerCase() === name.trim().toLowerCase());
   const liveRow = (name: string) => { const n = friendFor(name); return n ? { n, row: board?.friends.find((x) => x.n === n) } : null; };
@@ -103,11 +103,19 @@ function withHistory(known: Record<string, Opponent>, botRecords: Record<string,
 }
 
 
-/** The world leaderboard: player numbers only. Others are masked; your friends show with the names you gave them. */
-function WorldBoard({ back, mine }: { back: () => void; mine: () => void }) {
+/**
+ * The world leaderboard: player numbers only, never names. Open (owner, 2026-11-19): you can
+ * challenge or friend-request anyone shown in full; players who chose "friends only" show masked.
+ */
+function WorldBoard({ back, mine, challenge }: { back: () => void; mine: () => void; challenge?: (n: string) => void }) {
   const save = useSave();
   const p = activeProfile(save);
   const { board, err } = useWorldBoard();
+  const [asked, setAsked] = useState<Record<string, string>>({});
+  const ask = (n: string) => {
+    setAsked((a) => ({ ...a, [n]: 'Sending…' }));
+    requestFriend(n).then((r) => setAsked((a) => ({ ...a, [n]: r === 'friends' ? '👫 Friends!' : '✔ Request sent' }))).catch((e) => setAsked((a) => ({ ...a, [n]: (e as Error).message })));
+  };
   const [view, setView] = useState<'top' | 'friends'>('top');
   const medal = ['🥇', '🥈', '🥉'];
   const friends = p?.friends ?? [];
@@ -115,7 +123,16 @@ function WorldBoard({ back, mine }: { back: () => void; mine: () => void }) {
   const row = (r: BoardRow) => (
     <li key={`${r.rank}-${r.n}`} className={r.me ? 'me' : friends.includes(r.n) ? 'friend' : ''}>
       <span className="place">{medal[r.rank - 1] ?? r.rank}</span>
-      <span className="lb-name"><b>{nameOf(r)}</b><small>W {r.w} · L {r.l} · D {r.d} · {r.g} games</small></span>
+      <span className="lb-name"><b>{nameOf(r)}</b><small>W {r.w} · L {r.l} · D {r.d} · {r.g} games</small>
+        {p?.cloud && !r.me && !friends.includes(r.n) && /^\d{8}$/.test(r.n) && (
+          asked[r.n] ? <small className="muted">{asked[r.n]}</small> : (
+            <span className="row wrap">
+              <button className="btn small" onClick={() => ask(r.n)}>➕ Friend</button>
+              {challenge && <button className="btn small primary" onClick={() => challenge(r.n)}>⚔️ Challenge</button>}
+            </span>
+          )
+        )}
+      </span>
       <span className="bot-rating">★ {r.r}</span>
     </li>
   );
@@ -126,10 +143,13 @@ function WorldBoard({ back, mine }: { back: () => void; mine: () => void }) {
         <button className="chip" onClick={mine}>📱 People I've played</button>
         <button className="chip on">🌍 World</button>
       </div>
-      <p className="muted small">Everyone with a player number. No names here: other players show as ••••1234. Your friends show with the names you gave them (only you see those).</p>
+      <p className="muted small">Everyone with a player number, and no names. You can challenge or add anyone shown with their full number. Players who chose "friends only" show as ••••1234. Your friends show with the names you gave them (only you see those).</p>
       {!p?.cloud && <NumberPrompt why="Get a player number to be on the world leaderboard." />}
       {p?.cloud && (
-        <label className="small"><input type="checkbox" checked={p.worldBoard !== false} onChange={(e) => void setOnBoard(e.target.checked).catch(() => {})} /> Show me on the world leaderboard</label>
+        <>
+          <label className="small"><input type="checkbox" checked={p.worldBoard !== false} onChange={(e) => void setOnBoard(e.target.checked).catch(() => {})} /> Show me on the world leaderboard</label>
+          <label className="small"><input type="checkbox" checked={!!p.friendsOnly} onChange={(e) => void setFriendsOnly(e.target.checked)} /> 🔒 Friends only: only my friends can challenge me or send me friend requests</label>
+        </>
       )}
       <div className="clock-chips">
         <button className={`chip ${view === 'top' ? 'on' : ''}`} onClick={() => setView('top')}>🏆 Top 50</button>

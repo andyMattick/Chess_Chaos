@@ -18,12 +18,12 @@ import { useSave } from './store';
  * play a move whenever you like. Numbers only on the server; you can name a
  * number on your own phone. No messages.
  */
-export function Challenges({ back, play, playLevelUp }: { back: () => void; play: (c: GameConfig) => void; playLevelUp: (g: MailGame) => void }) {
+export function Challenges({ back, play, playLevelUp, initialTo }: { back: () => void; play: (c: GameConfig) => void; playLevelUp: (g: MailGame) => void; initialTo?: string }) {
   const save = useSave();
   const p = activeProfile(save);
   const [games, setGames] = useState<MailGame[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [to, setTo] = useState('');
+  const [to, setTo] = useState(initialTo ?? '');
   const [game, setGame] = useState<MailChoice>('standard');
   const [colour, setColour] = useState<'p1' | 'p2' | 'random'>('random');
   const [busy, setBusy] = useState(false);

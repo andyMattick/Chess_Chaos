@@ -30,7 +30,7 @@ function server() {
 }
 
 describe('world leaderboard', () => {
-  it('ranks players by number only, masks the others, and needs the key to post', async () => {
+  it('ranks players by number (open board: numbers in full), and needs the key to post', async () => {
     const sv = server();
     const a = await sv.player(), b = await sv.player();
     expect((await a.call('POST', `/board/${a.number}`, { rating: 900, games: 12, w: 7, l: 4, d: 1 })).status).toBe(200);
@@ -42,18 +42,39 @@ describe('world leaderboard', () => {
     expect(forged.status).toBe(403);
     const board = await (await sv.fetch(new Request(`https://x.dev/world/board?me=${a.number}`))).json();
     expect(board.players).toBe(2);
-    expect(board.top[0]).toEqual({ rank: 1, n: maskNumber(b.number), r: 1100, g: 3, w: 0, l: 0, d: 0, me: false });
+    expect(board.top[0]).toEqual({ rank: 1, n: b.number, r: 1100, g: 3, w: 0, l: 0, d: 0, me: false });
     expect(board.top[1]).toEqual({ rank: 2, n: a.number, r: 900, g: 12, w: 7, l: 4, d: 1, me: true });
     expect(board.me.rank).toBe(2);
-    expect(JSON.stringify(board)).not.toContain(b.number);
-    // A friend's number you already know comes back in full, with their rank and record.
+    // Friends you look up come back with their rank and record.
     const withFriend = await (await sv.fetch(new Request(`https://x.dev/world/board?me=${a.number}&look=${b.number},99999999`))).json();
     expect(withFriend.friends).toEqual([{ rank: 1, n: b.number, r: 1100, g: 3, w: 0, l: 0, d: 0, me: false }]);
-    expect(withFriend.top[0].n).toBe(b.number);
     // Leaving the board.
     await b.call('DELETE', `/board/${b.number}`);
     expect((await (await sv.fetch(new Request('https://x.dev/world/board'))).json()).players).toBe(1);
     expect(BOARD_TOP).toBeGreaterThan(10);
+  });
+  it('friends only: masked on the board; strangers cannot challenge, invite or friend-request; friends and people you asked can', async () => {
+    const sv = server();
+    const a = await sv.player(), b = await sv.player(), c = await sv.player(), d = await sv.player();
+    await a.call('POST', `/board/${a.number}`, { rating: 900, games: 1 });
+    // Strangers can reach anyone on the open board...
+    expect((await c.call('POST', '/games', { to: a.number })).status).toBe(201);
+    // ...until a switches on friends only, with b as a friend.
+    expect((await c.call('POST', `/privacy/${a.number}`, { friendsOnly: true })).status).toBe(403); // only a can
+    await a.call('POST', `/privacy/${a.number}`, { friendsOnly: true, friends: [b.number] });
+    const board = await (await sv.fetch(new Request('https://x.dev/world/board'))).json();
+    expect(board.top[0].n).toBe(maskNumber(a.number));
+    expect((await c.call('POST', '/games', { to: a.number })).status).toBe(403);
+    expect((await c.call('POST', `/friends/${a.number}`)).status).toBe(403);
+    expect((await c.call('POST', '/tournaments', { players: [a.number] })).status).toBe(403);
+    expect((await b.call('POST', '/games', { to: a.number })).status).toBe(201);
+    // Someone a asked first can answer and play.
+    await a.call('POST', `/friends/${d.number}`);
+    expect((await d.call('POST', `/friends/${a.number}`)).status).toBe(200);
+    expect((await d.call('POST', '/games', { to: a.number })).status).toBe(201);
+    // Switched off: open again.
+    await a.call('DELETE', `/privacy/${a.number}`);
+    expect((await c.call('POST', '/games', { to: a.number })).status).toBe(201);
   });
 });
 

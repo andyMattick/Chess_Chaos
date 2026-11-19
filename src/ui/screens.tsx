@@ -12,6 +12,7 @@ import { currentStreak, EMPTY_PROGRESS } from '../systems/puzzle';
 import { dueCount } from '../systems/openings';
 import { DAILY_ALL_BONUS, dailyById, dailyFor, dayKey, type DailyMission, type DailyState } from '../systems/daily';
 import { claimDaily } from '../storage/daily';
+import { setFriendsOnly } from '../storage/world';
 import { POWER_CARDS } from '../content/cards';
 import type { GameConfig } from './GameScreen';
 
@@ -132,6 +133,7 @@ function Tile({ emoji, title, sub, c, onClick, disabled }: { emoji: string; titl
 
 function Settings() {
   const save = useSave();
+  const p = activeProfile(save);
   const s = save.settings;
   const set = (patch: Partial<typeof s>) => update((d) => ({ ...d, settings: { ...d.settings, ...patch } }));
   return (
@@ -140,6 +142,7 @@ function Settings() {
       <label><input type="checkbox" checked={s.sound} onChange={(e) => set({ sound: e.target.checked })} /> Sound effects</label>
       <label><input type="checkbox" checked={s.shake !== false} onChange={(e) => set({ shake: e.target.checked })} /> Board shake and phone buzz</label>
       <label><input type="checkbox" checked={s.chesscomEnabled} onChange={(e) => set({ chesscomEnabled: e.target.checked })} /> Show the Chess.com corner (parents can switch this off)</label>
+      {p?.cloud && <label><input type="checkbox" checked={!!p.friendsOnly} onChange={(e) => void setFriendsOnly(e.target.checked)} /> 🔒 Friends only: strangers from the world leaderboard can't challenge me or send friend requests (parents can switch this on)</label>}
       <label><input type="checkbox" checked={s.showCoordinates} onChange={(e) => set({ showCoordinates: e.target.checked })} /> Show board letters and numbers</label>
       <label><input type="checkbox" checked={!!s.plainPieces} onChange={(e) => set({ plainPieces: e.target.checked })} /> ♟ Plain pieces (no skins) on the board</label>
       <CloudSaveCard />
