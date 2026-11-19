@@ -70,6 +70,7 @@ export type LUEvent =
   | { k: 'crew-lost'; piece: number; catapult: number }
   | { k: 'defuse'; at: number; piece: number; roll: number; kept: boolean }
   | { k: 'stun'; piece: number }
+  | { k: 'wall'; at: number; piece: number }
   | { k: 'check'; side: Side };
 export interface LUResult { winner: Side | null; reason: 'checkmate' | 'assassin' | 'stalemate' | 'resign'; grade: string }
 
@@ -126,6 +127,10 @@ export type LUAction =
   | { t: 'retrain'; piece: number }
   /** A level 3 miner defuses a mine up to 2 squares away without stepping on it. */
   | { t: 'defuse'; piece: number; at: number }
+  /** A knight or pawn clears a barricade next to it. */
+  | { t: 'clear'; piece: number; at: number }
+  /** A level 3 rook builds a wall (a new barricade) next to it. */
+  | { t: 'wall'; piece: number; at: number }
   | { t: 'resign'; by: Side };
 
 /** Bombardier steps and job picks don't end the turn. */
@@ -281,9 +286,19 @@ export function pieceActions(s: LUState, p: LUPiece): LUAction[] {
       // Climb onto an empty bombardier next to it.
       for (const c of s.pieces) if (c.type === 'catapult' && c.owner === p.owner && c.at >= 0 && c.crew === undefined && dist(c.at, p.at) === 1) out.push({ t: 'board', piece: p.id, catapult: c.id });
       if (lv >= 3) out.push({ t: 'retrain', piece: p.id });
+      out.push(...clears(s, p));
       break;
     }
-    case 'knight': case 'bishop': case 'rook': case 'queen':
+    case 'knight':
+      for (const t of threats(s, p)) goOrHit(t);
+      out.push(...clears(s, p));
+      break;
+    case 'rook':
+      for (const t of threats(s, p)) goOrHit(t);
+      // Level 3 builds walls on empty ground next to it (owner, 2026-11-19).
+      if (lv >= 3) for (const [df, dr] of ALL) { const t = step(p.at, df, dr); if (t >= 0 && open(s, t) && s.sq[t] < 0 && !s.mines.some((m) => m.at === t && m.owner === p.owner)) out.push({ t: 'wall', piece: p.id, at: t }); }
+      break;
+    case 'bishop': case 'queen':
       for (const t of threats(s, p)) goOrHit(t);
       break;
     case 'king':
@@ -346,6 +361,13 @@ export function pieceActions(s: LUState, p: LUPiece): LUAction[] {
   // One of each (a piece can reach a square two ways).
   const seen = new Set<string>();
   return out.filter((a) => { const k = JSON.stringify(a); if (seen.has(k)) return false; seen.add(k); return true; });
+}
+
+/** A knight or pawn can clear a barricade on any square next to it (owner, 2026-11-19). */
+function clears(s: LUState, p: LUPiece): LUAction[] {
+  const out: LUAction[] = [];
+  for (const [df, dr] of ALL) { const t = step(p.at, df, dr); if (t >= 0 && s.trees[t] > 0) out.push({ t: 'clear', piece: p.id, at: t }); }
+  return out;
 }
 
 /** Squares reachable in up to `n` king steps over open, empty ground (a miner may also end on any mine). */
@@ -421,7 +443,9 @@ function revives(s: LUState, p: LUPiece): LUAction[] {
 
 /** What a successful action would leave behind (used to keep your king out of check). */
 function hopeful(s: LUState, a: LUAction): LUState {
-  if (a.t === 'resign' || isFree(a) || a.t === 'retrain' || a.t === 'defuse') return s;
+  if (a.t === 'resign' || isFree(a) || a.t === 'retrain' || a.t === 'defuse' || a.t === 'clear') return s;
+  // A new wall can block a line onto your king.
+  if (a.t === 'wall') { const n = { ...s, trees: s.trees.slice() }; n.trees[a.at] = BARRICADE_HP; return n; }
   const n = { ...s, sq: s.sq.slice(), pieces: s.pieces.map((p) => ({ ...p })) };
   const p = n.pieces[a.piece];
   if (a.t === 'board') { n.sq[p.at] = -1; p.at = -1; return n; }
@@ -809,6 +833,19 @@ export function play(prev: LUState, a: LUAction, check = true): LUState {
       moved = undefined;
       break;
     }
+    case 'clear':
+      s.trees[a.at] = 0;
+      s.events.push({ k: 'tree', at: a.at, gone: true });
+      s.cleared[me]++;
+      noteGlobal(s, me, 'G-tree', p.id);
+      if (s.cleared[me] >= 3) noteSecret(s, me, 'S-trees', p.id);
+      moved = undefined;
+      break;
+    case 'wall':
+      s.trees[a.at] = BARRICADE_HP;
+      s.events.push({ k: 'wall', at: a.at, piece: p.id });
+      moved = undefined;
+      break;
   }
   // Things the moved piece earned by where it stands now.
   if (moved && moved.at >= 0 && (a.t === 'move' || a.t === 'attack' || a.t === 'castle' || a.t === 'unboard')) {
@@ -823,7 +860,7 @@ export function play(prev: LUState, a: LUAction, check = true): LUState {
     if (hit.filter((q) => q.type === 'king' || LU_PIECES[q.type].value >= 3).length >= 2) { award(s, moved, 'fork'); noteGlobal(s, me, 'G-fork', moved.id); }
     if (pins(s, moved)) award(s, moved, 'pin');
   }
-  s.last = { from, to: 'to' in a ? a.to : a.t === 'defuse' ? a.at : from, by: me };
+  s.last = { from, to: 'to' in a ? a.to : 'at' in a ? a.at : from, by: me };
   s.turn = other(me);
   s.ply++;
   // Is the next player stuck?
@@ -863,8 +900,8 @@ function shieldOf(s: LUState, at: number, owner: Side, from: number): LUPiece | 
   for (const r of s.pieces) {
     if (r.type !== 'rook' || r.owner !== owner || r.at < 0) continue;
     const lv = level(r);
-    if (lv >= 3 && dist(r.at, at) === 1) return r;
-    if (lv >= 2 && between.includes(r.at)) return r;
+    // Level 2 and up (owner, 2026-11-19): shields the pieces next to it, and the piece right behind it.
+    if (lv >= 2 && (dist(r.at, at) === 1 || between.includes(r.at))) return r;
   }
   return undefined;
 }

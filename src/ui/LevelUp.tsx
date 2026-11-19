@@ -50,7 +50,7 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
   /** Level-Up actions the server has (the guard for a move sent twice). */
   const served = useRef(mail?.lu?.actions.length ?? 0);
   const [sel, setSel] = useState<number | null>(null);
-  const [mode, setMode] = useState<'go' | 'special' | 'mark' | 'mine' | 'off' | 'defuse'>('go');
+  const [mode, setMode] = useState<'go' | 'special' | 'mark' | 'mine' | 'off' | 'defuse' | 'clear' | 'wall'>('go');
   const [look, setLook] = useState<number | null>(null);
   /** The piece under the mouse: its card shows while you point at it. */
   const [hover, setHover] = useState<number | null>(null);
@@ -95,7 +95,7 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
         case 'xp': if (next.pieces[e.piece].owner === ME) lines.push(`+${e.points} ${e.why} (${nameOf(next.pieces[e.piece])})`); break;
         case 'mission': {
           const m = missionById(e.id)!;
-          if (e.side === ME) ps.push({ k: 'mission', text: e.kind === 'secret' ? `Secret mission done: ${m.name}!` : `Race won: ${m.name}!`, sub: e.kind === 'secret' ? 'Bonus points, and a win now is a Complete win.' : 'Bonus points for the piece that did it.' });
+          if (e.side === ME) ps.push({ k: 'mission', text: e.kind === 'secret' ? `Secret mission done: ${m.name}!` : `Mission card won: ${m.name}!`, sub: e.kind === 'secret' ? 'Bonus points, and a win now is a Complete win.' : 'Bonus points for the piece that did it.' });
           else if (e.kind === 'global') lines.push(`🏁 The enemy claimed "${m.name}".`);
           break;
         }
@@ -113,6 +113,7 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
         case 'crew-lost': lines.push(next.pieces[e.catapult].owner === ME ? '🪖 Your bombardier lost its crew! A pawn next to it can climb on.' : '🪖 An enemy bombardier lost its crew.'); break;
         case 'retrain': if (next.pieces[e.piece].owner === ME) lines.push('✨ Your pawn trained as a scout!'); break;
         case 'tree': if (e.gone) lines.push('🌲 A barricade crashes down.'); break;
+        case 'wall': if (seenPiece(e.piece)) lines.push(next.pieces[e.piece].owner === ME ? '🧱 Your rook built a wall.' : '🧱 An enemy rook built a wall.'); break;
         case 'crater': lines.push('🕳 The blast left a crater. Nobody can cross it now.'); break;
         case 'promote': lines.push(`👑 ${label(e.piece)} reached the far side and became a queen!`); break;
         case 'check': lines.push(e.side === ME ? '⚠ CHECK! Protect your king.' : '⚔ Check!'); break;
@@ -234,13 +235,15 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
   const selPiece = sel !== null ? s.pieces[sel] : null;
   const selActs = selPiece ? legal.filter((a) => 'piece' in a && a.piece === selPiece.id) : [];
   const special = selActs.filter((a) => a.t === 'revive');
-  const tgt = (a: LUAction) => (a.t === 'defuse' ? a.at : 'to' in a ? a.to : -1);
+  const tgt = (a: LUAction) => ('at' in a ? a.at : 'to' in a ? a.to : -1);
   const shown = selActs.filter((a) => {
     switch (mode) {
       case 'mark': return a.t === 'mark';
       case 'mine': return a.t === 'move' && !!a.mine;
       case 'off': return a.t === 'unboard';
       case 'defuse': return a.t === 'defuse';
+      case 'clear': return a.t === 'clear';
+      case 'wall': return a.t === 'wall';
       case 'special': return false;
       default: return (a.t === 'move' && !a.mine) || a.t === 'attack' || a.t === 'strike' || a.t === 'castle';
     }
@@ -309,13 +312,14 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
       const w = a.t === 'attack' ? battleOdds(s, selPiece, enemy).win : strikeOdds(selPiece).win;
       odds = identified(v, ME, enemy) || a.t === 'strike' ? `${Math.round(w * 100)}%` : '?';
     }
-    const kind = a.t === 'attack' || a.t === 'strike' ? 'hit' : a.t === 'mark' ? 'fire' : a.t === 'defuse' ? 'mine' : 'go';
+    const kind = a.t === 'attack' || a.t === 'strike' ? 'hit' : a.t === 'mark' ? 'fire' : a.t === 'defuse' ? 'mine' : a.t === 'clear' || a.t === 'wall' ? 'build' : 'go';
     marks.push(
       <g key={`a${a.t}${to}`} className={`lu-target ${kind}`} onClick={() => tap(to)}>
         <rect x={x} y={y} width={CELL} height={CELL} />
         {kind === 'go' && <rect x={x + 4.5} y={y + 4.5} width={3} height={3} className="lu-dot" />}
         {kind === 'fire' && <text x={x + CELL / 2} y={y + CELL / 2 + 2.5} textAnchor="middle">◎</text>}
         {kind === 'mine' && <text x={x + CELL / 2} y={y + CELL / 2 + 2.5} textAnchor="middle">✱</text>}
+        {kind === 'build' && <text x={x + CELL / 2} y={y + CELL / 2 + 2.5} textAnchor="middle">{a.t === 'clear' ? '🪓' : '🧱'}</text>}
         {odds && <text x={x + CELL / 2} y={y + 4} textAnchor="middle" className="odds">{odds}</text>}
       </g>,
     );
@@ -345,6 +349,8 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
       if (pick('defuse')) btns.push(modeBtn('defuse', '🧰 Defuse from here'));
     } else {
       if (special.length) btns.push(modeBtn('go', 'Move'), modeBtn('special', '✚ Revive'));
+      if (pick('clear')) btns.push(modeBtn('go', 'Move'), modeBtn('clear', '🪓 Clear a barricade'));
+      if (pick('wall')) btns.push(modeBtn('go', 'Move'), modeBtn('wall', '🧱 Build a wall'));
       for (const a of selActs) if (a.t === 'board') btns.push(<button key={`b${a.catapult}`} className="lu-btn" onClick={() => act(a)}>🪖 Climb onto the bombardier</button>);
       btns.push(now(pick('retrain'), '✨ Become a scout'));
     }
@@ -407,7 +413,7 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
         <div className="lu-win">
           <b>SECRET MISSION</b>
           <p className="lu-small">{s.secretDone[ME] ? '✔ ' : ''}{missionById(s.secret[ME])?.name}: {missionById(s.secret[ME])?.text}</p>
-          <b>RACE CARDS</b> <span className="lu-small">({s.raceDeck.length} in the deck)</span>
+          <b>MISSION CARDS</b> <span className="lu-small">({s.raceDeck.length} in the deck)</span>
           <ul className="lu-race">
             {s.globals.slice(0, RACE_FACE_UP).map((g) => <li key={g.id}>🏁 {missionById(g.id)?.name}: {missionById(g.id)?.text}</li>)}
             {s.raceDone.map((g) => <li key={g.id} className={g.winner === ME ? 'won' : 'lost'}>{g.winner === ME ? '✔ You' : '✘ Enemy'}: {missionById(g.id)?.name}</li>)}
@@ -514,12 +520,13 @@ function Menu({ which, close }: { which: 'points' | 'help'; close: () => void })
               <li>Every attack is a dice battle: each side rolls a die and adds its power. Higher wins. Lose by 4 or more and the attacker falls.</li>
               <li>Ties: attack with a friend next to the target and you win. Otherwise the bases decide: ▲ beats ●, ● beats ■, ■ beats ▲.</li>
               <li>The fog hides what your pieces can't see. Enemies show as ??? until they fight, or your scout gets close.</li>
-              <li>Bombardiers can't be destroyed, but need a pawn crew on them. Each turn, as well as your move, a bombardier can mark a target, fire at a marked target (they get a turn to escape), or reload. Everything next to a shot is stunned and misses a turn. Rooks at level 2 block shots. A level 3 blast also hits the 4 diagonal squares and leaves a crater nobody can cross.</li>
+              <li>Bombardiers can't be destroyed, but need a pawn crew on them. Each turn, as well as your move, a bombardier can mark a target, fire at a marked target (they get a turn to escape), or reload. Everything next to a shot is stunned and misses a turn. Level 2 rooks protect the friends next to them from shots. A level 3 blast also hits the 4 diagonal squares and leaves a crater nobody can cross.</li>
               <li>Your two scouts pick a job at level 2: Medic (brings fallen friends back), Miner (hides and clears mines) or Spy (invisible, then an Assassin).</li>
               <li>Mines blow up whoever steps on them and stun everything around. Your team sees your mines; miners see mines next to them.</li>
               <li>Pawns at level 2 step any way and attack diagonally any way. At level 3 a pawn can train as a scout.</li>
               <li>Battles shake the forest: barricades next to a fight take a hit, and fall after two.</li>
-              <li>Race cards: three face up for both players. First to do one claims it, and a new card turns over.</li>
+              <li>Mission cards: three face up for both players. First to do one claims it, and a new card turns over.</li>
+              <li>Barricades: knights and pawns can clear one next to them. Level 2 rooks protect the friends next to them from shots; level 3 rooks build new walls.</li>
             </ul>
           </>
         )}

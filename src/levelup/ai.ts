@@ -60,6 +60,9 @@ export function scoreAction(s: LUState, a: LUAction, side: Side): number {
     case 'retrain': score -= 4; break;
     case 'defuse': { const m = s.mines.find((x) => x.at === a.at); score += m && m.owner !== side ? 6 : -10; break; }
     case 'revive': score += worth(s.pieces[a.fallen]) + 5; break;
+    // Clearing is slow but opens paths (and counts for the forest missions); walls are for emergencies.
+    case 'clear': score += 0.5 + (s.globals.some((g) => g.id === 'G-tree') ? 4 : 0) + (s.secret[side] === 'S-trees' && !s.secretDone[side] ? 3 : 0); break;
+    case 'wall': score -= 1; break;
     case 'castle': score += 14; break;
     case 'move': {
       if (a.mine) { const ahead = side === 'p1' ? rankOf(me.at) : 15 - rankOf(me.at); score += 2 + Math.min(6, ahead) * 0.5; }

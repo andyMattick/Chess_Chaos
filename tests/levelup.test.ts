@@ -282,6 +282,39 @@ describe('the new pieces', () => {
     expect(rookTo).toContain(S(4, 6));
     expect(rookTo).not.toContain(S(5, 6));
   });
+  it('knights and pawns clear a barricade next to them; level 2 rooks protect neighbours; level 3 rooks build walls', () => {
+    let s = kings(blankGame());
+    s.globals = [{ id: 'G-tree', winner: null }];
+    const k = put(s, 'knight', 'p1', S(5, 5));
+    const pw = put(s, 'pawn', 'p1', S(9, 5));
+    s.trees[S(6, 6)] = 2; s.trees[S(9, 6)] = 2;
+    expect(has(s, { t: 'clear', piece: pw.id, at: S(9, 6) })).toBe(true);
+    s = play(s, { t: 'clear', piece: k.id, at: S(6, 6) });
+    expect(s.trees[S(6, 6)]).toBe(0);
+    expect(s.cleared.p1).toBe(1);
+    expect(s.raceDone[0]).toEqual({ id: 'G-tree', winner: 'p1' });
+    expect(s.pieces[k.id].at).toBe(S(5, 5)); // it stays where it is
+    // Rooks: level 1 nothing, level 3 builds a wall that blocks lines.
+    const r = kings(blankGame());
+    const rook = put(r, 'rook', 'p1', S(5, 5));
+    expect(legalActions(r).some((a) => a.t === 'wall')).toBe(false);
+    r.pieces[rook.id].xp = 8;
+    let w = play(r, { t: 'wall', piece: rook.id, at: S(5, 6) });
+    expect(w.trees[S(5, 6)]).toBe(2);
+    w = quiet(w);
+    expect(acts(w, rook.id).some((a) => 'to' in a && a.to === S(5, 7))).toBe(false);
+    // Level 2 protects a friend next to it from a shot from any side.
+    let g = kings(blankGame());
+    const c = put(g, 'catapult', 'p2', S(5, 9));
+    const friend = put(g, 'knight', 'p1', S(8, 5));
+    put(g, 'rook', 'p1', S(9, 5), { xp: 3 });
+    g.turn = 'p2';
+    g = play(g, { t: 'mark', piece: c.id, to: S(8, 5) });
+    g = quiet(quiet(g));
+    g = play(g, { t: 'fire', piece: c.id });
+    expect(g.pieces[friend.id].at).toBe(S(8, 5));
+    expect(g.events.some((x) => x.k === 'shield')).toBe(true);
+  });
   it('a level 2 rook shields the piece behind it from a bombardier', () => {
     let s = kings(blankGame());
     const c = put(s, 'catapult', 'p1', S(5, 2));
