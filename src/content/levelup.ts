@@ -100,8 +100,12 @@ export const WIN_GRADES = {
   plain: 'Win',
 } as const;
 
-/** Board: 16 x 16. Armies 12 wide in files 2-13. Barricade forest in ranks 5-10. */
-export const LU_SIZE = 16;
+/**
+ * Board (owner, 2026-11-19: "the world felt too big, make it skinnier, but more trees"):
+ * 12 files wide (the armies fill it exactly) and 16 ranks long. Barricade forest in ranks 4-11, thicker than before.
+ */
+export const LU_WIDTH = 12;
+export const LU_HEIGHT = 16;
 /** Owner, 2026-11-19: the outside extras are always bombardiers; the inside extras start as scouts and pick a job at level 2. */
 export const LU_BACK: LUType[] = ['catapult', 'scout', 'rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook', 'scout', 'catapult'];
 /** The jobs a scout can pick at level 2. A Spy stays a scout (and becomes an Assassin at level 3). */
@@ -111,10 +115,10 @@ export const LU_ROLES: { role: LURole; name: string; text: string }[] = [
   { role: 'miner', name: 'Miner', text: 'Hides mines, clears enemy mines.' },
   { role: 'spy', name: 'Spy', text: 'Invisible to the enemy. Becomes an Assassin at level 3.' },
 ];
-export const LU_FIRST_FILE = 2;
-export const FOREST_RANKS: [number, number] = [5, 10];
+export const LU_FIRST_FILE = 0;
+export const FOREST_RANKS: [number, number] = [4, 11];
 /** About this share of forest squares start with a barricade (FIRST BUILD). */
-export const FOREST_DENSITY = 0.38;
+export const FOREST_DENSITY = 0.55;
 /** Hits a barricade takes (FIRST BUILD): every battle won next to it is one hit. */
 export const BARRICADE_HP = 2;
 /** Medic: revive window in the owner's own turns (design doc: 3). */

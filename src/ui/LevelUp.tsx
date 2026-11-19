@@ -4,7 +4,7 @@ import {
 } from '../content/levelup';
 import { chooseAction, type LUBotLevel } from '../levelup/ai';
 import {
-  N, actor, battleOdds, isWall, fileOf, identified, inCheck, legalActions, level, newGame, play, rankOf, strikeOdds, stunned, viewOf, visible,
+  H, SQUARES, W, actor, battleOdds, isWall, fileOf, identified, inCheck, legalActions, level, newGame, play, rankOf, strikeOdds, stunned, viewOf, visible,
   type LUAction, type LUEvent, type LUPiece, type LUState, type Side,
 } from '../levelup/rules';
 import { activeProfile, updateProfile } from '../storage/storage';
@@ -249,10 +249,17 @@ export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back:
   if (!p) return null;
 
   // ---- Title screen ----
+  // Always a way out (owner, 2026-11-19: "I feel trapped"). A live room stays open (come back from the Level-Up screen); a challenge is saved.
+  const homeBtn = (
+    <button className="lu-btn lu-home" onClick={back} aria-label={mail ? 'Back to Challenges' : 'Home'}>
+      {mail ? '◀ 📬 Challenges' : '🏠 Home'}
+    </button>
+  );
   const bothIn = !!room.seats.p1 && !!room.seats.p2;
   if (live && (!s || !bothIn)) {
     return (
       <div className={`lu ${art}`}>
+      {homeBtn}
         <div className="lu-win lu-title">
           <h1>LIVE LEVEL-UP</h1>
           {room.code ? (
@@ -276,6 +283,7 @@ export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back:
   if (!s || (!bot && !mail && !live)) {
     return (
       <div className={`lu ${art}`}>
+      {homeBtn}
         {hasLiveGame() && (
           <div className="lu-win lu-back">
             <h2>⚡ Your live room {luSession.savedCode()} is still open</h2>
@@ -331,8 +339,8 @@ export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back:
   // ---- The battle ----
   const v = view!;
   // Your own army is always at the bottom: Red sees the board turned round.
-  const px = (sq: number) => (flip ? N - 1 - fileOf(sq) : fileOf(sq)) * CELL;
-  const py = (sq: number) => (flip ? rankOf(sq) : N - 1 - rankOf(sq)) * CELL;
+  const px = (sq: number) => (flip ? W - 1 - fileOf(sq) : fileOf(sq)) * CELL;
+  const py = (sq: number) => (flip ? rankOf(sq) : H - 1 - rankOf(sq)) * CELL;
   const selPiece = sel !== null ? s.pieces[sel] : null;
   const selActs = selPiece ? legal.filter((a) => 'piece' in a && a.piece === selPiece.id) : [];
   const special = selActs.filter((a) => a.t === 'revive');
@@ -365,12 +373,12 @@ export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back:
   }
 
   const cells: ReactElement[] = [];
-  for (let sq = 0; sq < N * N; sq++) {
+  for (let sq = 0; sq < SQUARES; sq++) {
     const x = px(sq), y = py(sq);
       cells.push(<rect key={`g${sq}`} x={x} y={y} width={CELL} height={CELL} fill={luGrass(art, fileOf(sq), rankOf(sq))} />);
   }
   const things: ReactElement[] = [];
-  for (let sq = 0; sq < N * N; sq++) {
+  for (let sq = 0; sq < SQUARES; sq++) {
     const x = px(sq), y = py(sq);
     if ((s.craters ?? []).includes(sq)) things.push(<image key={`c${sq}`} href={sprite('crater')} x={x} y={y} width={CELL} height={CELL} />);
     if (s.trees[sq] > 0) things.push(<image key={`t${sq}`} href={sprite(isWall(s, sq) ? (s.trees[sq] > 1 ? 'wall' : 'wall-cracked') : s.trees[sq] > 1 ? 'tree' : 'stump')} x={x} y={y} width={CELL} height={CELL} />);
@@ -397,7 +405,7 @@ export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back:
     );
   });
   const fog: ReactElement[] = [];
-  for (let sq = 0; sq < N * N; sq++) if (!v.seen.has(sq)) fog.push(<rect key={`f${sq}`} x={px(sq)} y={py(sq)} width={CELL} height={CELL} className="lu-fog" />);
+  for (let sq = 0; sq < SQUARES; sq++) if (!v.seen.has(sq)) fog.push(<rect key={`f${sq}`} x={px(sq)} y={py(sq)} width={CELL} height={CELL} className="lu-fog" />);
   const marks: ReactElement[] = [];
   for (const shot of s.shots) {
     const x = px(shot.at), y = py(shot.at);
@@ -469,14 +477,15 @@ export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back:
 
   return (
     <div className={`lu ${art}`}>
+      {homeBtn}
       <div className="lu-board-wrap">
-        <svg className="lu-board" viewBox={`0 0 ${N * CELL} ${N * CELL}`} shapeRendering={art === '8bit' ? 'crispEdges' : 'auto'} role="img" aria-label="Level-Up Chess board">
+        <svg className="lu-board" viewBox={`0 0 ${W * CELL} ${H * CELL}`} shapeRendering={art === '8bit' ? 'crispEdges' : 'auto'} role="img" aria-label="Level-Up Chess board">
           <g>
             {cells}{things}{pieces}{fog}
           </g>
           {marks}
           {/* Tap targets for the tests and for exact taps. */}
-          <g className="lu-hit" onMouseLeave={() => setHover(null)}>{Array.from({ length: N * N }, (_, sq) => <rect key={`h${sq}`} data-square={sq} x={px(sq)} y={py(sq)} width={CELL} height={CELL} onClick={() => tap(sq)}
+          <g className="lu-hit" onMouseLeave={() => setHover(null)}>{Array.from({ length: SQUARES }, (_, sq) => <rect key={`h${sq}`} data-square={sq} x={px(sq)} y={py(sq)} width={CELL} height={CELL} onClick={() => tap(sq)}
             onMouseEnter={() => { const q = s.sq[sq] >= 0 ? s.pieces[s.sq[sq]] : null; setHover(q && visible(s, v, ME, q) ? q.id : null); }} />)}</g>
         </svg>
       </div>

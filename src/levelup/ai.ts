@@ -1,6 +1,6 @@
 import { LU_PIECES } from '../content/levelup';
 import {
-  actor, attacked, battleOdds, dist, identified, inCheck, isCentre, isFree, legalActions, level, pieceAt, play, rankOf, strikeOdds, threats, viewOf, visible,
+  H, actor, attacked, battleOdds, dist, identified, inCheck, isCentre, isFree, legalActions, level, pieceAt, play, rankOf, strikeOdds, threats, viewOf, visible,
   type LUAction, type LUPiece, type LUState, type Side,
 } from './rules';
 
@@ -65,7 +65,7 @@ export function scoreAction(s: LUState, a: LUAction, side: Side): number {
     case 'wall': score -= 1; break;
     case 'castle': score += 14; break;
     case 'move': {
-      if (a.mine) { const ahead = side === 'p1' ? rankOf(me.at) : 15 - rankOf(me.at); score += 2 + Math.min(6, ahead) * 0.5; }
+      if (a.mine) { const ahead = side === 'p1' ? rankOf(me.at) : H - 1 - rankOf(me.at); score += 2 + Math.min(6, ahead) * 0.5; }
       // Don't walk onto a mine you can see (your miner may try to defuse an enemy one).
       if (v.mines.has(a.to)) { const m = s.mines.find((x) => x.at === a.to)!; score += me.type === 'miner' && m.owner !== side ? 4 : -60; }
       break;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LU_PIECES, LEVEL_AT } from '../src/content/levelup';
 import {
-  battleOdds, battleOutcome, blankGame, inCheck, legalActions, newGame, play, put, sqAt, strikeOutcome, viewOf, visible, identified, type LUAction, type LUState,
+  SQUARES, battleOdds, battleOutcome, blankGame, inCheck, legalActions, newGame, play, put, sqAt, strikeOutcome, viewOf, visible, identified, type LUAction, type LUState,
 } from '../src/levelup/rules';
 
 const S = (f: number, r: number) => sqAt(f, r);
@@ -25,7 +25,7 @@ function withRolls(s: LUState, rolls: number[]): LUState {
 /** Kings tucked away in the corners, so tests are legal positions. */
 function kings(s: LUState) {
   put(s, 'king', 'p1', S(0, 0));
-  put(s, 'king', 'p2', S(15, 15));
+  put(s, 'king', 'p2', S(11, 15));
   return s;
 }
 
@@ -37,7 +37,7 @@ function quiet(s: LUState): LUState {
 }
 
 describe('Level-Up Chess: setup', () => {
-  it('two armies of 26 on a 16 x 16 board (2 ride the bombardiers), a forest in the middle, three race missions and a secret each', () => {
+  it('two armies of 26 on a 12 x 16 board (2 ride the bombardiers), a forest in the middle, three race missions and a secret each', () => {
     const s = newGame(7);
     expect(s.pieces.length).toBe(52);
     expect(s.pieces.filter((p) => p.owner === 'p1' && p.type === 'pawn').length).toBe(14);
@@ -49,9 +49,9 @@ describe('Level-Up Chess: setup', () => {
     expect(s.pieces.filter((p) => p.type === 'scout').length).toBe(4);
     expect(s.pieces.filter((p) => p.type === 'medic' || p.type === 'miner').length).toBe(0);
     const trees = s.trees.filter((x) => x > 0).length;
-    expect(trees).toBeGreaterThan(20);
+    expect(trees).toBeGreaterThan(30);
     // The forest is the same for both sides.
-    for (let i = 0; i < 256; i++) expect(s.trees[i]).toBe(s.trees[255 - i]);
+    for (let i = 0; i < SQUARES; i++) expect(s.trees[i]).toBe(s.trees[SQUARES - 1 - i]);
     expect(s.globals.length).toBe(3);
     expect(s.raceDeck.length).toBe(11);
     expect(s.secret.p1 && s.secret.p2).toBeTruthy();
@@ -138,8 +138,8 @@ describe('levels', () => {
   });
   it('kings are never attacked in battle, only checked', () => {
     const s = kings(blankGame());
-    put(s, 'rook', 'p1', S(15, 3));
-    expect(legalActions(s).some((a) => a.t === 'attack' && a.to === S(15, 15))).toBe(false);
+    put(s, 'rook', 'p1', S(11, 3));
+    expect(legalActions(s).some((a) => a.t === 'attack' && a.to === S(11, 15))).toBe(false);
   });
 });
 
@@ -147,7 +147,7 @@ describe('check and winning', () => {
   it('check earns points and you must answer it', () => {
     let s = kings(blankGame());
     const r = put(s, 'rook', 'p1', S(3, 3));
-    s = play(s, { t: 'move', piece: r.id, to: S(15, 3) });
+    s = play(s, { t: 'move', piece: r.id, to: S(11, 3) });
     expect(s.events.some((x) => x.k === 'check')).toBe(true);
     expect(s.pieces[r.id].xp).toBe(2);
     expect(inCheck(s, 'p2')).toBe(true);
@@ -187,14 +187,14 @@ describe('check and winning', () => {
   });
   it('only a level 3 scout can strike a king, and that wins at once', () => {
     let s = kings(blankGame());
-    const sc = put(s, 'scout', 'p1', S(14, 14));
-    expect(has(s, { t: 'strike', piece: sc.id, to: S(15, 15) })).toBe(false);
+    const sc = put(s, 'scout', 'p1', S(10, 14));
+    expect(has(s, { t: 'strike', piece: sc.id, to: S(11, 15) })).toBe(false);
     s.pieces[sc.id].xp = 8;
-    expect(has(s, { t: 'strike', piece: sc.id, to: S(15, 15) })).toBe(true);
+    expect(has(s, { t: 'strike', piece: sc.id, to: S(11, 15) })).toBe(true);
     // An assassin never gives check.
     expect(inCheck(s, 'p2')).toBe(false);
     s = withRolls(s, [5]);
-    s = play(s, { t: 'strike', piece: sc.id, to: S(15, 15) });
+    s = play(s, { t: 'strike', piece: sc.id, to: S(11, 15) });
     expect(s.result?.reason).toBe('assassin');
     expect(s.result?.grade).toBe('Sneak attack win');
   });
@@ -392,38 +392,38 @@ describe('the new pieces', () => {
   it('miners: see mines next to them, defuse by stepping on (1 blows up, 6 keeps it), level 3 from 2 away, reload by a bombardier', () => {
     const setup = () => {
       const s = kings(blankGame());
-      const mi = put(s, 'miner', 'p1', S(5, 5), { xp: 3 });
+      const mi = put(s, 'miner', 'p1', S(1, 5), { xp: 3 });
       s.pieces[mi.id].carry = 0;
-      s.mines.push({ at: S(5, 6), owner: 'p2' });
+      s.mines.push({ at: S(1, 6), owner: 'p2' });
       return { s, mi };
     };
     let { s, mi } = setup();
-    expect(viewOf(s, 'p1').mines.has(S(5, 6))).toBe(true);
-    s = play(withRolls(s, [3]), { t: 'move', piece: mi.id, to: S(5, 6) });
+    expect(viewOf(s, 'p1').mines.has(S(1, 6))).toBe(true);
+    s = play(withRolls(s, [3]), { t: 'move', piece: mi.id, to: S(1, 6) });
     expect(s.mines).toEqual([]);
-    expect(s.pieces[mi.id].at).toBe(S(5, 6));
+    expect(s.pieces[mi.id].at).toBe(S(1, 6));
     expect(s.pieces[mi.id].xp).toBe(4); // mine cleared
     ({ s, mi } = setup());
-    s = play(withRolls(s, [6]), { t: 'move', piece: mi.id, to: S(5, 6) });
+    s = play(withRolls(s, [6]), { t: 'move', piece: mi.id, to: S(1, 6) });
     expect(s.pieces[mi.id].carry).toBe(1);
     ({ s, mi } = setup());
-    const friend = put(s, 'knight', 'p1', S(6, 7));
-    s = play(withRolls(s, [1]), { t: 'move', piece: mi.id, to: S(5, 6) });
+    const friend = put(s, 'knight', 'p1', S(2, 7));
+    s = play(withRolls(s, [1]), { t: 'move', piece: mi.id, to: S(1, 6) });
     expect(s.pieces[mi.id].at).toBe(-1);
     expect(s.pieces[friend.id].stunUntil).toBeGreaterThan(s.ply);
     // Level 3: from 2 squares away, without stepping on it.
     ({ s, mi } = setup());
     s.pieces[mi.id].xp = 8;
-    s.sq[S(5, 5)] = -1; s.pieces[mi.id].at = S(5, 4); s.sq[S(5, 4)] = mi.id;
-    expect(has(s, { t: 'defuse', piece: mi.id, at: S(5, 6) })).toBe(true);
-    s = play(withRolls(s, [4]), { t: 'defuse', piece: mi.id, at: S(5, 6) });
+    s.sq[S(1, 5)] = -1; s.pieces[mi.id].at = S(1, 4); s.sq[S(1, 4)] = mi.id;
+    expect(has(s, { t: 'defuse', piece: mi.id, at: S(1, 6) })).toBe(true);
+    s = play(withRolls(s, [4]), { t: 'defuse', piece: mi.id, at: S(1, 6) });
     expect(s.mines).toEqual([]);
     // Reload: end a move next to one of your bombardiers.
     const r = kings(blankGame());
-    const m2 = put(r, 'miner', 'p1', S(5, 5), { xp: 3 });
+    const m2 = put(r, 'miner', 'p1', S(1, 5), { xp: 3 });
     r.pieces[m2.id].carry = 0;
-    put(r, 'catapult', 'p1', S(5, 2));
-    expect(play(r, { t: 'move', piece: m2.id, to: S(5, 3) }).pieces[m2.id].carry).toBe(1);
+    put(r, 'catapult', 'p1', S(1, 2));
+    expect(play(r, { t: 'move', piece: m2.id, to: S(1, 3) }).pieces[m2.id].carry).toBe(1);
   });
   it('a scout that reaches level 2 picks a job before anything else happens', () => {
     let s = kings(blankGame());
@@ -472,7 +472,7 @@ describe('a whole game', () => {
       x = (x * 1103515245 + 12345) % 2147483648;
       s = play(s, moves[x % moves.length]);
       for (const p of s.pieces) if (p.at >= 0) expect(s.sq[p.at]).toBe(p.id);
-      for (let q = 0; q < 256; q++) if (s.sq[q] >= 0) expect(s.pieces[s.sq[q]].at).toBe(q);
+      for (let q = 0; q < SQUARES; q++) if (s.sq[q] >= 0) expect(s.pieces[s.sq[q]].at).toBe(q);
     }
     expect(LU_PIECES.queen.value).toBe(5);
   });
@@ -484,7 +484,7 @@ describe('the Level-Up bot', () => {
     let s = newGame(101);
     let x = 3;
     const rand = () => (x = (x * 16807) % 2147483647) / 2147483647;
-    while (!s.result && s.ply < 400) s = play(s, chooseAction(s, 'hard', rand)!);
+    while (!s.result && s.ply < 800) s = play(s, chooseAction(s, 'hard', rand)!);
     expect(s.result).not.toBeNull();
   });
   it('takes a mate in one when it sees one', async () => {

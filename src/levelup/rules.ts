@@ -1,5 +1,5 @@
 import {
-  BARRICADE_HP, BEATS, RACE_FACE_UP, CATAPULT_RANGE, CRUSH_MARGIN, FOREST_DENSITY, FOREST_RANKS, GLOBAL_MISSIONS, LU_BACK, LU_FIRST_FILE, LU_PIECES, LU_SIZE,
+  BARRICADE_HP, BEATS, RACE_FACE_UP, CATAPULT_RANGE, CRUSH_MARGIN, FOREST_DENSITY, FOREST_RANKS, GLOBAL_MISSIONS, LU_BACK, LU_FIRST_FILE, LU_PIECES, LU_WIDTH, LU_HEIGHT,
   CATAPULT_MIN, MINER_CARRY, REVIVE_RANGE, REVIVE_TURNS, SCOUT_SIGHT, SECRET_MISSIONS, WIN_GRADES, XP, levelOf, type Base, type LURole, type LUType,
 } from '../content/levelup';
 
@@ -10,12 +10,17 @@ import {
  */
 export type Side = 'p1' | 'p2';
 export const other = (s: Side): Side => (s === 'p1' ? 'p2' : 'p1');
-export const N = LU_SIZE;
-export const fileOf = (sq: number) => sq % N;
-export const rankOf = (sq: number) => Math.floor(sq / N);
-export const sqAt = (f: number, r: number) => (f < 0 || r < 0 || f >= N || r >= N ? -1 : r * N + f);
+/** Board width (files) and height (ranks); squares are numbered r * W + f. */
+export const W = LU_WIDTH;
+export const H = LU_HEIGHT;
+/** How many squares. */
+export const SQUARES = W * H;
+export const fileOf = (sq: number) => sq % W;
+export const rankOf = (sq: number) => Math.floor(sq / W);
+export const sqAt = (f: number, r: number) => (f < 0 || r < 0 || f >= W || r >= H ? -1 : r * W + f);
 export const dist = (a: number, b: number) => Math.max(Math.abs(fileOf(a) - fileOf(b)), Math.abs(rankOf(a) - rankOf(b)));
-export const isCentre = (sq: number) => fileOf(sq) >= 6 && fileOf(sq) <= 9 && rankOf(sq) >= 6 && rankOf(sq) <= 9;
+/** The middle 4 x 4 of the board. */
+export const isCentre = (sq: number) => Math.abs(fileOf(sq) * 2 + 1 - W) <= 4 && Math.abs(rankOf(sq) * 2 + 1 - H) <= 4;
 
 export interface LUPiece {
   id: number;
@@ -151,7 +156,7 @@ const d6 = (s: LUState) => 1 + Math.floor(nextRand(s) * 6);
 /* ---- Setup --------------------------------------------------------------- */
 export function newGame(seed: number): LUState {
   const s: LUState = {
-    seed, rng: seed | 0, turn: 'p1', ply: 0, pieces: [], sq: Array(N * N).fill(-1), trees: Array(N * N).fill(0), mines: [], choose: [], craters: [], shots: [], fallen: [], result: null,
+    seed, rng: seed | 0, turn: 'p1', ply: 0, pieces: [], sq: Array(SQUARES).fill(-1), trees: Array(SQUARES).fill(0), mines: [], choose: [], craters: [], shots: [], fallen: [], result: null,
     secret: { p1: '', p2: '' }, secretDone: { p1: false, p2: false }, globals: [], raceDeck: [], raceDone: [], cleared: { p1: 0, p2: 0 }, events: [], last: null,
   };
   const bases: Base[] = ['triangle', 'square', 'circle'];
@@ -161,7 +166,7 @@ export function newGame(seed: number): LUState {
     s.sq[at] = p.id;
   };
   for (const owner of ['p1', 'p2'] as Side[]) {
-    const back = owner === 'p1' ? 0 : N - 1, front = owner === 'p1' ? 1 : N - 2;
+    const back = owner === 'p1' ? 0 : H - 1, front = owner === 'p1' ? 1 : H - 2;
     LU_BACK.forEach((t, i) => add(t, owner, sqAt(LU_FIRST_FILE + i, back)));
     for (let i = 0; i < LU_BACK.length; i++) add('pawn', owner, sqAt(LU_FIRST_FILE + i, front));
   }
@@ -169,10 +174,10 @@ export function newGame(seed: number): LUState {
   for (const c of s.pieces.filter((p) => p.type === 'catapult')) crewUp(s, c, bases[Math.floor(nextRand(s) * 3)]);
   // The forest: the same for both sides (turned half a turn), so neither side gets an easier path.
   for (let r = FOREST_RANKS[0]; r <= (FOREST_RANKS[0] + FOREST_RANKS[1]) / 2; r++) {
-    for (let f = 0; f < N; f++) {
+    for (let f = 0; f < W; f++) {
       if (nextRand(s) >= FOREST_DENSITY) continue;
       s.trees[sqAt(f, r)] = BARRICADE_HP;
-      s.trees[sqAt(N - 1 - f, FOREST_RANKS[0] + FOREST_RANKS[1] - r)] = BARRICADE_HP;
+      s.trees[sqAt(W - 1 - f, FOREST_RANKS[0] + FOREST_RANKS[1] - r)] = BARRICADE_HP;
     }
   }
   const pick = <T,>(xs: T[]) => xs.splice(Math.floor(nextRand(s) * xs.length), 1)[0];
@@ -214,7 +219,7 @@ const open = (s: LUState, sq: number) => sq >= 0 && s.trees[sq] === 0 && !s.crat
 export function threats(s: LUState, p: LUPiece): number[] {
   const out: number[] = [];
   const lv = level(p);
-  const slide = (dirs: [number, number][], max = N) => {
+  const slide = (dirs: [number, number][], max = H) => {
     for (const [df, dr] of dirs) {
       let at = p.at;
       for (let i = 0; i < max; i++) {
@@ -316,7 +321,7 @@ export function pieceActions(s: LUState, p: LUPiece): LUAction[] {
       // The crew never climbs off (owner, 2026-11-19): it stays until it is killed. (`unboard` is kept only so older games replay.)
       if (p.load === 'loaded') {
         const range = CATAPULT_RANGE[lv - 1];
-        for (let sq = 0; sq < N * N; sq++) {
+        for (let sq = 0; sq < SQUARES; sq++) {
           const d = dist(sq, p.at);
           if (d < CATAPULT_MIN || d > range || s.craters.includes(sq)) continue;
           const q = pieceAt(s, sq);
@@ -861,7 +866,7 @@ export function play(prev: LUState, a: LUAction, check = true): LUState {
   }
   // Things the moved piece earned by where it stands now.
   if (moved && moved.at >= 0 && (a.t === 'move' || a.t === 'attack' || a.t === 'castle' || a.t === 'unboard')) {
-    if (moved.type === 'pawn' && rankOf(moved.at) === (me === 'p1' ? N - 1 : 0)) {
+    if (moved.type === 'pawn' && rankOf(moved.at) === (me === 'p1' ? H - 1 : 0)) {
       moved.type = 'queen';
       s.events.push({ k: 'promote', piece: moved.id });
       noteGlobal(s, me, 'G-promote', moved.id);
