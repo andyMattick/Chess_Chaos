@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { authToken, handleBox, handleVault, memoryBoxes, newSaveKey, playerExists, verifyPlayer, vaultRoute } from '../src/net/vault';
-import { handleWorld, memoryWorld, maskNumber, MAIL_TIMEOUT_MS, BOARD_TOP, type MailGame } from '../src/net/world';
+import { handleWorld, memoryWorld, maskNumber, MAIL_TIMEOUT_MS, BOARD_TOP, luReplay, mailTurn, type MailGame } from '../src/net/world';
+import { chooseAction } from '../src/levelup/ai';
 import { legalActions, parseSAN, replay } from '../src/core';
 
 /** A little server like server/dev-bun.ts. */
@@ -111,6 +112,48 @@ describe('challenges', () => {
     expect(done.status).toBe('done');
     expect(done.record.meta.result?.winners).toEqual(['p2']); // White never moved
     expect(list.find((x) => x.id === h.id)!.status).toBe('expired');
+  });
+});
+
+describe('Level-Up challenges', () => {
+  it('plays a Level-Up game a move at a time, checked by the server', async () => {
+    const sv = server();
+    const a = await sv.player(), b = await sv.player();
+    const g0 = (await (await a.call('POST', '/games', { to: b.number, game: 'levelup', colour: 'p2' })).json()).game as MailGame;
+    expect(g0.game).toBe('levelup');
+    expect(g0.lu?.actions).toEqual([]);
+    expect(g0.players.p2).toBe(a.number);
+    await b.call('POST', `/games/${g0.id}/accept`, {});
+    let g = g0;
+    const s0 = luReplay(g);
+    const first = chooseAction(s0, 'easy', () => 0.3)!;
+    // Out of turn, a made-up move, and a stale ply are all refused.
+    expect((await a.call('POST', `/games/${g.id}/move`, { action: first, ply: 0 })).status).toBe(400);
+    expect((await b.call('POST', `/games/${g.id}/move`, { action: { t: 'move', piece: 0, to: 200 }, ply: 0 })).status).toBe(400);
+    g = (await (await b.call('POST', `/games/${g.id}/move`, { action: first, ply: 0 })).json()).game;
+    expect(g.lu!.actions.length).toBe(1);
+    expect(mailTurn(g)).toBe('p2');
+    expect((await a.call('POST', `/games/${g.id}/move`, { action: first, ply: 0 })).status).toBe(409);
+    // A few more moves each, then Red gives up.
+    for (let i = 0; i < 6; i++) {
+      const s = luReplay(g);
+      const who = s.turn === 'p1' ? b : a;
+      g = (await (await who.call('POST', `/games/${g.id}/move`, { action: chooseAction(s, 'easy', () => 0.5), ply: g.lu!.actions.length })).json()).game;
+    }
+    expect(g.lu!.actions.length).toBe(7);
+    g = (await (await a.call('POST', `/games/${g.id}/resign`, {})).json()).game;
+    expect(g.status).toBe('done');
+    expect(g.record.meta.result).toEqual({ reason: 'resign', winners: ['p1'] });
+  });
+  it('the quiet player gives up after the time limit', async () => {
+    const sv = server();
+    const a = await sv.player(), b = await sv.player();
+    const g = (await (await a.call('POST', '/games', { to: b.number, game: 'levelup', colour: 'p1' })).json()).game as MailGame;
+    await b.call('POST', `/games/${g.id}/accept`, {});
+    sv.later(MAIL_TIMEOUT_MS + 1000);
+    const done = ((await (await b.call('GET', '/games')).json()).games as MailGame[]).find((x) => x.id === g.id)!;
+    expect(done.status).toBe('done');
+    expect(done.record.meta.result?.winners).toEqual(['p2']);
   });
 });
 

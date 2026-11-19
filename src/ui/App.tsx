@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { GameRecord } from '../core/record';
+import type { MailGame } from '../net/world';
 import { LevelUpScreen } from './LevelUp';
 import { askToKeepStorage, lookOf, activeProfile, updateProfile } from '../storage/storage';
 import { startCloudSync, vaultBase } from '../storage/cloud';
@@ -43,7 +44,7 @@ type Screen =
   | { name: 'minis' }
   | { name: 'openings'; botId?: string }
   | { name: 'battle' }
-  | { name: 'levelup' }
+  | { name: 'levelup'; mail?: MailGame; key?: number }
   | { name: 'battle-game'; local: LocalBattle; key: number }
   | { name: 'game'; config: GameConfig; key: number; review?: GameRecord };
 
@@ -140,8 +141,8 @@ export function App() {
           open={openRecord}
         />
       )}
-      {screen.name === 'challenges' && <Challenges back={home} play={startGame} />}
-      {screen.name === 'levelup' && <LevelUpScreen back={home} />}
+      {screen.name === 'challenges' && <Challenges back={home} play={startGame} playLevelUp={(g) => setScreen({ name: 'levelup', mail: g, key: Date.now() })} />}
+      {screen.name === 'levelup' && <LevelUpScreen key={screen.key} back={screen.mail ? () => setScreen({ name: 'challenges' }) : home} mail={screen.mail} />}
       {screen.name === 'minis' && <MinisScreen back={home} play={startGame} />}
       {screen.name === 'game' && (
         <GameScreen key={screen.key} config={screen.config} reviewRecord={screen.review} onExit={screen.config.kind === 'mail' ? () => setScreen({ name: 'challenges' }) : screen.config.mini || screen.config.mode === 'pawn-wars' ? () => setScreen({ name: 'minis' }) : home} onRematch={startGame} />

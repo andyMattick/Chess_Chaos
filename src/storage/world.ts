@@ -1,5 +1,6 @@
 import { authToken } from '../net/vault';
-import type { MailGame, Tournament, TournamentBot } from '../net/world';
+import type { MailChoice, MailGame, Tournament, TournamentBot } from '../net/world';
+import type { LUAction } from '../levelup/rules';
 export type { Tournament };
 import type { RoomGame } from '../net/protocol';
 import type { Action } from '../core/types';
@@ -62,7 +63,7 @@ export async function myGames(): Promise<MailGame[]> {
   return (await answer<{ games: MailGame[] }>(await call(p, 'GET', '/games'))).games;
 }
 
-export async function challenge(to: string, game: RoomGame, colour: 'p1' | 'p2' | 'random'): Promise<MailGame> {
+export async function challenge(to: string, game: MailChoice, colour: 'p1' | 'p2' | 'random'): Promise<MailGame> {
   const p = activeProfile()!;
   return (await answer<{ game: MailGame }>(await call(p, 'POST', '/games', { to, game, colour, rating: p.rating }))).game;
 }
@@ -79,6 +80,12 @@ export async function getGame(id: string): Promise<MailGame> {
 
 /** Send a move. `ply` is how many actions the game had before it (guards against sending twice). */
 export async function sendMailMove(id: string, action: Action, ply: number): Promise<MailGame> {
+  const p = activeProfile()!;
+  return (await answer<{ game: MailGame }>(await call(p, 'POST', `/games/${id}/move`, { action, ply }))).game;
+}
+
+/** Send a Level-Up move. `ply` is how many Level-Up actions the game had before it. */
+export async function sendLuMove(id: string, action: LUAction, ply: number): Promise<MailGame> {
   const p = activeProfile()!;
   return (await answer<{ game: MailGame }>(await call(p, 'POST', `/games/${id}/move`, { action, ply }))).game;
 }

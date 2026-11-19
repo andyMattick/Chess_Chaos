@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ROOM_GAMES, type RoomGame } from '../net/protocol';
 import { showNumber } from '../net/vault';
-import { MAIL_GAMES, type MailGame } from '../net/world';
-import { replay } from '../core/record';
+import { MAIL_CHOICES, MAIL_GAMES, mailLabel, mailTurn, type MailChoice, type MailGame } from '../net/world';
 import { vaultBase } from '../storage/cloud';
 import { activeProfile } from '../storage/storage';
 import { acceptFriend, declineFriend, friendInbox, requestFriend, takeAccepted, type FriendInbox, answerChallenge, challenge, createTournament, labelFor, myGames, myTournaments, nameNumber, removeFriend, tournamentAction, type Tournament } from '../storage/world';
@@ -19,13 +18,13 @@ import { useSave } from './store';
  * play a move whenever you like. Numbers only on the server; you can name a
  * number on your own phone. No messages.
  */
-export function Challenges({ back, play }: { back: () => void; play: (c: GameConfig) => void }) {
+export function Challenges({ back, play, playLevelUp }: { back: () => void; play: (c: GameConfig) => void; playLevelUp: (g: MailGame) => void }) {
   const save = useSave();
   const p = activeProfile(save);
   const [games, setGames] = useState<MailGame[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [to, setTo] = useState('');
-  const [game, setGame] = useState<RoomGame>('standard');
+  const [game, setGame] = useState<MailChoice>('standard');
   const [colour, setColour] = useState<'p1' | 'p2' | 'random'>('random');
   const [busy, setBusy] = useState(false);
   const [naming, setNaming] = useState<string | null>(null);
@@ -84,8 +83,9 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
     const tb = t?.bots?.[seat];
     return isBotSeat(seat) && tb && t ? botForSeat(t.id, seat, tb, t.organizer === number ? 'You' : label(t.organizer)) : undefined;
   };
-  const turnOf = (g: MailGame) => replay(g.record).at(-1)!.turn;
+  const turnOf = (g: MailGame) => mailTurn(g);
   const open = (g: MailGame) => {
+    if (g.lu) { playLevelUp(g); return; }
     const me = mySeat(g);
     const mailBot = botOf(g);
     const them = (n: string) => mailBot?.name ?? label(n);
@@ -109,7 +109,7 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
   const forMe = list.filter((g) => g.status === 'invited' && g.from !== number);
   const sent = list.filter((g) => g.status === 'invited' && g.from === number);
   const finished = list.filter((g) => ['done', 'declined', 'expired'].includes(g.status)).slice(0, 10);
-  const modeLabel = (g: MailGame) => ROOM_GAMES.find((x) => x.id === g.game)?.label ?? g.game;
+  const modeLabel = (g: MailGame) => mailLabel(g.game);
   const resultText = (g: MailGame) => {
     if (g.status === 'declined') return 'said no';
     if (g.status === 'expired') return 'nobody answered';
@@ -129,7 +129,7 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
     );
   };
   const row = (g: MailGame, actions: React.ReactNode) => (
-    <li key={g.id} className="mail-row">{who(g)}<small>{g.tournament ? '🏆 Tournament · ' : ''}{modeLabel(g)} · you play {mySeat(g) === 'p1' ? 'White' : 'Black'}</small><span className="row wrap">{actions}</span></li>
+    <li key={g.id} className="mail-row">{who(g)}<small>{g.tournament ? '🏆 Tournament · ' : ''}{modeLabel(g)} · you play {g.lu ? (mySeat(g) === 'p1' ? 'Blue' : 'Red') : mySeat(g) === 'p1' ? 'White' : 'Black'}</small><span className="row wrap">{actions}</span></li>
   );
 
   return (
@@ -249,12 +249,12 @@ export function Challenges({ back, play }: { back: () => void; play: (c: GameCon
       )}
       <div className="mail-form">
         <input aria-label="Friend's player number" inputMode="numeric" placeholder="Friend's player number (8 digits)" value={to} onChange={(e) => setTo(e.target.value)} />
-        <select aria-label="Game" value={game} onChange={(e) => setGame(e.target.value as RoomGame)}>
-          {MAIL_GAMES.map((id) => <option key={id} value={id}>{ROOM_GAMES.find((x) => x.id === id)?.label ?? id}</option>)}
+        <select aria-label="Game" value={game} onChange={(e) => setGame(e.target.value as MailChoice)}>
+          {MAIL_CHOICES.map((id) => <option key={id} value={id}>{id === 'levelup' ? '🗡️ Level-Up Chess' : mailLabel(id)}</option>)}
         </select>
         <div className="clock-chips">
           {(['p1', 'p2', 'random'] as const).map((c) => (
-            <button key={c} className={`chip ${colour === c ? 'on' : ''}`} onClick={() => setColour(c)}>{c === 'p1' ? '♙ White' : c === 'p2' ? '♟ Black' : '🎲 Either'}</button>
+            <button key={c} className={`chip ${colour === c ? 'on' : ''}`} onClick={() => setColour(c)}>{c === 'p1' ? (game === 'levelup' ? '🟦 Blue (goes first)' : '♙ White') : c === 'p2' ? (game === 'levelup' ? '🟥 Red' : '♟ Black') : '🎲 Either'}</button>
           ))}
         </div>
         <button className="btn primary" disabled={busy || to.replace(/\D/g, '').length !== 8} onClick={send}>{busy ? 'Sending…' : 'Send challenge'}</button>
@@ -339,7 +339,7 @@ export function useMailCount(): number {
   useEffect(() => {
     if (!p?.cloud || !vaultBase()) return;
     const me = p.cloud.number;
-    myGames().then((gs) => setN(gs.filter((g) => (g.status === 'invited' && g.from !== me) || (g.status === 'playing' && replay(g.record).at(-1)!.turn === (g.players.p1 === me ? 'p1' : 'p2'))).length)).catch(() => {});
+    myGames().then((gs) => setN(gs.filter((g) => (g.status === 'invited' && g.from !== me) || (g.status === 'playing' && mailTurn(g) === (g.players.p1 === me ? 'p1' : 'p2'))).length)).catch(() => {});
   }, [p?.cloud?.number]); // eslint-disable-line react-hooks/exhaustive-deps
   return n;
 }

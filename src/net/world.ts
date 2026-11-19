@@ -12,6 +12,7 @@ import { replay, play, newRecord } from '../core';
 import type { Action, GameRecord, PlayerId } from '../core';
 import { ROOM_GAMES, type RoomGame } from './protocol';
 import { isNumber, vaultResponse } from './vault';
+import { newGame as luNewGame, play as luPlay, type LUAction, type LUState } from '../levelup/rules';
 
 export const WORLD_PREFIX = '/world';
 /** Board entries not updated for this long drop off. */
@@ -24,6 +25,33 @@ export const MAX_OPEN_GAMES = 12;
 
 /** 1 vs 1 modes that work a move at a time (no hidden information or pre-game setup). */
 export const MAIL_GAMES: RoomGame[] = ROOM_GAMES.filter((g) => g.seats === 2 && !['party', 'draft', 'hidden-queen', 'boss'].includes(g.id)).map((g) => g.id);
+/** What a challenge can be: the chess modes above, or Level-Up Chess (owner, 2026-11-19; not in tournaments). */
+export type MailChoice = RoomGame | 'levelup';
+export const MAIL_CHOICES: MailChoice[] = [...MAIL_GAMES, 'levelup'];
+export const mailLabel = (game: string) => (game === 'levelup' ? 'Level-Up Chess' : ROOM_GAMES.find((x) => x.id === game)?.label ?? game);
+
+/**
+ * The Level-Up game so far. Stored moves were checked when they were sent,
+ * so they are replayed without checking again (keeps the server fast).
+ */
+export function luReplay(g: { lu?: { seed: number; actions: LUAction[] } }): LUState {
+  let s = luNewGame(g.lu!.seed);
+  for (const a of g.lu!.actions) s = luPlay(s, a, false);
+  return s;
+}
+
+/** Whose move it is in a challenge game. */
+export function mailTurn(g: MailGame): PlayerId {
+  return g.lu ? luReplay(g).turn : replay(g.record).at(-1)!.turn;
+}
+
+/** Copy a Level-Up result into the record's result, so lists and records read it like any game. */
+function luFinish(g: MailGame, s: LUState) {
+  if (!s.result) return;
+  const reason = (s.result.reason === 'stalemate' ? 'stalemate' : s.result.reason === 'resign' ? 'resign' : 'checkmate') as NonNullable<GameRecord['meta']['result']>['reason'];
+  g.record.meta.result = { reason, winners: s.result.winner ? [s.result.winner] : [] };
+  g.status = 'done';
+}
 
 export interface WorldStore {
   get(key: string): Promise<string | undefined>;
@@ -41,7 +69,9 @@ export interface MailGame {
   players: { p1: string; p2: string };
   /** Ratings when the game began (for the rating change at the end). */
   ratings: { p1: number; p2: number };
-  game: RoomGame;
+  game: MailChoice;
+  /** Level-Up Chess: its own seed and moves (the record then only carries players and the result). */
+  lu?: { seed: number; actions: LUAction[] };
   status: 'invited' | 'playing' | 'done' | 'declined' | 'expired';
   from: string;
   /** Part of a tournament (its id). */
@@ -198,6 +228,14 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
         if (!g) { await store.delete(k); continue; }
         // Time limits: an unanswered challenge expires; a quiet player to move loses on time.
         if (g.status === 'invited' && now - g.updatedAt > MAIL_TIMEOUT_MS) { g.status = 'expired'; await save(g); }
+        if (g.status === 'playing' && now - g.updatedAt > MAIL_TIMEOUT_MS && g.lu) {
+          // Level-Up: the quiet player gives up.
+          const s = luReplay(g);
+          const a: LUAction = { t: 'resign', by: s.turn };
+          g.lu = { ...g.lu, actions: [...g.lu.actions, a] };
+          luFinish(g, luPlay(s, a, false));
+          await save(g);
+        }
         if (g.status === 'playing' && now - g.updatedAt > MAIL_TIMEOUT_MS) {
           const s = replay(g.record).at(-1)!;
           // Against a bot the human plays both sides, so the human is the quiet one.
@@ -225,7 +263,7 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
       const to = String(body?.to ?? '').replace(/\D/g, '');
       if (!isNumber(to)) return bad('That player number needs 8 digits.');
       if (to === who) return bad('You cannot challenge yourself.');
-      const game = MAIL_GAMES.includes(body?.game as RoomGame) ? (body!.game as RoomGame) : 'standard';
+      const game: MailChoice = MAIL_CHOICES.includes(body?.game as MailChoice) ? (body!.game as MailChoice) : 'standard';
       if (!(await exists(to))) return bad('No player has that number.', 404);
       const open = (await mine()).filter((g) => g.status === 'invited' || g.status === 'playing');
       if (open.length >= MAX_OPEN_GAMES) return bad(`You already have ${MAX_OPEN_GAMES} games going. Finish one first.`, 429);
@@ -233,10 +271,11 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
       const players = iAmWhite ? { p1: who, p2: to } : { p1: to, p2: who };
       const rating = Math.max(100, Math.min(3000, Math.round(Number(body?.rating) || 600)));
       const seed = (Math.random() * 0xffffffff) | 0;
-      const mode = game === 'standard' ? 'standard' : game;
+      const mode = game === 'standard' || game === 'levelup' ? 'standard' : game;
       const record = newRecord(seed, { p1: `#${players.p1}`, p2: `#${players.p2}` }, undefined, mode);
       const g: MailGame = {
         id: newId(), players, ratings: { p1: iAmWhite ? rating : 600, p2: iAmWhite ? 600 : rating }, game,
+        ...(game === 'levelup' ? { lu: { seed, actions: [] } } : {}),
         status: 'invited', from: who, record, createdAt: now, updatedAt: now,
       };
       await save(g);
@@ -261,6 +300,24 @@ export async function handleWorld(req: Request, store: WorldStore, who: string |
     if (act === 'cancel') {
       if (g.status !== 'invited' || g.from !== who) return bad('Nothing to cancel.');
       g.status = 'declined';
+      await save(g);
+      return json({ game: view(g) });
+    }
+    if ((act === 'move' || act === 'resign') && g.lu) {
+      if (g.status !== 'playing') return bad('This game is not being played.');
+      const s = luReplay(g);
+      let a: LUAction;
+      if (act === 'resign') a = { t: 'resign', by: seat };
+      else {
+        if (body.ply !== g.lu.actions.length) return json({ game: view(g), stale: true }, 409);
+        a = (body as { action?: LUAction }).action as LUAction;
+        if (!a || typeof a !== 'object' || a.t === 'resign') return bad('Not a move.');
+        if (s.turn !== seat) return bad('Not your turn.');
+      }
+      let n: LUState;
+      try { n = luPlay(s, a); } catch { return bad('That move is not allowed.'); }
+      g.lu = { ...g.lu, actions: [...g.lu.actions, a] };
+      luFinish(g, n);
       await save(g);
       return json({ game: view(g) });
     }

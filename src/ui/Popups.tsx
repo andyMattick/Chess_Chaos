@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ROOM_GAMES } from '../net/protocol';
-import type { MailGame, Tournament } from '../net/world';
-import { replay } from '../core/record';
+import { mailLabel, mailTurn, type MailGame, type Tournament } from '../net/world';
 import { vaultBase } from '../storage/cloud';
 import { activeProfile } from '../storage/storage';
 import { acceptFriend, declineFriend, friendInbox, labelFor, myGames, myTournaments, takeAccepted } from '../storage/world';
@@ -33,7 +31,7 @@ function markSeen(id: string) {
 /** What deserves a pop-up, from the server's lists. Pure, so it can be tested. */
 export function popsFrom(me: string, games: MailGame[], tours: Tournament[], incoming: string[], accepted: string[], name: (n: string) => string): Pop[] {
   const out: Pop[] = [];
-  const mode = (g: MailGame) => ROOM_GAMES.find((x) => x.id === g.game)?.label ?? g.game;
+  const mode = (g: MailGame) => mailLabel(g.game);
   for (const n of accepted) out.push({ id: `fa:${n}:${Date.now()}`, emoji: '🤝', text: `${name(n)} said yes! You're friends now.`, kind: 'info' });
   for (const n of incoming) out.push({ id: `fr:${n}`, emoji: '🤝', text: `Player ${showNumber(n)}${!name(n).startsWith('Player') && name(n) !== n ? ` (${name(n)})` : ''} wants to be friends.`, kind: 'friend', n });
   for (const g of games) {
@@ -44,8 +42,8 @@ export function popsFrom(me: string, games: MailGame[], tours: Tournament[], inc
       continue;
     }
     if (g.status !== 'playing' || /^bot-/.test(other)) continue;
-    const s = replay(g.record).at(-1)!;
-    if (s.turn === mine && g.record.actions.length > 0) out.push({ id: `mv:${g.id}:${g.record.actions.length}`, emoji: '👉', text: `Your move against ${name(other)} (${mode(g)}).`, kind: 'open' });
+    const moves = g.lu ? g.lu.actions.length : g.record.actions.length;
+    if (mailTurn(g) === mine && moves > 0) out.push({ id: `mv:${g.id}:${moves}`, emoji: '👉', text: `Your move against ${name(other)} (${mode(g)}).`, kind: 'open' });
   }
   for (const t of tours) {
     if (t.status === 'invited' && !t.joined.includes(me) && !t.declined.includes(me)) out.push({ id: `t:${t.id}`, emoji: '🏆', text: `${name(t.organizer)} invited you to a tournament!`, kind: 'open' });

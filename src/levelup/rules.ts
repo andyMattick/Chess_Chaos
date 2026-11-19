@@ -503,7 +503,7 @@ function land(s: LUState, p: LUPiece, to: number) {
 }
 
 /** Play an action. Returns a new state; the old one is unchanged. */
-export function play(prev: LUState, a: LUAction): LUState {
+export function play(prev: LUState, a: LUAction, check = true): LUState {
   if (prev.result) throw new Error('Game over');
   const s = clone(prev);
   const me = s.turn;
@@ -511,7 +511,8 @@ export function play(prev: LUState, a: LUAction): LUState {
     s.result = { winner: other(a.by), reason: 'resign', grade: WIN_GRADES.plain };
     return s;
   }
-  if (!legalActions(prev).some((x) => JSON.stringify(x) === JSON.stringify(a))) throw new Error('Not a legal action');
+  // `check` off only for moves already checked once (a stored game being replayed).
+  if (check && !legalActions(prev).some((x) => JSON.stringify(x) === JSON.stringify(a))) throw new Error('Not a legal action');
   const p = s.pieces[a.piece];
   const from = p.at;
   let moved: LUPiece | undefined = p;
