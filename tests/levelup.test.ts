@@ -217,7 +217,7 @@ describe('the new pieces', () => {
     s = play(s, { t: 'mark', piece: c.id, to: S(5, 5) });
     expect(s.turn).toBe('p1'); // free: still your move
     expect(s.events.some((x) => x.k === 'shot')).toBe(true);
-    expect(acts(s, c.id).some((a) => a.t === 'fire' || a.t === 'mark')).toBe(false); // one step a turn
+    expect(acts(s, c.id)).toEqual([]); // one step a turn, and no moving after it
     s = quiet(s);
     s = play(s, { t: 'move', piece: t.id, to: S(5, 4) }); // dodges
     s = play(s, { t: 'fire', piece: c.id });

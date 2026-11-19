@@ -52,6 +52,8 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
   const [sel, setSel] = useState<number | null>(null);
   const [mode, setMode] = useState<'go' | 'special' | 'mark' | 'mine' | 'off' | 'defuse'>('go');
   const [look, setLook] = useState<number | null>(null);
+  /** The piece under the mouse: its card shows while you point at it. */
+  const [hover, setHover] = useState<number | null>(null);
   const [pops, setPops] = useState<Popup[]>([]);
   const [log, setLog] = useState<string[]>(() => (mail ? [`Your challenge against ${them}. ${ME === 'p1' ? 'Blue' : 'Red'} is your army.`] : []));
   const [menu, setMenu] = useState<'points' | 'help' | null>(null);
@@ -244,7 +246,7 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
     }
   });
   const pick = (t: LUAction['t']) => selActs.find((a) => a.t === t);
-  const looked = look !== null ? s.pieces[look] : selPiece;
+  const looked = hover !== null && s.pieces[hover]?.at >= 0 ? s.pieces[hover] : look !== null ? s.pieces[look] : selPiece;
   const myTurn = actor(s) === ME && !s.result && !pops.length;
   const roles = legal.filter((a): a is Extract<LUAction, { t: 'role' }> => a.t === 'role');
 
@@ -331,7 +333,7 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
     let note = '';
     if (p.type === 'catapult') {
       note = p.crew === undefined ? 'No crew: a pawn next to it must climb on before it can move or fire.'
-        : `Crew on board · ${p.load === 'loaded' ? 'loaded' : p.load === 'aimed' ? 'target marked' : 'empty'}. Mark, fire and reload are free (one a turn) and don't use your move.`;
+        : `Crew on board · ${p.load === 'loaded' ? 'loaded' : p.load === 'aimed' ? 'target marked' : 'empty'}. ${p.stepPly === s!.ply ? 'It took its step this turn, so it stays put.' : 'Mark, fire or reload is free (one a turn), but then it can\'t move this turn.'}`;
       if (pick('move')) btns.push(modeBtn('go', 'Move'));
       if (pick('mark')) btns.push(modeBtn('mark', '🎯 Mark target'));
       btns.push(now(pick('fire'), '💥 Fire!'), now(pick('reload'), '🔄 Reload'));
@@ -366,7 +368,8 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
           </g>
           {marks}
           {/* Tap targets for the tests and for exact taps. */}
-          <g className="lu-hit">{Array.from({ length: N * N }, (_, sq) => <rect key={`h${sq}`} data-square={sq} x={px(sq)} y={py(sq)} width={CELL} height={CELL} onClick={() => tap(sq)} />)}</g>
+          <g className="lu-hit" onMouseLeave={() => setHover(null)}>{Array.from({ length: N * N }, (_, sq) => <rect key={`h${sq}`} data-square={sq} x={px(sq)} y={py(sq)} width={CELL} height={CELL} onClick={() => tap(sq)}
+            onMouseEnter={() => { const q = s.sq[sq] >= 0 ? s.pieces[s.sq[sq]] : null; setHover(q && visible(s, v, ME, q) ? q.id : null); }} />)}</g>
         </svg>
       </div>
 
@@ -388,7 +391,9 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
                 <div className="lu-xp"><span style={{ width: `${Math.min(100, (looked.xp / LEVEL_AT[Math.min(2, level(looked))]) * 100)}%` }} /></div>
                 <p className="lu-small">{pieceLine(looked)}</p>
                 <ul className="lu-powers">
-                  {LU_PIECES[looked.type as LUType].levels.map((t, i) => <li key={i} className={i < level(looked) ? 'have' : ''}>Lv {i + 1}: {t}</li>)}
+                  {(looked.type === 'scout' && !looked.role
+                    ? [LU_PIECES.scout.levels[0], 'Picks a job: Medic (brings fallen friends back), Miner (hides and clears mines) or Spy (invisible to the enemy).', 'Final form of that job (a Spy becomes an Assassin).']
+                    : LU_PIECES[looked.type as LUType].levels).map((t, i) => <li key={i} className={i < level(looked) ? 'have' : ''}>Lv {i + 1}: {t}</li>)}
                 </ul>
               </>
             ) : <p><b>??? Unknown enemy</b><br /><span className="lu-small">Watch how it moves, fight it, or get your scout close to find out what it is.</span></p>}

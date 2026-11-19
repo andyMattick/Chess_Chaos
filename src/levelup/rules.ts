@@ -292,11 +292,12 @@ export function pieceActions(s: LUState, p: LUPiece): LUAction[] {
       break;
     case 'catapult': {
       if (p.crew === undefined) break;
+      // One free step a turn: mark a target, fire at it (on a later turn), or reload.
+      // A bombardier that took its step can't also move that turn (owner, 2026-11-19).
+      if (p.stepPly === s.ply) break;
       for (const [df, dr] of ALL) { const t = step(p.at, df, dr); if (free(t)) out.push({ t: 'move', piece: p.id, to: t }); }
       // The crew climbs off.
       for (const [df, dr] of ALL) { const t = step(p.at, df, dr); if (free(t)) out.push({ t: 'unboard', piece: p.id, to: t }); }
-      // One free step a turn: mark a target, fire at it (on a later turn), or reload.
-      if (p.stepPly === s.ply) break;
       if (p.load === 'loaded') {
         const range = CATAPULT_RANGE[lv - 1];
         for (let sq = 0; sq < N * N; sq++) {
