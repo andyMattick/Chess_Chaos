@@ -4,7 +4,7 @@ import {
 } from '../content/levelup';
 import { chooseAction, type LUBotLevel } from '../levelup/ai';
 import {
-  N, actor, battleOdds, fileOf, identified, inCheck, legalActions, level, newGame, play, rankOf, strikeOdds, stunned, viewOf, visible,
+  N, actor, battleOdds, isWall, fileOf, identified, inCheck, legalActions, level, newGame, play, rankOf, strikeOdds, stunned, viewOf, visible,
   type LUAction, type LUEvent, type LUPiece, type LUState, type Side,
 } from '../levelup/rules';
 import { activeProfile, updateProfile } from '../storage/storage';
@@ -112,7 +112,7 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
         case 'crew': if (next.pieces[e.piece].owner === ME) lines.push(e.on ? '🪖 A pawn climbed onto your bombardier.' : '🪖 Your crew climbed off: the bombardier can\'t fire without one.'); break;
         case 'crew-lost': lines.push(next.pieces[e.catapult].owner === ME ? '🪖 Your bombardier lost its crew! A pawn next to it can climb on.' : '🪖 An enemy bombardier lost its crew.'); break;
         case 'retrain': if (next.pieces[e.piece].owner === ME) lines.push('✨ Your pawn trained as a scout!'); break;
-        case 'tree': if (e.gone) lines.push('🌲 A barricade crashes down.'); break;
+        case 'tree': if (e.gone) lines.push('🌲 A barricade crashes down.'); else if (isWall(next, e.at)) lines.push('🧱 The wall cracks. One more go to clear it.'); break;
         case 'wall': if (seenPiece(e.piece)) lines.push(next.pieces[e.piece].owner === ME ? '🧱 Your rook built a wall.' : '🧱 An enemy rook built a wall.'); break;
         case 'crater': lines.push('🕳 The blast left a crater. Nobody can cross it now.'); break;
         case 'promote': lines.push(`👑 ${label(e.piece)} reached the far side and became a queen!`); break;
@@ -273,7 +273,7 @@ export function LevelUpScreen({ back, mail }: { back: () => void; mail?: MailGam
   for (let sq = 0; sq < N * N; sq++) {
     const x = px(sq), y = py(sq);
     if ((s.craters ?? []).includes(sq)) things.push(<image key={`c${sq}`} href={spriteUrl('crater')} x={x} y={y} width={CELL} height={CELL} />);
-    if (s.trees[sq] > 0) things.push(<image key={`t${sq}`} href={spriteUrl(s.trees[sq] > 1 ? 'tree' : 'stump')} x={x} y={y} width={CELL} height={CELL} />);
+    if (s.trees[sq] > 0) things.push(<image key={`t${sq}`} href={spriteUrl(isWall(s, sq) ? (s.trees[sq] > 1 ? 'wall' : 'wall-cracked') : s.trees[sq] > 1 ? 'tree' : 'stump')} x={x} y={y} width={CELL} height={CELL} />);
     const mine = s.mines.find((m) => m.at === sq);
     if (mine && v.mines.has(sq)) things.push(<image key={`m${sq}`} href={spriteUrl('mine')} x={x} y={y} width={CELL} height={CELL} opacity={0.9} />);
   }
@@ -526,7 +526,7 @@ function Menu({ which, close }: { which: 'points' | 'help'; close: () => void })
               <li>Pawns at level 2 step any way and attack diagonally any way. At level 3 a pawn can train as a scout.</li>
               <li>Battles shake the forest: barricades next to a fight take a hit, and fall after two.</li>
               <li>Mission cards: three face up for both players. First to do one claims it, and a new card turns over.</li>
-              <li>Barricades: knights and pawns can clear one next to them. Level 2 rooks protect the friends next to them from shots; level 3 rooks build new walls.</li>
+              <li>Barricades: knights and pawns can clear one next to them (a rook's wall takes two goes). A bombardier shot blows any barricade up and stuns everyone around it. Level 2 rooks protect the friends next to them from shots; level 3 rooks build new walls.</li>
             </ul>
           </>
         )}

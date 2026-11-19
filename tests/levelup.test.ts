@@ -303,6 +303,21 @@ describe('the new pieces', () => {
     expect(w.trees[S(5, 6)]).toBe(2);
     w = quiet(w);
     expect(acts(w, rook.id).some((a) => 'to' in a && a.to === S(5, 7))).toBe(false);
+    // A wall takes two goes to clear; a tree takes one.
+    const kn = put(w, 'knight', 'p1', S(4, 7));
+    w = play(w, { t: 'clear', piece: kn.id, at: S(5, 6) });
+    expect(w.trees[S(5, 6)]).toBe(1);
+    w = play(quiet(w), { t: 'clear', piece: kn.id, at: S(5, 6) });
+    expect(w.trees[S(5, 6)]).toBe(0);
+    // A shot on a barricade blows it up and stuns whoever is around it.
+    let b = kings(blankGame());
+    const bc = put(b, 'catapult', 'p1', S(5, 2));
+    const behind = put(b, 'pawn', 'p2', S(5, 7));
+    b.trees[S(5, 6)] = 2;
+    b = play(b, { t: 'mark', piece: bc.id, to: S(5, 6) });
+    b = play(quiet(quiet(b)), { t: 'fire', piece: bc.id });
+    expect(b.trees[S(5, 6)]).toBe(0);
+    expect(b.pieces[behind.id].stunUntil).toBeGreaterThan(b.ply);
     // Level 2 protects a friend next to it from a shot from any side.
     let g = kings(blankGame());
     const c = put(g, 'catapult', 'p2', S(5, 9));

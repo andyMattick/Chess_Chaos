@@ -84,6 +84,8 @@ export interface LUState {
   sq: number[];
   /** Barricade hits left per square (0 = none). */
   trees: number[];
+  /** Barricades a rook built (walls): clearing one takes two actions, not one. */
+  walls?: number[];
   /** Hidden mines (`by` = the miner who laid it, for its points). */
   mines: { at: number; owner: Side; by?: number }[];
   /** Scouts that reached level 2 and must pick a job before anything else happens (their owner picks). */
@@ -363,6 +365,9 @@ export function pieceActions(s: LUState, p: LUPiece): LUAction[] {
   return out.filter((a) => { const k = JSON.stringify(a); if (seen.has(k)) return false; seen.add(k); return true; });
 }
 
+/** Is there a rook-built wall (still standing) on this square? */
+export const isWall = (s: LUState, sq: number) => s.trees[sq] > 0 && (s.walls ?? []).includes(sq);
+
 /** A knight or pawn can clear a barricade on any square next to it (owner, 2026-11-19). */
 function clears(s: LUState, p: LUPiece): LUAction[] {
   const out: LUAction[] = [];
@@ -539,7 +544,7 @@ export const strikeOdds = (scout: LUPiece) => ({ win: [1, 2, 3, 4, 5, 6].filter(
 /* ---- Playing an action --------------------------------------------------- */
 function clone(s: LUState): LUState {
   return {
-    ...s, pieces: s.pieces.map((p) => ({ ...p, known: [...p.known] })), sq: s.sq.slice(), trees: s.trees.slice(), mines: s.mines.map((m) => ({ ...m })), craters: [...(s.craters ?? [])],
+    ...s, pieces: s.pieces.map((p) => ({ ...p, known: [...p.known] })), sq: s.sq.slice(), trees: s.trees.slice(), walls: [...(s.walls ?? [])], mines: s.mines.map((m) => ({ ...m })), craters: [...(s.craters ?? [])],
     choose: [...(s.choose ?? [])],
     shots: s.shots.map((x) => ({ ...x })), fallen: s.fallen.map((f) => ({ ...f })), globals: s.globals.map((g) => ({ ...g })),
     raceDeck: [...s.raceDeck], raceDone: s.raceDone.map((g) => ({ ...g })),
@@ -833,16 +838,24 @@ export function play(prev: LUState, a: LUAction, check = true): LUState {
       moved = undefined;
       break;
     }
-    case 'clear':
-      s.trees[a.at] = 0;
-      s.events.push({ k: 'tree', at: a.at, gone: true });
-      s.cleared[me]++;
-      noteGlobal(s, me, 'G-tree', p.id);
-      if (s.cleared[me] >= 3) noteSecret(s, me, 'S-trees', p.id);
+    case 'clear': {
+      // A tree goes in one action; a rook's wall takes two (owner, 2026-11-19).
+      const wall = isWall(s, a.at);
+      s.trees[a.at] = wall ? s.trees[a.at] - 1 : 0;
+      const gone = s.trees[a.at] === 0;
+      s.events.push({ k: 'tree', at: a.at, gone });
+      if (gone) {
+        s.walls = (s.walls ?? []).filter((x) => x !== a.at);
+        s.cleared[me]++;
+        noteGlobal(s, me, 'G-tree', p.id);
+        if (s.cleared[me] >= 3) noteSecret(s, me, 'S-trees', p.id);
+      }
       moved = undefined;
       break;
+    }
     case 'wall':
       s.trees[a.at] = BARRICADE_HP;
+      s.walls = [...(s.walls ?? []).filter((x) => x !== a.at), a.at];
       s.events.push({ k: 'wall', at: a.at, piece: p.id });
       moved = undefined;
       break;
@@ -932,7 +945,17 @@ function resolveShot(s: LUState, shot: Shot) {
   const big = level(cat) >= 3;
   const before = pieceAt(s, shot.at);
   const hit = hitSquare(s, shot, cat, from, shot.at, true);
-  if (!hit && !before) s.events.push({ k: 'miss', at: shot.at });
+  // A shot on a barricade (tree or wall) blows it up (owner, 2026-11-19); the stun below catches whoever is around it.
+  const blown = s.trees[shot.at] > 0;
+  if (blown) {
+    s.trees[shot.at] = 0;
+    s.walls = (s.walls ?? []).filter((x) => x !== shot.at);
+    s.events.push({ k: 'tree', at: shot.at, gone: true });
+    s.cleared[shot.by]++;
+    noteGlobal(s, shot.by, 'G-tree', cat.id);
+    if (s.cleared[shot.by] >= 3) noteSecret(s, shot.by, 'S-trees', cat.id);
+  }
+  if (!hit && !before && !blown) s.events.push({ k: 'miss', at: shot.at });
   if (hit) shake(s, shot.at, shot.by);
   // Level 3 (owner, 2026-11-19): the blast also hits the four diagonal squares around the target.
   if (big) for (const [df, dr] of DIAG) { const t = step(shot.at, df, dr); if (t >= 0) hitSquare(s, shot, cat, from, t, false); }
@@ -940,7 +963,6 @@ function resolveShot(s: LUState, shot: Shot) {
   stunAround(s, shot.at);
   // A level 3 shot leaves a crater for the rest of the game.
   if (big && s.sq[shot.at] < 0) {
-    if (s.trees[shot.at] > 0) { s.trees[shot.at] = 0; s.cleared[shot.by]++; noteGlobal(s, shot.by, 'G-tree', cat.id); }
     s.mines = s.mines.filter((m) => m.at !== shot.at);
     s.craters.push(shot.at);
     s.events.push({ k: 'crater', at: shot.at });
