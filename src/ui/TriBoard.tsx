@@ -59,7 +59,6 @@ export function triRotation(sector: number): number {
 
 export function TriBoard({ state, bottom, selected, targets, lastMove, landscape, skins, interactive, onSquare, overlays }: BoardProps) {
   const land = landscapeById(landscape);
-  const b = state.board;
   const sector = Math.max(0, state.seats.findIndex((x) => x.id === bottom));
   const rot = triRotation(sector);
   const checked = new Set<number>();
