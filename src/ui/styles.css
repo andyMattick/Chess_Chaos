@@ -842,3 +842,12 @@ body[data-calm] .die { animation: none; }
 .lu-code { font-size: 2.6rem; letter-spacing: 8px; color: #ffe066; margin: 4px 0; text-shadow: 2px 2px 0 #000; }
 .lu-input { font: inherit; font-size: 1.2rem; letter-spacing: 4px; width: 7ch; text-transform: uppercase; background: #000; color: #fff; border: 2px solid #fff; border-radius: 6px; padding: 6px 8px; }
 .lu-emote { font-size: 0.8rem; padding: 4px 8px; min-height: 32px; }
+/* Storybook look: smooth art, softer type and windows. */
+.lu.storybook { image-rendering: auto; font-family: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif; background: radial-gradient(circle at 30% 0%, #1d2a4a, #0b0f1d 70%); }
+.lu.storybook .lu-win { background: linear-gradient(180deg, #34508f, #1c2b57); border-color: #f5e6c0; box-shadow: 0 6px 18px #0008, inset 0 0 0 2px #ffffff22; border-radius: 14px; }
+.lu.storybook .lu-btn { background: linear-gradient(180deg, #4b69b3, #24397a); border-color: #f5e6c0; border-radius: 10px; }
+.lu.storybook .lu-btn:hover, .lu.storybook .lu-btn.on { background: linear-gradient(180deg, #7c97e0, #3a55a8); }
+.lu.storybook .lu-board { border-color: #f5e6c0; border-radius: 12px; }
+.lu.storybook .lu-fog { fill: #0c1226; opacity: 0.72; }
+.lu.storybook .lu-duel img, .lu.storybook .lu-big { image-rendering: auto; }
+.lu-preview img { width: 36px; height: 36px; }

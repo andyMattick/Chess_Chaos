@@ -106,6 +106,8 @@ export interface Settings {
   shake: boolean;
   /** Plain chess pieces on the board instead of skins (owner, 2026-11-18). */
   plainPieces?: boolean;
+  /** Level-Up Chess look: '8bit' (default) or 'storybook' (owner, 2026-11-19). */
+  luArt?: '8bit' | 'storybook';
 }
 
 export interface SaveData {

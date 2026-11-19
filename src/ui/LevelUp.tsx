@@ -18,7 +18,8 @@ import { vaultBase } from '../storage/cloud';
 import { NumberPrompt } from './CloudSave';
 import { noteDaily } from '../storage/daily';
 import { luSfx } from './sound';
-import { spriteUrl } from './luSprites';
+import { LU_ARTS, luGrass, luSprite, type LUArt } from './luTheme';
+import { update } from '../storage/storage';
 import { useSave } from './store';
 
 /**
@@ -43,6 +44,9 @@ function pieceLine(p: LUPiece): string {
 export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => void; mail?: MailGame; challengeFriend?: () => void }) {
   const save = useSave();
   const p = activeProfile(save);
+  const art: LUArt = save.settings.luArt ?? '8bit';
+  const sprite = (name: Parameters<typeof luSprite>[1], side?: 'p1' | 'p2') => luSprite(art, name, side);
+  const setArt = (a: LUArt) => update((d) => ({ ...d, settings: { ...d.settings, luArt: a } }));
   // A challenge: you play your seat against a friend, a move at a time (owner, 2026-11-19).
   // Live: a room with a code, moves as they happen (owner, 2026-11-19).
   const room = useLuRoom();
@@ -240,7 +244,7 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
   const bothIn = !!room.seats.p1 && !!room.seats.p2;
   if (live && (!s || !bothIn)) {
     return (
-      <div className="lu">
+      <div className={`lu ${art}`}>
         <div className="lu-win lu-title">
           <h1>LIVE LEVEL-UP</h1>
           {room.code ? (
@@ -259,7 +263,7 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
   }
   if (!s || (!bot && !mail && !live)) {
     return (
-      <div className="lu">
+      <div className={`lu ${art}`}>
         <div className="lu-win lu-title">
           <h1>LEVEL-UP CHESS</h1>
           <p>Every good move earns points. Pieces level up and gain new powers. Every attack is a dice battle. The forest hides the enemy.</p>
@@ -285,6 +289,13 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
           <button className="lu-btn" onClick={() => setMenu('help')}>How to play</button>
           <button className="lu-btn" onClick={() => setMenu('points')}>How to earn points</button>
           <button className="lu-btn" onClick={back}>◀ Back</button>
+        </div>
+        <div className="lu-win">
+          <h2>🎨 Look</h2>
+          <div className="lu-row">
+            {LU_ARTS.map((a) => <button key={a.id} className={`lu-btn ${art === a.id ? 'on' : ''}`} onClick={() => setArt(a.id)}>{a.label}</button>)}
+            <span className="lu-row lu-preview">{(['knight', 'queen', 'catapult', 'tree'] as const).map((n) => <img key={n} src={sprite(n, 'p1')} alt="" />)}<img src={sprite('rook', 'p2')} alt="" /></span>
+          </div>
         </div>
         {vaultBase() && <LadderWindow />}
         {menu && <Menu which={menu} close={() => setMenu(null)} />}
@@ -331,16 +342,15 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
   const cells: ReactElement[] = [];
   for (let sq = 0; sq < N * N; sq++) {
     const x = px(sq), y = py(sq);
-    const light = (fileOf(sq) + rankOf(sq)) % 2 === 0;
-    cells.push(<rect key={`g${sq}`} x={x} y={y} width={CELL} height={CELL} fill={light ? '#6bb34f' : '#5aa045'} />);
+      cells.push(<rect key={`g${sq}`} x={x} y={y} width={CELL} height={CELL} fill={luGrass(art, fileOf(sq), rankOf(sq))} />);
   }
   const things: ReactElement[] = [];
   for (let sq = 0; sq < N * N; sq++) {
     const x = px(sq), y = py(sq);
-    if ((s.craters ?? []).includes(sq)) things.push(<image key={`c${sq}`} href={spriteUrl('crater')} x={x} y={y} width={CELL} height={CELL} />);
-    if (s.trees[sq] > 0) things.push(<image key={`t${sq}`} href={spriteUrl(isWall(s, sq) ? (s.trees[sq] > 1 ? 'wall' : 'wall-cracked') : s.trees[sq] > 1 ? 'tree' : 'stump')} x={x} y={y} width={CELL} height={CELL} />);
+    if ((s.craters ?? []).includes(sq)) things.push(<image key={`c${sq}`} href={sprite('crater')} x={x} y={y} width={CELL} height={CELL} />);
+    if (s.trees[sq] > 0) things.push(<image key={`t${sq}`} href={sprite(isWall(s, sq) ? (s.trees[sq] > 1 ? 'wall' : 'wall-cracked') : s.trees[sq] > 1 ? 'tree' : 'stump')} x={x} y={y} width={CELL} height={CELL} />);
     const mine = s.mines.find((m) => m.at === sq);
-    if (mine && v.mines.has(sq)) things.push(<image key={`m${sq}`} href={spriteUrl('mine')} x={x} y={y} width={CELL} height={CELL} opacity={0.9} />);
+    if (mine && v.mines.has(sq)) things.push(<image key={`m${sq}`} href={sprite('mine')} x={x} y={y} width={CELL} height={CELL} opacity={0.9} />);
   }
   const pieces = s.pieces.filter((q) => q.at >= 0 && visible(s, v, ME, q)).map((q) => {
     const x = px(q.at), y = py(q.at);
@@ -350,7 +360,7 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
       <g key={`p${q.id}`} className={`lu-piece ${sel === q.id ? 'sel' : ''}`}>
         <title>{known ? `${q.owner === ME ? '' : 'Enemy '}${pieceLine(q)} · ${q.base} base` : 'Unknown enemy: watch how it moves!'}</title>
         {sel === q.id && <rect x={x + 0.3} y={y + 0.3} width={CELL - 0.6} height={CELL - 0.6} className="lu-selbox" />}
-        <image href={spriteUrl(known ? q.type : 'mystery', q.owner)} x={x} y={y} width={CELL} height={CELL} opacity={q.owner === ME && q.type === 'scout' && lv >= 2 ? 0.6 : 1} />
+        <image href={sprite(known ? q.type : 'mystery', q.owner)} x={x} y={y} width={CELL} height={CELL} opacity={q.owner === ME && q.type === 'scout' && lv >= 2 ? 0.6 : 1} />
         {known && lv > 1 && <text x={x + CELL - 0.5} y={y + 3.6} className="lu-lv" textAnchor="end">{lv === 3 ? '★' : '2'}</text>}
         {known && <text x={x + 0.6} y={y + CELL - 0.6} className={`lu-base ${q.owner}`}>{BASE_ICON[q.base]}</text>}
         {stunned(s, q) && <text x={x + CELL / 2} y={y + 3.4} textAnchor="middle" className="lu-stun">💫</text>}
@@ -431,9 +441,9 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
   const myKingInCheck = inCheck(s, ME);
 
   return (
-    <div className="lu">
+    <div className={`lu ${art}`}>
       <div className="lu-board-wrap">
-        <svg className="lu-board" viewBox={`0 0 ${N * CELL} ${N * CELL}`} shapeRendering="crispEdges" role="img" aria-label="Level-Up Chess board">
+        <svg className="lu-board" viewBox={`0 0 ${N * CELL} ${N * CELL}`} shapeRendering={art === '8bit' ? 'crispEdges' : 'auto'} role="img" aria-label="Level-Up Chess board">
           <g>
             {cells}{things}{pieces}{fog}
           </g>
@@ -492,6 +502,7 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
 
         <div className="lu-row">
           <button className="lu-btn" onClick={() => setMenu('points')}>Points menu</button>
+          <button className="lu-btn" onClick={() => setArt(art === '8bit' ? 'storybook' : '8bit')}>{art === '8bit' ? '🎨 Storybook look' : '👾 8-bit look'}</button>
           <button className="lu-btn" onClick={() => setMenu('help')}>Help</button>
           {!s.result && <button className="lu-btn" onClick={() => act({ t: 'resign', by: ME })}>Give up</button>}
           <button className="lu-btn" onClick={() => (mail ? back() : live ? (luSession.leave(), setLive(false), setS(null)) : (setS(null), setBot(null)))}>◀ Leave</button>
@@ -509,11 +520,11 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
             <div className="lu-win lu-pop">
               <h2>{top.title}</h2>
               <div className="lu-duel">
-                <div><img src={spriteUrl(top.att.type, top.att.owner)} alt="" /><b>{nameOf(top.att)}</b><span className="lu-small">{BASE_ICON[top.att.base]}</span></div>
+                <div><img src={sprite(top.att.type, top.att.owner)} alt="" /><b>{nameOf(top.att)}</b><span className="lu-small">{BASE_ICON[top.att.base]}</span></div>
                 <div className="lu-vs">
                   {top.a && top.d ? <><span className="lu-die">{top.a[0]}</span> → <b>{top.a[1]}</b><br />vs<br /><span className="lu-die">{top.d[0]}</span> → <b>{top.d[1]}</b></> : <><span className="lu-die">{top.roll}</span><br /><span className="lu-small">1 falls · 2-3 miss · 4-6 hit</span></>}
                 </div>
-                <div><img src={spriteUrl(top.def.type, top.def.owner)} alt="" /><b>{nameOf(top.def)}</b><span className="lu-small">{BASE_ICON[top.def.base]}</span></div>
+                <div><img src={sprite(top.def.type, top.def.owner)} alt="" /><b>{nameOf(top.def)}</b><span className="lu-small">{BASE_ICON[top.def.base]}</span></div>
               </div>
               <h2 className={(top.outcome === 'win') === top.mine ? 'good' : 'bad'}>{top.outcome === 'win' ? 'VICTORY!' : top.outcome === 'crushed' ? 'CRUSHED!' : 'BOUNCED OFF'}</h2>
               <p className="lu-small">{top.why}</p>
@@ -522,7 +533,7 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
           {top.k === 'level' && (
             <div className="lu-win lu-pop lu-levelup">
               <h2>★ LEVEL UP! ★</h2>
-              <img className="lu-big" src={spriteUrl(top.piece.type, top.piece.owner)} alt="" />
+              <img className="lu-big" src={sprite(top.piece.type, top.piece.owner)} alt="" />
               <p><b>{LU_PIECES[top.piece.type].name} reached Level {top.lv}!</b></p>
               <p>Why: <b>{top.why}</b></p>
               <p className="lu-small">New power: {LU_PIECES[top.piece.type].levels[top.lv - 1]}</p>
@@ -542,7 +553,7 @@ export function LevelUpScreen({ back, mail, challengeFriend }: { back: () => voi
         <div className="lu-modal">
           <div className="lu-win lu-pop">
             <h2>🎓 PICK A JOB</h2>
-            <img className="lu-big" src={spriteUrl('scout', ME)} alt="" />
+            <img className="lu-big" src={sprite('scout', ME)} alt="" />
             <p>Your scout reached level 2! What should it be now? It keeps its scout eyes.</p>
             <div className="lu-roles">
               {roles.map((a) => {
