@@ -4,7 +4,7 @@ import {
 } from '../content/levelup';
 import { chooseAction, type LUBotLevel } from '../levelup/ai';
 import {
-  H, SQUARES, W, actor, battleOdds, isWall, fileOf, identified, inCheck, legalActions, level, newGame, play, rankOf, strikeOdds, stunned, viewOf, visible,
+  H, SQUARES, W, actor, pieceAt, battleOdds, isWall, fileOf, identified, inCheck, legalActions, level, newGame, play, rankOf, strikeOdds, stunned, viewOf, visible,
   type LUAction, type LUEvent, type LUPiece, type LUState, type Side,
 } from '../levelup/rules';
 import { activeProfile, updateProfile } from '../storage/storage';
@@ -73,6 +73,9 @@ export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back:
   /** The piece under the mouse: its card shows while you point at it. */
   const [hover, setHover] = useState<number | null>(null);
   const [pops, setPops] = useState<Popup[]>([]);
+  /** What the other side did on its turn, shown on the board when it is your move again. */
+  const [report, setReport] = useState<{ lines: string[]; at: number } | null>(null);
+  const turnReport = useRef<string[]>([]);
   const [log, setLog] = useState<string[]>(() => (mail ? [`Your challenge against ${them}. ${ME === 'p1' ? 'Blue' : 'Red'} is your army.`] : []));
   const [menu, setMenu] = useState<'points' | 'help' | null>(null);
   const recorded = useRef(false);
@@ -164,6 +167,25 @@ export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back:
         case 'check': lines.push(e.side === ME ? '⚠ CHECK! Protect your king.' : '⚔ Check!'); break;
       }
     }
+    // The other side's turn report (owner, 2026-11-19: "I move, then it tells me to move again").
+    const by = actor(prev);
+    if (by !== ME && !next.result) {
+      const report = [...lines];
+      const ended = next.ply > prev.ply;
+      if (ended && next.last && !report.some((x) => x.startsWith('⚔') || x.startsWith('🗡'))) {
+        const q = pieceAt(next, next.last.to);
+        const said = q && q.owner !== ME && v.seen.has(next.last.to)
+          ? (identified(v, ME, q) ? `Their ${nameOf(q)} moved.` : 'An enemy moved (you can see it, but not what it is).')
+          : !report.length ? 'The enemy moved somewhere in the fog.' : null;
+        if (said) { report.unshift(said); lines.push(said); }
+      }
+      turnReport.current.push(...report.filter((x) => !turnReport.current.includes(x)));
+      if (actor(next) === ME && turnReport.current.length) {
+        setReport({ lines: turnReport.current.slice(0, 5), at: Date.now() });
+        turnReport.current = [];
+        luSfx.select();
+      }
+    } else if (by === ME) turnReport.current = [];
     if (ps.some((x) => x.k === 'battle')) luSfx.dice();
     setPops((q) => [...q, ...ps]);
     if (lines.length) setLog((l) => [...lines.reverse(), ...l].slice(0, 30));
@@ -220,9 +242,16 @@ export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back:
     const t = setTimeout(() => {
       const a = chooseAction(s, bot);
       if (a) act(a);
-    }, 650);
+    }, 1100);
     return () => clearTimeout(t);
   }, [s, pops.length, bot]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The turn report goes after a few seconds (or a tap).
+  useEffect(() => {
+    if (!report) return;
+    const t = setTimeout(() => setReport(null), 4500);
+    return () => clearTimeout(t);
+  }, [report]);
 
   // Pop-up sounds; battles clear themselves.
   const top = pops[0];
@@ -411,7 +440,7 @@ export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back:
     const x = px(shot.at), y = py(shot.at);
     marks.push(<g key={`s${shot.at}`} className={shot.by === ME ? 'lu-aim' : 'lu-incoming'}><rect x={x + 0.5} y={y + 0.5} width={CELL - 1} height={CELL - 1} /><text x={x + CELL / 2} y={y + CELL / 2 + 2.5} textAnchor="middle">{shot.by === ME ? '◎' : '!'}</text></g>);
   }
-  if (s.last) for (const sq of [s.last.from, s.last.to]) if (sq >= 0 && v.seen.has(sq)) marks.push(<rect key={`l${sq}`} x={px(sq) + 0.4} y={py(sq) + 0.4} width={CELL - 0.8} height={CELL - 0.8} className="lu-last" />);
+  if (s.last) for (const sq of [s.last.from, s.last.to]) if (sq >= 0 && v.seen.has(sq)) marks.push(<rect key={`l${sq}`} x={px(sq) + 0.4} y={py(sq) + 0.4} width={CELL - 0.8} height={CELL - 0.8} className={`lu-last ${report ? 'flash' : ''}`} />);
   if (mode === 'mine' && selPiece) marks.push(<text key="drop" x={px(selPiece.at) + CELL / 2} y={py(selPiece.at) + CELL / 2 + 2.5} textAnchor="middle" className="lu-drop">💣</text>);
   for (const a of shown) {
     const to = tgt(a);
@@ -479,6 +508,13 @@ export function LevelUpScreen({ back, mail, challengeFriend, joinCode }: { back:
     <div className={`lu ${art}`}>
       {homeBtn}
       <div className="lu-board-wrap">
+        {report && !top && !s.result && (
+          <button key={report.at} className="lu-report" onClick={() => setReport(null)}>
+            <b>{mail || live ? `${them}'s turn` : 'Enemy turn'}</b>
+            {report.lines.map((l, i) => <span key={i}>{l}</span>)}
+            <b className="lu-report-go">▶ Your move!</b>
+          </button>
+        )}
         <svg className="lu-board" viewBox={`0 0 ${W * CELL} ${H * CELL}`} shapeRendering={art === '8bit' ? 'crispEdges' : 'auto'} role="img" aria-label="Level-Up Chess board">
           <g>
             {cells}{things}{pieces}{fog}

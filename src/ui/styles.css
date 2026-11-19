@@ -860,3 +860,11 @@ body[data-calm] .die { animation: none; }
 .ladder-ask h2 { margin-top: 0; }
 .lu { padding-top: 58px; position: relative; }
 .lu-home { position: fixed; top: 10px; left: 10px; z-index: 45; box-shadow: 0 0 0 2px #000, 0 4px 10px #0007; }
+/* The other side's turn report, on top of the board. */
+.lu-board-wrap { position: relative; }
+.lu-report { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 5; width: min(92%, 380px); display: flex; flex-direction: column; gap: 4px; text-align: left;
+  font: inherit; color: #fff; background: linear-gradient(180deg, #2a3bb8, #0d1660); border: 3px solid #ffe066; border-radius: 10px; box-shadow: 0 0 0 2px #000, 0 8px 20px #000a; padding: 10px 12px; cursor: pointer; animation: lu-drop 0.3s ease-out; }
+.lu-report span { font-size: 0.9rem; }
+.lu-report-go { color: #ffe066; margin-top: 2px; }
+@keyframes lu-drop { from { transform: translate(-50%, -20px); opacity: 0; } }
+.lu-last.flash { stroke-width: 1.2px; stroke: #ffe066; animation: lu-blink 0.45s steps(2) 6; }
