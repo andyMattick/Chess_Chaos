@@ -36,6 +36,8 @@ export interface LocalBattle {
 
 const SEAT_ORDER: PlayerId[] = ['p1', 'p2', 'p3', 'p4'];
 const SIDE_NAME: Record<PlayerId, string> = { p1: 'South', p2: 'West', p3: 'North', p4: 'East' };
+/** On the hexagon, seen from the bottom player. */
+const TRI_SIDE_NAME: Record<PlayerId, string> = { p1: 'Bottom', p2: 'Top right', p3: 'Top left', p4: '' };
 
 export function BattleScreen({ local, onExit, onAgain }: { local?: LocalBattle; onExit: () => void; onAgain?: () => void }) {
   const save = useSave();
@@ -270,7 +272,7 @@ export function BattleScreen({ local, onExit, onAgain }: { local?: LocalBattle; 
                 <div className="avatar"><svg viewBox="0 0 100 100"><Character skin={skinFor(look.skins, k, 'king')} type="king" owner={k} seed={3} /></svg></div>
                 <div className="seat-info">
                   <b>{names[k]}{k === me ? ' (you)' : ''}{isOnline && net.gamesPlayed > 0 && <span className="wins"> 🏆{net.score[k] ?? 0}</span>}</b>
-                  <span className="muted small">{SIDE_NAME[k]}{seat.team ? ` · Team ${seat.team}` : ''} · ★{ratings[k]}</span>
+                  <span className="muted small">{(live.board.topology === 'tri' ? TRI_SIDE_NAME : SIDE_NAME)[k]}{seat.team ? ` · Team ${seat.team}` : ''} · ★{ratings[k]}</span>
                   {paint && <div className="hill-bar"><div style={{ width: `${Math.min(100, ((paint[k] ?? 0) / 60) * 100)}%`, background: PAINT_COLOUR[k] }} /><span>🎨 {paint[k] ?? 0}</span></div>}
                   {hill && <div className="hill-bar"><div style={{ width: `${Math.min(100, (score / hill.target) * 100)}%` }} /><span>{score}</span></div>}
                   {speech?.seat === k && <span className="speech">{speech.text}</span>}

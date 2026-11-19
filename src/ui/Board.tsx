@@ -8,6 +8,7 @@ import { Character } from './skins';
 import { FxLayer, type MoveEvents } from './effects';
 import { hillSquares } from '../core/modes';
 import { baseType, pieceType } from '../core/pieces';
+import { TriBoard } from './TriBoard';
 
 /**
  * SVG board. Renders from GameState plus overlays; knows nothing about game
@@ -57,7 +58,12 @@ export interface BoardProps {
 const SIZE = 100;
 const PAD = 26;
 
-export function Board({ state, bottom, selected, targets, lastMove, showCoordinates, landscape, skins, interactive, onSquare, overlays, fx }: BoardProps) {
+/** Any board: the three-player hexagon has its own drawing. */
+export function Board(props: BoardProps) {
+  return props.state.board.topology === 'tri' ? <TriBoard {...props} /> : <RectBoard {...props} />;
+}
+
+function RectBoard({ state, bottom, selected, targets, lastMove, showCoordinates, landscape, skins, interactive, onSquare, overlays, fx }: BoardProps) {
   const b = state.board;
   const land = landscapeById(landscape);
   // Rotate so the bottom seat's pawns march up the screen (works for all four sides).

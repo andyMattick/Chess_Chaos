@@ -1,4 +1,4 @@
-import { fileOf, rankOf, seatOf } from '../core/board';
+import { fileOf, rankOf, seatOf, triRank, triSector } from '../core/board';
 import { pieceType } from '../core/pieces';
 import { areEnemies } from '../core/movegen';
 import type { GameState, Piece, PlayerId } from '../core/types';
@@ -48,12 +48,14 @@ function pieceTerm(s: GameState, p: Piece, cx: number, cy: number, endgame: numb
   const b = s.board;
   const t = pieceType(p.type);
   const f = fileOf(b, p.at);
-  const r = rankOf(b, p.at);
-  const centre = Math.abs(f - cx) + Math.abs(r - cy); // 1 (centre) .. 7 (corner) on 8x8
   const seat = seatOf(s, p.owner);
   const [fx, fy] = seat.forward;
+  // The hexagon: ranks count from each half-board's own back row; the middle is rank 3 of every half.
+  const tri = b.topology === 'tri';
+  const r = tri ? triRank(b, p.at) : rankOf(b, p.at);
+  const centre = tri ? Math.abs(f - 3.5) + 0.5 + (3 - r) : Math.abs(f - cx) + Math.abs(r - cy); // 1 (centre) .. 7 (corner) on 8x8
   // Distance travelled forward from the seat's own edge.
-  const advance = fy > 0 ? r : fy < 0 ? b.height - 1 - r : fx > 0 ? f : b.width - 1 - f;
+  const advance = tri ? (triSector(b, p.at) === seat.promo.value ? r : 7 - r) : fy > 0 ? r : fy < 0 ? b.height - 1 - r : fx > 0 ? f : b.width - 1 - f;
 
   let v = t.value * 100;
   switch (p.type) {

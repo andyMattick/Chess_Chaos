@@ -26,6 +26,13 @@ export interface BoardShape {
   wrapFiles: boolean;
   /** One entry per square, true when the square does not exist or cannot be entered. */
   blocked: boolean[];
+  /**
+   * 'tri': the three-player hexagon (board.ts). Stored as 8 files x 12 ranks:
+   * each seat's half-board is 4 ranks (seat 0 ranks 0-3, seat 1 ranks 4-7,
+   * seat 2 ranks 8-11), each counted from that seat's own back row. Lines turn
+   * where they cross the middle.
+   */
+  topology?: 'tri';
 }
 
 export interface Piece {

@@ -99,7 +99,7 @@ export const ROOM_GAMES: { id: RoomGame; label: string; seats: number; blurb: st
   { id: 'pawn-wars', label: '♟️ Pawn wars', seats: 2, more: true, blurb: 'Just pawns and kings. First to promote wins.' },
   { id: 'card-chess', label: '🎴 Card chess', seats: 2, more: true, blurb: 'Hold 3 cards; move a piece that matches one, or throw one away. Three of a kind = two moves.' },
   { id: 'draft', label: '🛒 Draft', seats: 2, more: true, blurb: 'Spend 30 points to build your army, then fight.' },
-  { id: 'battle-3', label: '⚔️ 3-way battle', seats: 3, blurb: 'Three armies, one winner. Capture kings to knock players out.' },
+  { id: 'battle-3', label: '⚔️ 3-way battle', seats: 3, blurb: 'Three armies on a six-sided board, one winner. Capture kings to knock players out.' },
   { id: 'battle-4', label: '⚔️ 4-way battle', seats: 4, blurb: 'Four armies, every one for themselves.' },
   { id: 'battle-teams', label: '🤝 2 vs 2 teams', seats: 4, blurb: 'Partners sit opposite. Knock out both enemy kings.' },
   { id: 'battle-hill-4', label: '🚩 4-way Hill wars', seats: 4, blurb: 'Four armies fight over a big hill. First to 30.' },

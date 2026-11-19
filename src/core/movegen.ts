@@ -1,4 +1,4 @@
-import { isPromotionSquare, lateral, rankOf, fileOf, seatOf, step } from './board';
+import { isPromotionSquare, lateral, leapTargets, rankOf, fileOf, seatOf, step, stepDir, triSector } from './board';
 import { pieceType, type MovePattern } from './pieces';
 import type { GameState, MoveAction, Piece, PlayerId, Seat, Vec } from './types';
 
@@ -29,6 +29,19 @@ function orient(s: GameState, owner: PlayerId, [x, y]: Vec): Vec {
   return [x * lx + y * fx, x * ly + y * fy];
 }
 
+/**
+ * A pawn's forward and sideways directions where it stands. On the hexagon a
+ * pawn in someone else's half-board walks toward that player's back row.
+ */
+function pawnDirs(s: GameState, p: Piece): { f: Vec; l: Vec } {
+  const seat = seatOf(s, p.owner);
+  if (s.board.topology === 'tri') {
+    const home = triSector(s.board, p.at) === seat.promo.value;
+    return { f: [0, home ? 1 : -1], l: [1, 0] };
+  }
+  return { f: seat.forward, l: lateral(seat) };
+}
+
 /** Patterns that need more than a plain line walk (card pieces). */
 function isFancy(m: MovePattern): boolean {
   return m.kind === 'hop' || m.kind === 'cannon' || (m.kind === 'ride' && (!!m.pass || !!m.relative));
@@ -51,8 +64,9 @@ function fancyTargets(s: GameState, p: Piece, m: MovePattern, attack: boolean): 
       const [x, y] = m.relative ? orient(s, p.owner, v) : v;
       let sq = p.at;
       let passed = 0;
+      let [dx, dy] = [x, y];
       for (let n = 1; m.max === undefined || n <= m.max; n++) {
-        sq = step(b, sq, x, y);
+        [sq, dx, dy] = stepDir(b, sq, dx, dy);
         if (sq < 0 || sq === p.at) break;
         const l = land(sq);
         if (attack) out.push({ to: sq, capture: true });
@@ -109,27 +123,26 @@ export function pieceAttacks(s: GameState, p: Piece, target: number): boolean {
       continue;
     }
     if (m.kind === 'leap') {
-      for (const [x, y] of m.offsets) if (step(b, p.at, x, y) === target) return true;
+      for (const [x, y] of m.offsets) if (leapTargets(b, p.at, x, y).includes(target)) return true;
     } else if (m.kind === 'ride') {
       for (const [x, y] of m.dirs) {
-        if (!b.wrapFiles && Math.abs(x) <= 1 && Math.abs(y) <= 1) {
+        if (!b.wrapFiles && !b.topology && Math.abs(x) <= 1 && Math.abs(y) <= 1) {
           // Fast reject when the target is not on this ray.
           if (x === 0 ? df !== 0 : Math.sign(df) !== x) continue;
           if (y === 0 ? dr !== 0 : Math.sign(dr) !== y) continue;
           if (x !== 0 && y !== 0 && Math.abs(df) !== Math.abs(dr)) continue;
         }
         let sq = p.at;
+        let [dx, dy] = [x, y];
         for (let n = 1; m.max === undefined || n <= m.max; n++) {
-          sq = step(b, sq, x, y);
+          [sq, dx, dy] = stepDir(b, sq, dx, dy);
           if (sq < 0 || sq === p.at) break;
           if (sq === target) return true;
           if (s.sq[sq] >= 0) break;
         }
       }
     } else if (m.kind === 'pawn') {
-      const seat = seatOf(s, p.owner);
-      const [fx, fy] = seat.forward;
-      const [lx, ly] = lateral(seat);
+      const { f: [fx, fy], l: [lx, ly] } = pawnDirs(s, p);
       if (step(b, p.at, fx + lx, fy + ly) === target) return true;
       if (step(b, p.at, fx - lx, fy - ly) === target) return true;
     }
@@ -185,15 +198,17 @@ export function pseudoMovesFor(s: GameState, p: Piece, out: MoveAction[] = []): 
     }
     if (m.kind === 'leap') {
       for (const [x, y] of m.offsets) {
-        const to = step(b, p.at, x, y);
-        const land = to >= 0 ? canLandOn(s, p, to) : null;
-        if (land && !(m.noCapture && land === 'capture')) out.push({ t: 'move', piece: p.id, to });
+        for (const to of leapTargets(b, p.at, x, y)) {
+          const land = canLandOn(s, p, to);
+          if (land && !(m.noCapture && land === 'capture')) out.push({ t: 'move', piece: p.id, to });
+        }
       }
     } else if (m.kind === 'ride') {
       for (const [x, y] of m.dirs) {
         let sq = p.at;
+        let [dx, dy] = [x, y];
         for (let n = 1; m.max === undefined || n <= m.max; n++) {
-          sq = step(b, sq, x, y);
+          [sq, dx, dy] = stepDir(b, sq, dx, dy);
           if (sq < 0 || sq === p.at) break;
           const land = canLandOn(s, p, sq);
           if (land && !(m.noCapture && land === 'capture')) out.push({ t: 'move', piece: p.id, to: sq });
@@ -202,14 +217,13 @@ export function pseudoMovesFor(s: GameState, p: Piece, out: MoveAction[] = []): 
       }
     } else if (m.kind === 'pawn') {
       const seat = seatOf(s, p.owner);
-      const [fx, fy] = seat.forward;
-      const [lx, ly] = lateral(seat);
-      const one = step(b, p.at, fx, fy);
+      const { f: [fx, fy], l: [lx, ly] } = pawnDirs(s, p);
+      const [one, ofx, ofy] = stepDir(b, p.at, fx, fy);
       if (one >= 0 && s.sq[one] < 0) {
         pushPawnMove(s, seat, p, one, out);
         const canDouble = m.double === 'always' || (m.double === 'first' && !p.moved);
         if (canDouble) {
-          const two = step(b, one, fx, fy);
+          const two = stepDir(b, one, ofx, ofy)[0];
           if (two >= 0 && s.sq[two] < 0) out.push({ t: 'move', piece: p.id, to: two });
         }
       }
@@ -316,8 +330,8 @@ export function makeMove(s: GameState, m: MoveAction): GameState {
     }
   }
 
-  // A drop (Drop-in mode) comes from the reserve: no from-square, no double step.
-  if (from >= 0 && pieceType(p.type).moves.some((x) => x.kind === 'pawn')) {
+  // A drop (Drop-in mode) comes from the reserve: no from-square, no double step. No en passant on the hexagon.
+  if (from >= 0 && !b.topology && pieceType(p.type).moves.some((x) => x.kind === 'pawn')) {
     const seat = seatOf(s, p.owner);
     const [fx, fy] = seat.forward;
     const one = step(b, from, fx, fy);

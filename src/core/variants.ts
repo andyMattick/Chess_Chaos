@@ -8,7 +8,7 @@ import type { GameState, PlayerId, Seat } from './types';
  * Turn order is clockwise: bottom, left, top, right.
  * Pawns promote after travelling 7 squares (the eighth row from their side).
  */
-export type BattleKind = 'three' | 'four' | 'teams';
+export type BattleKind = 'three' | 'four' | 'teams' | 'tri';
 
 const N = 14;
 const BACK = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
@@ -31,7 +31,28 @@ function battleSeats(kind: BattleKind): Seat[] {
   return all;
 }
 
+/**
+ * Three players on the hexagon (owner, 2026-11-18; board.ts). Each seat's
+ * half-board is stored with its own back row at local rank 0, so every seat's
+ * pawns start by walking "up" (forward [0, 1]); promo.value is the seat's half.
+ */
+export function triStart(mode = 'battle', seed = 1): GameState {
+  const seats: Seat[] = (['p1', 'p2', 'p3'] as PlayerId[]).map((id, i) => ({ id, name: ['White', 'Black', 'Gold'][i], forward: [0, 1], promo: { axis: 'r', value: i }, status: 'active' }));
+  const s = emptyState(8, 12, seats, seed);
+  s.board.topology = 'tri';
+  seats.forEach((seat, i) => {
+    for (let f = 0; f < 8; f++) {
+      addPiece(s, BACK[f], seat.id, (i * 4) * 8 + f);
+      addPiece(s, 'pawn', seat.id, (i * 4 + 1) * 8 + f);
+    }
+  });
+  s.mode = mode;
+  s.positionCounts = { [positionKey(s)]: 1 };
+  return s;
+}
+
 export function battleStart(kind: BattleKind, mode = 'battle', seed = 1): GameState {
+  if (kind === 'tri') return triStart(mode, seed);
   const seats = battleSeats(kind);
   const s = emptyState(N, N, seats, seed);
   for (let f = 0; f < N; f++) for (let r = 0; r < N; r++) {

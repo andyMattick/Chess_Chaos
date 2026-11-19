@@ -155,7 +155,7 @@ export class Room {
 
   private freshRecord(seed: number, players: Record<string, string>): GameRecord {
     switch (this.game) {
-      case 'battle-3': return newBattleRecord(seed, players, 'three');
+      case 'battle-3': return newBattleRecord(seed, players, 'tri');
       case 'battle-4': return newBattleRecord(seed, players, 'four');
       case 'battle-teams': return newBattleRecord(seed, players, 'teams');
       case 'battle-hill-4': return newBattleRecord(seed, players, 'four', 'battle-hill');
