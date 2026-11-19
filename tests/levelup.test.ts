@@ -207,6 +207,28 @@ describe('the new pieces', () => {
     expect(s.pieces[t2.id].at).toBe(-1);
     expect(s.pieces[c.id].xp).toBe(2);
   });
+  it('level 3 catapult: the blast hits the diagonals too and leaves a crater nothing can cross', () => {
+    let s = kings(blankGame());
+    const c = put(s, 'catapult', 'p1', S(5, 2), { xp: 8 });
+    const centre = put(s, 'pawn', 'p2', S(5, 6));
+    const diag = put(s, 'knight', 'p2', S(6, 7));
+    const side = put(s, 'pawn', 'p2', S(6, 6)); // next to it, not diagonal: safe
+    const rook = put(s, 'rook', 'p1', S(0, 6));
+    expect(legalActions(s).some((a) => a.t === 'fire' && a.piece === c.id && a.to === S(5, 7))).toBe(true); // reach 5
+    expect(legalActions(s).some((a) => a.t === 'fire' && a.piece === c.id && a.to === S(5, 8))).toBe(false); // not 6
+    s = play(s, { t: 'fire', piece: c.id, to: S(5, 6) });
+    s = play(s, { t: 'move', piece: s.pieces.find((p) => p.type === 'king' && p.owner === 'p2')!.id, to: S(14, 15) });
+    expect(s.pieces[centre.id].at).toBe(-1);
+    expect(s.pieces[diag.id].at).toBe(-1);
+    expect(s.pieces[side.id].at).toBe(S(6, 6));
+    expect(s.craters).toContain(S(5, 6));
+    expect(s.events.some((x) => x.k === 'crater')).toBe(true);
+    // The rook's row is cut at the crater, for good.
+    const rookTo = legalActions(s).filter((a) => a.t === 'move' && a.piece === rook.id).map((a) => (a as { to: number }).to);
+    expect(rookTo).toContain(S(4, 6));
+    expect(rookTo).not.toContain(S(5, 6));
+    expect(legalActions(s).some((a) => 'to' in a && a.to === S(5, 6))).toBe(false); // no piece can go there
+  });
   it('a level 2 rook shields the piece behind it from a catapult', () => {
     let s = kings(blankGame());
     const c = put(s, 'catapult', 'p1', S(5, 2));

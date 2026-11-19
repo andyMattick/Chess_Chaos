@@ -46,6 +46,7 @@ export type LUEvent =
   | { k: 'boom'; at: number; piece: number }
   | { k: 'revive'; piece: number; at: number }
   | { k: 'tree'; at: number; gone: boolean }
+  | { k: 'crater'; at: number }
   | { k: 'promote'; piece: number }
   | { k: 'check'; side: Side };
 export interface LUResult { winner: Side | null; reason: 'checkmate' | 'assassin' | 'stalemate' | 'resign'; grade: string }
@@ -61,6 +62,8 @@ export interface LUState {
   /** Barricade hits left per square (0 = none). */
   trees: number[];
   mines: { at: number; owner: Side }[];
+  /** Craters left by level 3 catapult shots: nothing can ever stand on or pass them. */
+  craters: number[];
   shots: Shot[];
   fallen: Fallen[];
   result: LUResult | null;
@@ -101,7 +104,7 @@ const d6 = (s: LUState) => 1 + Math.floor(nextRand(s) * 6);
 /* ---- Setup --------------------------------------------------------------- */
 export function newGame(seed: number): LUState {
   const s: LUState = {
-    seed, rng: seed | 0, turn: 'p1', ply: 0, pieces: [], sq: Array(N * N).fill(-1), trees: Array(N * N).fill(0), mines: [], shots: [], fallen: [], result: null,
+    seed, rng: seed | 0, turn: 'p1', ply: 0, pieces: [], sq: Array(N * N).fill(-1), trees: Array(N * N).fill(0), mines: [], craters: [], shots: [], fallen: [], result: null,
     secret: { p1: '', p2: '' }, secretDone: { p1: false, p2: false }, globals: [], raceDeck: [], raceDone: [], cleared: { p1: 0, p2: 0 }, events: [], last: null,
   };
   const bases: Base[] = ['triangle', 'square', 'circle'];
@@ -145,7 +148,7 @@ const DIAG: [number, number][] = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
 const ALL = [...ORTH, ...DIAG];
 const KNIGHT: [number, number][] = [[1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, -1], [-2, 1], [-1, 2]];
 const KNIGHT2: [number, number][] = [[2, 2], [2, -2], [-2, 2], [-2, -2]];
-const open = (s: LUState, sq: number) => sq >= 0 && s.trees[sq] === 0;
+const open = (s: LUState, sq: number) => sq >= 0 && s.trees[sq] === 0 && !s.craters.includes(sq);
 
 /**
  * Squares a piece threatens with an ordinary attack (used for check, forks
@@ -241,6 +244,7 @@ export function pieceActions(s: LUState, p: LUPiece): LUAction[] {
         const q = pieceAt(s, sq);
         if (q && q.owner === p.owner) continue;
         if (s.shots.some((x) => x.at === sq && x.by === p.owner)) continue;
+        if (s.craters.includes(sq)) continue;
         out.push({ t: 'fire', piece: p.id, to: sq });
       }
       break;
@@ -422,7 +426,7 @@ export const strikeOdds = (scout: LUPiece) => ({ win: [1, 2, 3, 4, 5, 6].filter(
 /* ---- Playing an action --------------------------------------------------- */
 function clone(s: LUState): LUState {
   return {
-    ...s, pieces: s.pieces.map((p) => ({ ...p, known: [...p.known] })), sq: s.sq.slice(), trees: s.trees.slice(), mines: s.mines.map((m) => ({ ...m })),
+    ...s, pieces: s.pieces.map((p) => ({ ...p, known: [...p.known] })), sq: s.sq.slice(), trees: s.trees.slice(), mines: s.mines.map((m) => ({ ...m })), craters: [...(s.craters ?? [])],
     shots: s.shots.map((x) => ({ ...x })), fallen: s.fallen.map((f) => ({ ...f })), globals: s.globals.map((g) => ({ ...g })),
     raceDeck: [...s.raceDeck], raceDone: s.raceDone.map((g) => ({ ...g })),
     secretDone: { ...s.secretDone }, cleared: { ...s.cleared }, secret: { ...s.secret }, events: [],
@@ -651,27 +655,43 @@ function shieldOf(s: LUState, at: number, owner: Side, from: number): LUPiece | 
   return undefined;
 }
 
+/** One square of a shot: an enemy there falls unless a rook shields it. Kings are never hit. */
+function hitSquare(s: LUState, shot: Shot, cat: LUPiece, from: number, at: number, main: boolean): boolean {
+  const q = pieceAt(s, at);
+  if (!q || q.type === 'king' || (!main && q.owner === shot.by)) return false;
+  const shield = shieldOf(s, at, q.owner, from);
+  if (shield) { s.events.push({ k: 'shield', at, rook: shield.id }); return false; }
+  reveal(q);
+  fall(s, q);
+  s.events.push({ k: 'hit', at, piece: q.id });
+  if (q.owner !== shot.by) {
+    award(s, cat, 'hit');
+    if (LU_PIECES[q.type].value >= 3) award(s, cat, 'kill-big');
+    noteGlobal(s, shot.by, 'G-shot', cat.id);
+    noteSecret(s, shot.by, 'S-bullseye', cat.id);
+  }
+  return true;
+}
+
 function resolveShot(s: LUState, shot: Shot) {
   const cat = s.pieces[shot.catapult];
   const from = cat.at >= 0 ? cat.at : shot.at;
-  const q = pieceAt(s, shot.at);
-  if (q && q.type !== 'king') {
-    const shield = shieldOf(s, shot.at, q.owner, from);
-    if (shield) { s.events.push({ k: 'shield', at: shot.at, rook: shield.id }); }
-    else {
-      reveal(q);
-      fall(s, q);
-      s.events.push({ k: 'hit', at: shot.at, piece: q.id });
-      if (q.owner !== shot.by) {
-        award(s, cat, 'hit');
-        if (LU_PIECES[q.type].value >= 3) award(s, cat, 'kill-big');
-        noteGlobal(s, shot.by, 'G-shot', cat.id);
-        noteSecret(s, shot.by, 'S-bullseye', cat.id);
-      }
-      shake(s, shot.at, shot.by);
-    }
-  } else s.events.push({ k: 'miss', at: shot.at });
-  if (cat.at >= 0 && level(cat) >= 3 && !q) shake(s, shot.at, shot.by);
+  const big = cat.at >= 0 && level(cat) >= 3;
+  const before = pieceAt(s, shot.at);
+  const hit = hitSquare(s, shot, cat, from, shot.at, true);
+  if (!hit && !before) s.events.push({ k: 'miss', at: shot.at });
+  if (hit) shake(s, shot.at, shot.by);
+  if (!big) return;
+  // Level 3 (owner, 2026-11-19): the blast also hits the four diagonal squares around the target,
+  // and the landing square becomes a crater for the rest of the game.
+  for (const [df, dr] of DIAG) { const t = step(shot.at, df, dr); if (t >= 0) hitSquare(s, shot, cat, from, t, false); }
+  if (s.sq[shot.at] < 0) {
+    if (s.trees[shot.at] > 0) { s.trees[shot.at] = 0; s.cleared[shot.by]++; noteGlobal(s, shot.by, 'G-tree', cat.id); }
+    s.mines = s.mines.filter((m) => m.at !== shot.at);
+    s.craters.push(shot.at);
+    s.events.push({ k: 'crater', at: shot.at });
+    if (!hit) shake(s, shot.at, shot.by);
+  }
 }
 
 /* ---- What each side can see (fog of war) --------------------------------- */

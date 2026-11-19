@@ -93,6 +93,7 @@ export function LevelUpScreen({ back }: { back: () => void }) {
         case 'boom': lines.push(`💣 A mine blew up ${label(e.piece)}!`); luSfx.boom(); break;
         case 'revive': lines.push(`✚ ${label(e.piece)} is back in the fight!`); break;
         case 'tree': if (e.gone) lines.push('🌲 A barricade crashes down.'); break;
+        case 'crater': lines.push('🕳 The blast left a crater. Nobody can cross it now.'); break;
         case 'promote': lines.push(`👑 ${label(e.piece)} reached the far side and became a queen!`); break;
         case 'check': lines.push(e.side === ME ? '⚠ CHECK! Protect your king.' : '⚔ Check!'); break;
       }
@@ -202,6 +203,7 @@ export function LevelUpScreen({ back }: { back: () => void }) {
   const things: ReactElement[] = [];
   for (let sq = 0; sq < N * N; sq++) {
     const x = fileOf(sq) * CELL, y = (N - 1 - rankOf(sq)) * CELL;
+    if ((s.craters ?? []).includes(sq)) things.push(<image key={`c${sq}`} href={spriteUrl('crater')} x={x} y={y} width={CELL} height={CELL} />);
     if (s.trees[sq] > 0) things.push(<image key={`t${sq}`} href={spriteUrl(s.trees[sq] > 1 ? 'tree' : 'stump')} x={x} y={y} width={CELL} height={CELL} />);
     const mine = s.mines.find((m) => m.at === sq);
     if (mine && (mine.owner === ME || v.scouted.has(sq))) things.push(<image key={`m${sq}`} href={spriteUrl('mine')} x={x} y={y} width={CELL} height={CELL} opacity={0.9} />);
@@ -395,7 +397,7 @@ function Menu({ which, close }: { which: 'points' | 'help'; close: () => void })
               <li>Every attack is a dice battle: each side rolls a die and adds its power. Higher wins. Lose by 4 or more and the attacker falls.</li>
               <li>Ties: attack with a friend next to the target and you win. Otherwise the bases decide: ▲ beats ●, ● beats ■, ■ beats ▲.</li>
               <li>The fog hides what your pieces can't see. Enemies show as ??? until they fight, or your scout gets close.</li>
-              <li>Catapult shots land on your next turn: the target gets a warning. Rooks at level 2 block shots.</li>
+              <li>Catapult shots land on your next turn: the target gets a warning. Rooks at level 2 block shots. A level 3 catapult's blast also hits the 4 diagonal squares and leaves a crater nobody can cross.</li>
               <li>Medics bring fallen friends back within 3 turns. Mines blow up the first enemy to step on them.</li>
               <li>Battles shake the forest: barricades next to a fight take a hit, and fall after two.</li>
               <li>Race cards: three face up for both players. First to do one claims it, and a new card turns over.</li>

@@ -29,7 +29,7 @@ export const LU_PIECES: Record<LUType, LUPieceDef> = {
   rook: { type: 'rook', name: 'Rook', value: 4, levels: ['Slides in straight lines.', 'A shield: the piece right behind it is safe from catapult shots.', 'Final form: shields every piece around it from catapult shots.'] },
   queen: { type: 'queen', name: 'Queen', value: 5, levels: ['Slides in any straight line.', '+1 in every battle she starts.', 'Final form: can also jump like a knight.'] },
   king: { type: 'king', name: 'King', value: 4, levels: ['Steps one square. Keep him out of check!', 'Can dash two squares in a straight line.', 'Final form: friends next to him get +1 when attacked.'] },
-  catapult: { type: 'catapult', name: 'Catapult', value: 2, levels: ['Moves one square, or fires 2 to 4 squares away. The target gets a warning and one turn to escape.', 'Fires up to 5 squares away.', 'Final form: fires up to 6 squares away and its shots smash barricades.'] },
+  catapult: { type: 'catapult', name: 'Catapult', value: 2, levels: ['Moves one square, or fires 2 to 4 squares away. The target gets a warning and one turn to escape.', 'Fires up to 5 squares away.', 'Final form: the blast also hits the 4 diagonal squares around the target, and leaves a crater nobody can ever cross.'] },
   medic: { type: 'medic', name: 'Medic', value: 1, levels: ['Walks up to 3 squares. Brings back a friend who fell within 2 squares, up to 3 turns after.', 'Reaches fallen friends 3 squares away.', 'Final form: reaches 4 squares away and has 5 turns to do it.'] },
   miner: { type: 'miner', name: 'Mine layer', value: 1, levels: ['Steps one square, or hides a mine next to itself (3 at a time). An enemy that steps on a mine is blown up.', 'Up to 5 mines at a time.', 'Final form: can hide a mine two squares away.'] },
   scout: { type: 'scout', name: 'Scout', value: 1, levels: ['Dashes up to 4 squares in a straight line and lights up the fog around it. Moves OR strikes a piece next to it (die roll).', 'Spy: invisible to the enemy (except their scout).', 'Final form, Assassin: +1 on strikes and the only piece that can take a king, which wins at once. Never gives check.'] },
@@ -111,7 +111,8 @@ export const BARRICADE_HP = 2;
 export const REVIVE_TURNS = [3, 3, 5];
 export const REVIVE_RANGE = [2, 3, 4];
 export const MINE_LIMIT = [3, 5, 5];
-export const CATAPULT_RANGE = [4, 5, 6];
+/** Level 2 reaches further; level 3 keeps that reach and gets the blast (owner, 2026-11-19). */
+export const CATAPULT_RANGE = [4, 5, 5];
 /** Scout sight radius by level (squares; FIRST BUILD: the doc's "3 across" grows to 5, 7, 9 across). */
 export const SCOUT_SIGHT = [2, 3, 4];
 /** A defender that out-rolls the attacker by this much destroys it ("a really bad roll"). */

@@ -5,7 +5,7 @@ import type { LUType } from '../content/levelup';
  * is 12 x 12. Letters: K outline, A army colour, B army shade, W white,
  * Y gold, R red, G grey, L leaf, D dark leaf, T trunk, '.' see-through.
  */
-const SPRITES: Record<LUType | 'mystery' | 'tree' | 'stump' | 'mine', string[]> = {
+const SPRITES: Record<LUType | 'mystery' | 'tree' | 'stump' | 'mine' | 'crater', string[]> = {
   pawn: [
     '............',
     '.....KK.....',
@@ -186,6 +186,20 @@ const SPRITES: Record<LUType | 'mystery' | 'tree' | 'stump' | 'mine', string[]> 
     '....KTTK....',
     '....KTTK....',
     '...KKTTKK...',
+    '............',
+  ],
+  crater: [
+    '............',
+    '...TT..TT...',
+    '..TGKKKKGT..',
+    '.TGKKKKKKGT.',
+    '.GKKKKKKKKG.',
+    'TGKKKKKKKKGT',
+    '.GKKKKKKKKG.',
+    '.TGKKKKKKGT.',
+    '..TGKKKKGT..',
+    '...TGGGGT...',
+    '....T..T....',
     '............',
   ],
   mine: [
