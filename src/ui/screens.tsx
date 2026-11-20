@@ -17,6 +17,7 @@ import { luSession } from '../net/luClient';
 import { POWER_CARDS } from '../content/cards';
 import type { GameConfig } from './GameScreen';
 import { petWorld } from './petWorld';
+import { vaultBase } from '../storage/cloud';
 
 const COLOURS = ['#ff7a59', '#ffc93c', '#5bd17a', '#4aa8ff', '#a77bff', '#ff6fb5'];
 
@@ -68,6 +69,13 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
       </div>
       {p && !petWorld && luSession.savedCode() && (
         <button className="live-banner" onClick={() => go('levelup')}>⚡ Your live Level-Up room {luSession.savedCode()} is still open. Tap to go back.</button>
+      )}
+      {p && petWorld && !p.cloud && vaultBase() && (
+        <div className="cloud-card">
+          <b>📱 Playing Chess Chaos on a phone or tablet too?</b>
+          <p className="small">Bring your player number here, and both places keep the same progress. You need the number and the save key (⚙️ Settings → ☁️ Cloud save on that device).</p>
+          <CloudRestore />
+        </div>
       )}
       {p && <DailyPanel daily={p.daily} go={go} />}
       <h3 className="home-section">More ways to play</h3>
@@ -150,7 +158,7 @@ function Settings() {
       {!petWorld && p?.cloud && <label><input type="checkbox" checked={!!p.friendsOnly} onChange={(e) => void setFriendsOnly(e.target.checked)} /> 🔒 Friends only: strangers from the world leaderboard can't challenge me or send friend requests (parents can switch this on)</label>}
       <label><input type="checkbox" checked={s.showCoordinates} onChange={(e) => set({ showCoordinates: e.target.checked })} /> Show board letters and numbers</label>
       <label><input type="checkbox" checked={!!s.plainPieces} onChange={(e) => set({ plainPieces: e.target.checked })} /> ♟ Plain pieces (no skins) on the board</label>
-      {!petWorld && <CloudSaveCard />}
+      <CloudSaveCard />
       <BackupButtons />
     </details>
   );
@@ -213,6 +221,7 @@ export function Profiles({ done }: { done: () => void }) {
         </div>
         <button className="btn primary" onClick={create} disabled={!name.trim()}>Let's go!</button>
       </div>
+      {petWorld && vaultBase() && <p className="small">📱 Already play on a phone or tablet? Load your player number below and keep the same progress.</p>}
       <CloudRestore done={done} />
       {save.profiles.length > 0 ? <button className="btn" onClick={done}>← Back</button> : <BackupButtons onlyLoad />}
     </div>
