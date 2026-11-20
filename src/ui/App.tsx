@@ -27,6 +27,7 @@ import { Challenges } from './Challenges';
 import { MinisScreen } from './Minis';
 import { OpeningTrainer } from './OpeningTrainer';
 import { setShakeEnabled, setSoundEnabled } from './sound';
+import { petWorld } from './petWorld';
 
 type Screen =
   | { name: 'home' }
@@ -52,9 +53,10 @@ type Screen =
 
 export function App() {
   const save = useSave();
-  const linkCode = roomFromUrl();
+  // Inside Pet World's Game Room (src/ui/petWorld.ts): no room or Level-Up links, invites, player numbers or cloud saves.
+  const linkCode = petWorld ? null : roomFromUrl();
   // A shared live Level-Up link: ?lu=LABC (owner, 2026-11-19).
-  const luLink = (() => { try { const c = new URLSearchParams(location.search).get('lu')?.toUpperCase() ?? ''; return /^L[A-Z]{3}$/.test(c) ? c : null; } catch { return null; } })();
+  const luLink = petWorld ? null : (() => { try { const c = new URLSearchParams(location.search).get('lu')?.toUpperCase() ?? ''; return /^L[A-Z]{3}$/.test(c) ? c : null; } catch { return null; } })();
   const [screen, setScreen] = useState<Screen>(() => (!activeProfile(save) ? { name: 'profiles' } : luLink ? { name: 'levelup', join: luLink, key: Date.now() } : linkCode ? { name: 'online', code: linkCode } : { name: 'home' }));
   const home = () => setScreen({ name: 'home' });
   const startGame = (config: GameConfig) => setScreen({ name: 'game', config, key: Date.now() });
@@ -75,7 +77,7 @@ export function App() {
 
   // Ask the browser to keep our saved progress (best effort; it helps on Android and installed apps).
   useEffect(() => askToKeepStorage(), []);
-  useEffect(() => startCloudSync(), []);
+  useEffect(() => { if (!petWorld) startCloudSync(); }, []);
 
   // No player number yet: ask once when the game opens (owner, 2026-11-18). "Not now" is remembered;
   // after that, only the things that need a number ask again.
@@ -83,6 +85,7 @@ export function App() {
   const [askOpen, setAskOpen] = useState(false);
   // Opened from a friend's invite link (?friend=12345678): remember the number, go to Challenges once there is a player.
   const [invite] = useState(() => {
+    if (petWorld) return '';
     try {
       const n = new URLSearchParams(location.search).get('friend')?.replace(/\D/g, '') ?? '';
       if (n.length === 8) {
@@ -96,7 +99,7 @@ export function App() {
   const [inviteShown, setInviteShown] = useState(false);
   useEffect(() => {
     if (invite && askP && !inviteShown && screen.name === 'home') { setInviteShown(true); setScreen({ name: 'challenges' }); return; }
-    if (screen.name === 'home' && askP && !askP.cloud && !askP.numberDeclined && vaultBase() && !(invite && !inviteShown)) setAskOpen(true);
+    if (!petWorld && screen.name === 'home' && askP && !askP.cloud && !askP.numberDeclined && vaultBase() && !(invite && !inviteShown)) setAskOpen(true);
   }, [screen.name, askP?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sound and shake settings apply everywhere.
@@ -110,8 +113,8 @@ export function App() {
   return (
     <main className="app">
       <DailyToast />
-      <LadderAsk quiet={inGame || askOpen || screen.name === 'profiles' || screen.name === 'levelup'} openLevelUp={() => setScreen({ name: 'levelup', key: Date.now() })} />
-      <Popups openChallenges={() => setScreen({ name: 'challenges' })} openLive={(code) => setScreen({ name: 'levelup', join: code, key: Date.now() })} quiet={inGame || askOpen} inChallenges={screen.name === 'challenges'} />
+      {!petWorld && <LadderAsk quiet={inGame || askOpen || screen.name === 'profiles' || screen.name === 'levelup'} openLevelUp={() => setScreen({ name: 'levelup', key: Date.now() })} />}
+      {!petWorld && <Popups openChallenges={() => setScreen({ name: 'challenges' })} openLive={(code) => setScreen({ name: 'levelup', join: code, key: Date.now() })} quiet={inGame || askOpen} inChallenges={screen.name === 'challenges'} />}
       {askOpen && askP && (
         <div className="number-modal" role="dialog" aria-label="Get a player number">
           <div>

@@ -49,6 +49,7 @@ import type { Analysis, MoveNote } from '../systems/analysis';
 import { CardTile, useHand } from './Cards';
 import { CARDS, POWER_CARDS, SUIT_ICON, cardById } from '../content/cards';
 import { cardsEarned, settleStakes, takePrize, updateCollection } from '../systems/cards';
+import { tellPetWorld } from './petWorld';
 
 export interface GameConfig {
   /** 'local' is only used to replay saved games. */
@@ -408,6 +409,8 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     const finalRec: GameRecord = { ...rec, meta: { ...rec.meta, players: names, result: live.result, san: sanList } };
     const won = live.result.winners.includes(me);
     const drawn = live.result.winners.length === 0;
+    // Inside Pet World's Game Room: tell it how the game went (src/ui/petWorld.ts). Bot and online games only.
+    if (!reviewRecord && !isMail && (botSeat || isOnline) && live.seats.length === 2) tellPetWorld({ result: won ? 'win' : drawn ? 'draw' : 'loss', vs: isOnline ? 'online' : 'bot', bot: bot?.name, mode: rec.setup.mode });
     if (bot && botSeat) setSpeech({ seat: botSeat, text: pick(won ? bot.lines.lose : !drawn ? bot.lines.win : bot.lines.greet) });
     const bonusId = rec.setup.party?.bonus?.[me];
     if (bonusId && !reviewRecord) {

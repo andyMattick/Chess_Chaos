@@ -16,6 +16,7 @@ import { setFriendsOnly } from '../storage/world';
 import { luSession } from '../net/luClient';
 import { POWER_CARDS } from '../content/cards';
 import type { GameConfig } from './GameScreen';
+import { petWorld } from './petWorld';
 
 const COLOURS = ['#ff7a59', '#ffc93c', '#5bd17a', '#4aa8ff', '#a77bff', '#ff6fb5'];
 
@@ -54,18 +55,18 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
           <span className="big-title">Play the bots</span>
           <span className="big-sub">Beat one to open the next</span>
         </button>
-        <button className="big" style={{ ['--c' as string]: '#4aa8ff' }} onClick={() => go('online')} disabled={!p}>
+        {(!petWorld || petWorld.live) && <button className="big" style={{ ['--c' as string]: '#4aa8ff' }} onClick={() => go('online')} disabled={!p}>
           <span className="big-emoji">🌐</span>
-          <span className="big-title">Play online</span>
-          <span className="big-sub">Send a friend a code</span>
-        </button>
+          <span className="big-title">{petWorld ? 'Play your grown-up' : 'Play online'}</span>
+          <span className="big-sub">{petWorld ? 'Make a room, tell them the code' : 'Send a friend a code'}</span>
+        </button>}
         <button className="big" style={{ ['--c' as string]: '#ff6fb5' }} onClick={() => go('party')} disabled={!p}>
           <span className="big-emoji">🎉</span>
           <span className="big-title">Party match</span>
           <span className="big-sub">Surprise mode, missions, cards</span>
         </button>
       </div>
-      {p && luSession.savedCode() && (
+      {p && !petWorld && luSession.savedCode() && (
         <button className="live-banner" onClick={() => go('levelup')}>⚡ Your live Level-Up room {luSession.savedCode()} is still open. Tap to go back.</button>
       )}
       {p && <DailyPanel daily={p.daily} go={go} />}
@@ -74,7 +75,7 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
         <Tile emoji="🗡️" title="Level-Up Chess" sub={p?.levelUp ? `${p.levelUp.won} battles won` : 'NEW! Pieces level up'} c="#3b5bdb" onClick={() => go('levelup')} disabled={!p} />
         <Tile emoji="🎮" title="Game modes" sub="25 ways to play" c="#36c5c5" onClick={() => go('modes')} disabled={!p} />
         <Tile emoji="⚔️" title="Battles" sub="3 and 4 players" c="#ff5a3c" onClick={() => go('battle')} disabled={!p} />
-        <Tile emoji="📬" title="Challenges" sub={mail ? `${mail} waiting for you!` : 'Play a friend, a move at a time'} c="#5bd17a" onClick={() => go('challenges')} disabled={!p} />
+        {!petWorld && <Tile emoji="📬" title="Challenges" sub={mail ? `${mail} waiting for you!` : 'Play a friend, a move at a time'} c="#5bd17a" onClick={() => go('challenges')} disabled={!p} />}
         <Tile emoji="🌀" title="Mini-games" sub="Mazes, sprints, ladders" c="#8fd16a" onClick={() => go('minis')} disabled={!p} />
         <Tile emoji="🎓" title="Train" sub="Alerts and hints" c="#ffc93c" onClick={() => go('train')} disabled={!p} />
         <Tile emoji="📖" title="Openings" sub={p && dueCount(p.openings) ? `🔔 ${dueCount(p.openings)} lines to practise` : 'Learn the bots\' lines'} c="#4a6fa5" onClick={() => go('openings')} disabled={!p} />
@@ -85,8 +86,8 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
         <Tile emoji="🧌" title="Wardrobe" sub="Skins and boards" c="#ff9f43" onClick={() => go('wardrobe')} />
         <Tile emoji="🃏" title={POWER_CARDS ? 'Power cards' : 'My cards'} sub={p ? `${Object.values(p.collection ?? {}).reduce((a, n) => a + n, 0)} cards` : 'Earn by playing'} c="#c08cff" onClick={() => go('cards')} disabled={!p} />
         <Tile emoji="📜" title="My games" sub="Replay and analyse" c="#a77bff" onClick={() => go('history')} disabled={!p} />
-        <Tile emoji="🏆" title="Leaderboard" sub="Who's on top" c="#ffb13d" onClick={() => go('leaderboard')} disabled={!p} />
-        {save.settings.chesscomEnabled && <Tile emoji="♟️" title="Chess.com" sub="Players, nemesis bots" c="#7fb069" onClick={() => go('chesscom')} disabled={!p} />}
+        {!petWorld && <Tile emoji="🏆" title="Leaderboard" sub="Who's on top" c="#ffb13d" onClick={() => go('leaderboard')} disabled={!p} />}
+        {!petWorld && save.settings.chesscomEnabled && <Tile emoji="♟️" title="Chess.com" sub="Players, nemesis bots" c="#7fb069" onClick={() => go('chesscom')} disabled={!p} />}
       </div>
       {p && <Settings />}
     </div>
@@ -145,11 +146,11 @@ function Settings() {
       <summary>⚙️ Settings</summary>
       <label><input type="checkbox" checked={s.sound} onChange={(e) => set({ sound: e.target.checked })} /> Sound effects</label>
       <label><input type="checkbox" checked={s.shake !== false} onChange={(e) => set({ shake: e.target.checked })} /> Board shake and phone buzz</label>
-      <label><input type="checkbox" checked={s.chesscomEnabled} onChange={(e) => set({ chesscomEnabled: e.target.checked })} /> Show the Chess.com corner (parents can switch this off)</label>
-      {p?.cloud && <label><input type="checkbox" checked={!!p.friendsOnly} onChange={(e) => void setFriendsOnly(e.target.checked)} /> 🔒 Friends only: strangers from the world leaderboard can't challenge me or send friend requests (parents can switch this on)</label>}
+      {!petWorld && <label><input type="checkbox" checked={s.chesscomEnabled} onChange={(e) => set({ chesscomEnabled: e.target.checked })} /> Show the Chess.com corner (parents can switch this off)</label>}
+      {!petWorld && p?.cloud && <label><input type="checkbox" checked={!!p.friendsOnly} onChange={(e) => void setFriendsOnly(e.target.checked)} /> 🔒 Friends only: strangers from the world leaderboard can't challenge me or send friend requests (parents can switch this on)</label>}
       <label><input type="checkbox" checked={s.showCoordinates} onChange={(e) => set({ showCoordinates: e.target.checked })} /> Show board letters and numbers</label>
       <label><input type="checkbox" checked={!!s.plainPieces} onChange={(e) => set({ plainPieces: e.target.checked })} /> ♟ Plain pieces (no skins) on the board</label>
-      <CloudSaveCard />
+      {!petWorld && <CloudSaveCard />}
       <BackupButtons />
     </details>
   );
@@ -348,7 +349,7 @@ export function BotRoster({ start, back, learn }: { start: (c: GameConfig) => vo
           })}
         </section>
       )}
-      {save.settings.chesscomEnabled && <p className="muted small">Make a nemesis bot of any Chess.com player in the Chess.com corner.</p>}
+      {!petWorld && save.settings.chesscomEnabled && <p className="muted small">Make a nemesis bot of any Chess.com player in the Chess.com corner.</p>}
       <button className="btn" onClick={back}>← Home</button>
     </div>
   );

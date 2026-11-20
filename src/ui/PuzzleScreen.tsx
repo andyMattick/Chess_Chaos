@@ -17,6 +17,7 @@ import { useSave } from './store';
 import { QuickToggles } from './QuickToggles';
 import { SURVIVAL } from '../content/survival';
 import type { GameConfig } from './GameScreen';
+import { petWorld } from './petWorld';
 
 /**
  * Puzzles (docs/06 CC-02, CC-03): Chess.com's daily and random puzzles played
@@ -30,7 +31,7 @@ type Phase = 'loading' | 'play' | 'wrong' | 'reply' | 'solved' | 'shown' | 'erro
 export function PuzzleScreen({ back, startGame }: { back: () => void; startGame?: (c: GameConfig) => void }) {
   const save = useSave();
   const p = activeProfile(save);
-  const ccOn = save.settings.chesscomEnabled;
+  const ccOn = !petWorld && save.settings.chesscomEnabled;   // inside Pet World: built-in puzzles only (src/ui/petWorld.ts)
   const [tab, setTab] = useState<Tab>(ccOn ? 'daily' : 'warmup');
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
   const [state, setState] = useState<GameState | null>(null);
