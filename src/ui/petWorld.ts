@@ -4,8 +4,10 @@
  * Pet World shows Chess Chaos in a locked-down frame, opened as
  *   https://chess-chaos-seven.vercel.app/?host=petworld&origin=<Pet World's address>&vs=<bot|live|pass>
  * Then Chess Chaos:
- *  - hides everything that reaches past the device: Chess.com, the world leaderboard, Challenges, player numbers and
- *    cloud saves, friend invites and live-room pop-ups. "Play online" (a room code) shows only when vs=live, so a child
+ *  - hides Chess.com, the world leaderboard, Challenges, friend invites, live-room pop-ups and the "get a number" ask.
+ *    A player number she already has (on her phone) can be loaded on Home or the player screen, and then saves as
+ *    usual, so both places keep the same progress (owner, 2026-11-20: "there is no way for her to bring in the number
+ *    she has on her phone account?"). "Play online" (a room code) shows only when vs=live, so a child
  *    can play the grown-up who is in Pet World's Game Room with her;
  *  - tells Pet World when a game ends (win, loss or draw, against a bot or online), with window.postMessage to that
  *    one address only. Nothing about the player is sent: no names, no ratings, no moves.

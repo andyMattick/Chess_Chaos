@@ -53,7 +53,7 @@ type Screen =
 
 export function App() {
   const save = useSave();
-  // Inside Pet World's Game Room (src/ui/petWorld.ts): no room or Level-Up links, invites, player numbers or cloud saves.
+  // Inside Pet World's Game Room (src/ui/petWorld.ts): no room or Level-Up links, invites or the "get a number" ask.
   const linkCode = petWorld ? null : roomFromUrl();
   // A shared live Level-Up link: ?lu=LABC (owner, 2026-11-19).
   const luLink = petWorld ? null : (() => { try { const c = new URLSearchParams(location.search).get('lu')?.toUpperCase() ?? ''; return /^L[A-Z]{3}$/.test(c) ? c : null; } catch { return null; } })();
@@ -77,7 +77,7 @@ export function App() {
 
   // Ask the browser to keep our saved progress (best effort; it helps on Android and installed apps).
   useEffect(() => askToKeepStorage(), []);
-  useEffect(() => { if (!petWorld) startCloudSync(); }, []);
+  useEffect(() => startCloudSync(), []);   // inside Pet World too: a player number brought in from her phone keeps saving (it does nothing without one)
 
   // No player number yet: ask once when the game opens (owner, 2026-11-18). "Not now" is remembered;
   // after that, only the things that need a number ask again.
