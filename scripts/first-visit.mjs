@@ -73,9 +73,9 @@ await step('play three moves', async () => {
 await step('back home from a game', async () => { await home(); await page.getByText('Play the bots').waitFor({ timeout: 5000 }); });
 await step('party match setup', async () => { await page.getByText('Party match').click(); await page.waitForTimeout(1500); });
 await step('home again', async () => { await home(); });
-await step('puzzles', async () => { await page.getByText('Puzzles').first().click(); });
+await step('puzzles', async () => { await page.getByText('Puzzles', { exact: true }).first().click(); await page.getByText('find the trick').waitFor({ timeout: 5000 }); });
 await step('home again 2', async () => { await home(); });
-await step('game modes', async () => { await page.getByText('Game modes').first().click(); });
+await step('game modes', async () => { await page.getByText('Game modes', { exact: true }).first().click(); });
 await step('home again 3', async () => { await home(); });
 await step('settings', async () => { await page.getByText('⚙️ Settings').click(); });
 
