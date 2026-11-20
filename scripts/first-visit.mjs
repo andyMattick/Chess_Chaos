@@ -47,6 +47,11 @@ const home = async () => {
 
 await step('open the app', async () => { await page.goto(URL_); await page.waitForLoadState('networkidle'); });
 await step('make a player', async () => { await page.getByLabel('Nickname').fill('Newbie'); await page.getByText("Let's go!").click(); });
+await step('placement question (say new to chess)', async () => {
+  // Owner, 2026-11-20: a brand-new player is asked once whether they know chess (a placement test). A first visitor is new.
+  const ask = page.getByText("I'm new to chess");
+  if (await ask.waitFor({ timeout: 3000 }).then(() => true).catch(() => false)) await ask.click();
+});
 await step('player number question (say not now)', async () => {
   // Owner, 2026-11-18: new players are asked once for a player number. A first visitor can say no.
   const ask = page.locator('.number-modal');

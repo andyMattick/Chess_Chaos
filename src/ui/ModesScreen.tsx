@@ -22,7 +22,7 @@ const SKIP = new Set(['standard', 'battle', 'survival']);
 export function ModesScreen({ start, back }: { start: (c: GameConfig) => void; back: () => void }) {
   const save = useSave();
   const p = activeProfile(save)!;
-  const open = PATH.slice(0, unlockedCount(p.botRecords));
+  const open = PATH.slice(0, unlockedCount(p.botRecords, p.placement?.rating));
   const [botId, setBotId] = useState(() => [...open].sort((a, b) => Math.abs(a.rating - p.rating) - Math.abs(b.rating - p.rating))[0].id);
   const bot = BOTS.find((b) => b.id === botId)!;
   const [drafting, setDrafting] = useState(false);

@@ -58,6 +58,11 @@ export interface Profile {
   worldBoard?: boolean;
   /** Only friends can challenge or friend-request this player (strangers from the world leaderboard can't). */
   friendsOnly?: boolean;
+  /**
+   * Placement test (systems/placement.ts), offered once after the player is made.
+   * `rating` is set when they took it; `skipped` when they chose "New to chess".
+   */
+  placement?: { at: number; rating?: number; solved?: number; skipped?: boolean };
   /** Asked once (at start-up) whether to join the Level-Up ladder; yes or no, not asked again. */
   ladderAsked?: boolean;
   /** Names this player gave to player numbers, on this device only. */

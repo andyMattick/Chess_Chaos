@@ -39,11 +39,15 @@ export function coinsFor(i: CoinInput): CoinAward {
   return { total: lines.reduce((a, l) => a + l.coins, 0), lines };
 }
 
-/** Bot path: bots in rating order; the first three are open, each win opens the next. */
+/**
+ * Bot path: bots in rating order; the first three are open, each win opens the next.
+ * A placement test result (systems/placement.ts) also opens every bot up to that rating.
+ */
 export const PATH = [...BOTS].sort((a, b) => a.rating - b.rating || a.id.localeCompare(b.id));
 
-export function unlockedCount(botRecords: Record<string, { w: number }>): number {
+export function unlockedCount(botRecords: Record<string, { w: number }>, placedAt?: number): number {
   let n = 3;
+  if (placedAt) n = Math.max(n, PATH.filter((b) => b.rating <= placedAt).length);
   for (let i = 0; i < PATH.length; i++) {
     if ((botRecords[PATH[i].id]?.w ?? 0) > 0) n = Math.max(n, i + 2);
   }
