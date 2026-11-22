@@ -155,16 +155,63 @@ function Ground({ world }: { world: ReturnType<typeof buildWorld> }) {
     if (g === 'road') out.push(<g key={`${k}r`} fill="#cfae63"><circle cx={X + 9 + ((x * 7) % 13)} cy={Y + 12 + ((y * 5) % 11)} r={1.8} /><circle cx={X + 27 - ((y * 3) % 9)} cy={Y + 29} r={1.4} /></g>);
     if (g === 'grass' && (x * 3 + y * 5) % 4 === 0) out.push(<path key={`${k}t`} d={`M${X + 12} ${Y + 26} l2 -6 l2 6 M${X + 26} ${Y + 16} l2 -5 l2 5`} stroke="#4f9a44" strokeWidth={2} fill="none" strokeLinecap="round" />);
     if (g === 'flowers') out.push(<g key={`${k}f`}>{[[11, 13, '#ff6fb5'], [27, 18, '#ffd84a'], [17, 29, '#ffffff'], [31, 31, '#ff8a3c']].map(([a, b, c], i) => <g key={i}><circle cx={X + (a as number)} cy={Y + (b as number)} r={3.4} fill={c as string} stroke="#2d2a3e" strokeWidth={1} /><circle cx={X + (a as number)} cy={Y + (b as number)} r={1.2} fill="#ffb13d" /></g>)}</g>);
-    if (g === 'tree') out.push(
-      <g key={`${k}tr`}>
-        <ellipse cx={X + 20} cy={Y + 35} rx={13} ry={4} fill="rgba(0,0,0,0.2)" />
-        <rect x={X + 16} y={Y + 24} width={8} height={11} rx={2} fill="#8a5a2b" stroke="#2d2a3e" strokeWidth={2} />
-        <circle cx={X + 20} cy={Y + 17} r={14} fill="#3d9b48" stroke="#2d2a3e" strokeWidth={2.5} />
-        <circle cx={X + 15} cy={Y + 13} r={5} fill="#5cc265" />
-      </g>,
-    );
+    if (g === 'tree') out.push(<Tree key={`${k}tr`} X={X} Y={Y} kind={treeKind(x, y)} />);
   }
   return <g>{out}</g>;
+}
+
+/** Which tree grows on a tile: mostly leafy oaks, some pines, a few with apples or blossom (same every time). */
+function treeKind(x: number, y: number): 'oak' | 'pine' | 'apple' | 'blossom' {
+  let h = (x * 374761393 + y * 668265263 + 97) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+  const r = ((h ^ (h >>> 16)) >>> 0) % 20;
+  return r < 12 ? 'oak' : r < 17 ? 'pine' : r < 19 ? 'apple' : 'blossom';
+}
+
+const INK = '#2d2a3e';
+
+/** Trees of our own: a soft shadow, a trunk with roots, and a layered canopy (dark under, light on top). */
+function Tree({ X, Y, kind }: { X: number; Y: number; kind: 'oak' | 'pine' | 'apple' | 'blossom' }) {
+  const cx = X + 20;
+  const sway = { transformOrigin: `${cx}px ${Y + 34}px` };
+  if (kind === 'pine') {
+    return (
+      <g>
+        <ellipse cx={cx} cy={Y + 36} rx={11} ry={3.5} fill="rgba(0,0,0,0.22)" />
+        <rect x={cx - 3} y={Y + 28} width={6} height={8} rx={1.5} fill="#7a4a22" stroke={INK} strokeWidth={1.8} />
+        <g className="tree-sway" style={sway}>
+          <path d={`M${cx} ${Y - 6} L${cx + 10} ${Y + 8} H${cx + 6} L${cx + 14} ${Y + 19} H${cx + 9} L${cx + 17} ${Y + 30} H${cx - 17} L${cx - 9} ${Y + 19} H${cx - 14} L${cx - 6} ${Y + 8} H${cx - 10} Z`} fill="#2f7d4f" stroke={INK} strokeWidth={2.2} strokeLinejoin="round" />
+          <path d={`M${cx} ${Y - 1} L${cx + 5} ${Y + 7} M${cx - 2} ${Y + 11} L${cx + 7} ${Y + 18} M${cx - 3} ${Y + 22} L${cx + 9} ${Y + 29}`} stroke="#4fae6e" strokeWidth={3} strokeLinecap="round" />
+          <path d={`M${cx - 9} ${Y + 19} L${cx - 4} ${Y + 15} M${cx - 13} ${Y + 29} L${cx - 7} ${Y + 25}`} stroke="#22603c" strokeWidth={2.5} strokeLinecap="round" />
+        </g>
+      </g>
+    );
+  }
+  const leaf = kind === 'blossom' ? { dark: '#d9669b', mid: '#f08cbc', light: '#ffc2de' } : { dark: '#2f8a3f', mid: '#45a852', light: '#7fd07a' };
+  return (
+    <g>
+      <ellipse cx={cx} cy={Y + 36} rx={15} ry={4.5} fill="rgba(0,0,0,0.22)" />
+      <path d={`M${cx - 4} ${Y + 36} q1 -6 1 -12 h6 q0 6 1 12 l4 1 h-16 z`} fill="#8a5a2b" stroke={INK} strokeWidth={1.8} strokeLinejoin="round" />
+      <path d={`M${cx - 1} ${Y + 30} v5`} stroke="#6b421d" strokeWidth={1.5} />
+      <g className="tree-sway" style={sway}>
+        {/* outline blob, then the dark underside, the middle, and sunny highlights */}
+        <g stroke={INK} strokeWidth={4.5}>
+          <circle cx={cx - 8} cy={Y + 16} r={9} /><circle cx={cx + 8} cy={Y + 16} r={9} /><circle cx={cx} cy={Y + 8} r={10} /><circle cx={cx} cy={Y + 20} r={10} />
+        </g>
+        <g fill={leaf.dark}>
+          <circle cx={cx - 8} cy={Y + 16} r={9} /><circle cx={cx + 8} cy={Y + 16} r={9} /><circle cx={cx} cy={Y + 8} r={10} /><circle cx={cx} cy={Y + 20} r={10} />
+        </g>
+        <g fill={leaf.mid}>
+          <circle cx={cx - 5} cy={Y + 12} r={7.5} /><circle cx={cx + 5} cy={Y + 11} r={7} /><circle cx={cx + 1} cy={Y + 17} r={6.5} />
+        </g>
+        <g fill={leaf.light}>
+          <circle cx={cx - 6} cy={Y + 9} r={3.6} /><circle cx={cx + 3} cy={Y + 6} r={2.8} /><circle cx={cx - 1} cy={Y + 14} r={2.2} />
+        </g>
+        {kind === 'apple' && <g fill="#e8413c" stroke={INK} strokeWidth={1}><circle cx={cx - 9} cy={Y + 19} r={2.6} /><circle cx={cx + 7} cy={Y + 21} r={2.6} /><circle cx={cx + 9} cy={Y + 12} r={2.4} /></g>}
+        {kind === 'blossom' && <g fill="#fff"><circle cx={cx - 10} cy={Y + 18} r={1.6} /><circle cx={cx + 6} cy={Y + 22} r={1.6} /><circle cx={cx + 10} cy={Y + 13} r={1.4} /><circle cx={cx - 2} cy={Y + 4} r={1.4} /></g>}
+      </g>
+    </g>
+  );
 }
 
 function House({ p, badge, glow }: { p: Place; badge?: string; glow: boolean }) {
