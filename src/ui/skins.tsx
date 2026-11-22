@@ -123,7 +123,7 @@ export function Character({ skin: skinId, type, owner, seed = 0, badge = false }
       </g>
       {sparkle && <text x={14} y={30} fontSize={18}>✨</text>}
       {badge && (
-        <g transform="translate(70 68) scale(0.3)">
+        <g className="type-badge" transform="translate(70 68) scale(0.3)">
           <circle cx={50} cy={50} r={46} fill="#fff" stroke="#2d2a3e" strokeWidth={8} />
           <g transform="translate(14 12) scale(0.72)"><PieceGlyph type={type} light={owner === 'p1'} /></g>
         </g>
@@ -399,7 +399,7 @@ function ArtPiece({ slug, side, type, owner, badge }: { slug: string; side: 'p1'
         <image href={`/skins/${slug}-${side === 'p1' ? 'light' : 'dark'}.png`} width={3} height={2} preserveAspectRatio="none" />
       </svg>
       {badge && (
-        <g transform="translate(70 68) scale(0.3)">
+        <g className="type-badge" transform="translate(70 68) scale(0.3)">
           <circle cx={50} cy={50} r={46} fill="#fff" stroke="#2d2a3e" strokeWidth={8} />
           <g transform="translate(14 12) scale(0.72)"><PieceGlyph type={type} light={owner === 'p1'} /></g>
         </g>
@@ -428,7 +428,7 @@ function Drawn2({ slug, body, pal, top, type, owner, seed, badge }: { slug: stri
         <Hat type={type} top={top} pal={pal} />
       </g>
       {badge && (
-        <g transform="translate(70 68) scale(0.3)">
+        <g className="type-badge" transform="translate(70 68) scale(0.3)">
           <circle cx={50} cy={50} r={46} fill="#fff" stroke="#2d2a3e" strokeWidth={8} />
           <g transform="translate(14 12) scale(0.72)"><PieceGlyph type={type} light={owner === 'p1'} /></g>
         </g>

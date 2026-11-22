@@ -205,6 +205,13 @@ h3 { font-size: 1.35rem; }
 .game-main { display: grid; gap: 8px; justify-items: center; }
 .board-wrap { position: relative; width: min(92vw, calc(100vh - 170px), 740px); aspect-ratio: 1; }
 @media (max-width: 860px) { .board-wrap { width: min(96vw, 640px); } }
+/* Phones (owner, 2026-11-22: "everything looks small"): the board runs nearly edge to edge and the
+   pieces stand taller in their squares, growing from their feet so they stay on their own square. */
+@media (max-width: 700px) {
+  .game .board-wrap { width: calc(100vw - 6px); justify-self: start; margin-left: -11px; } /* .app has 14px side padding */
+  .board .piece-zoom { transform: scale(1.18); transform-origin: 50px 96px; }
+  .board .type-badge { transform: translate(64px, 62px) scale(0.36); } /* the little piece badge, easier to read */
+}
 .board { width: 100%; height: 100%; display: block; overflow: visible; filter: drop-shadow(6px 8px 0 rgba(20, 16, 30, 0.55)); touch-action: manipulation; }
 .board .sq { cursor: pointer; }
 .board .coord { font-size: 20px; font-weight: 900; font-family: var(--hand); }
@@ -868,3 +875,9 @@ body[data-calm] .die { animation: none; }
 .lu-report-go { color: #ffe066; margin-top: 2px; }
 @keyframes lu-drop { from { transform: translate(-50%, -20px); opacity: 0; } }
 .lu-last.flash { stroke-width: 1.2px; stroke: #ffe066; animation: lu-blink 0.45s steps(2) 6; }
+
+/* Placement test (ui/Placement.tsx) */
+.placement { max-width: 560px; margin: 0 auto; }
+.placement h2 { margin-top: 0; }
+.placement-choices { display: grid; gap: 14px; margin-top: 12px; }
+.placement .result-emoji { font-size: 3rem; text-align: center; }

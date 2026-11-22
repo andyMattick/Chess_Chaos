@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import type { GameRecord } from '../core/record';
 import type { MailGame } from '../net/world';
 import { LevelUpScreen } from './LevelUp';
-import { askToKeepStorage, lookOf, activeProfile, updateProfile } from '../storage/storage';
+import { askToKeepStorage, lookOf, activeProfile, updateProfile, load as loadSave } from '../storage/storage';
+import { needsPlacement } from '../systems/placement';
 import { startCloudSync, vaultBase } from '../storage/cloud';
 import { NumberPrompt } from './CloudSave';
 import { Popups } from './Popups';
 import { DailyToast } from './DailyToast';
 import { LadderAsk } from './LadderAsk';
+import { Placement } from './Placement';
 import { GameScreen, type GameConfig } from './GameScreen';
 import { landscapeById } from './landscapes';
 import { OnlineLobby, roomFromUrl } from './OnlineLobby';
@@ -32,6 +34,7 @@ import { petWorld } from './petWorld';
 type Screen =
   | { name: 'home' }
   | { name: 'profiles' }
+  | { name: 'placement' }
   | { name: 'bots' }
   | { name: 'history' }
   | { name: 'online'; code?: string | null }
@@ -113,8 +116,8 @@ export function App() {
   return (
     <main className="app">
       <DailyToast />
-      {!petWorld && <LadderAsk quiet={inGame || askOpen || screen.name === 'profiles' || screen.name === 'levelup'} openLevelUp={() => setScreen({ name: 'levelup', key: Date.now() })} />}
-      {!petWorld && <Popups openChallenges={() => setScreen({ name: 'challenges' })} openLive={(code) => setScreen({ name: 'levelup', join: code, key: Date.now() })} quiet={inGame || askOpen} inChallenges={screen.name === 'challenges'} />}
+      {!petWorld && <LadderAsk quiet={inGame || askOpen || screen.name === 'profiles' || screen.name === 'placement' || screen.name === 'levelup'} openLevelUp={() => setScreen({ name: 'levelup', key: Date.now() })} />}
+      {!petWorld && <Popups openChallenges={() => setScreen({ name: 'challenges' })} openLive={(code) => setScreen({ name: 'levelup', join: code, key: Date.now() })} quiet={inGame || askOpen || screen.name === 'placement'} inChallenges={screen.name === 'challenges'} />}
       {askOpen && askP && (
         <div className="number-modal" role="dialog" aria-label="Get a player number">
           <div>
@@ -128,7 +131,8 @@ export function App() {
           go={(s) => setScreen((s === 'online' ? { name: 'online' } : { name: s }) as Screen)}
         />
       )}
-      {screen.name === 'profiles' && <Profiles done={() => (luLink ? setScreen({ name: 'levelup', join: luLink, key: Date.now() }) : linkCode ? setScreen({ name: 'online', code: linkCode }) : home())} />}
+      {screen.name === 'profiles' && <Profiles done={() => (luLink ? setScreen({ name: 'levelup', join: luLink, key: Date.now() }) : linkCode ? setScreen({ name: 'online', code: linkCode }) : needsPlacement(activeProfile(loadSave())) ? setScreen({ name: 'placement' }) : home())} />}
+      {screen.name === 'placement' && <Placement done={home} />}
       {screen.name === 'online' && <OnlineLobby back={home} initialCode={screen.code} />}
       {screen.name === 'wardrobe' && <Wardrobe back={home} />}
       {screen.name === 'train' && <TrainSetup start={startGame} back={home} />}

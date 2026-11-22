@@ -306,7 +306,7 @@ export function BotRoster({ start, back, learn }: { start: (c: GameConfig) => vo
       </div>
     );
   }
-  const unlocked = unlockedCount(p?.botRecords ?? {});
+  const unlocked = unlockedCount(p?.botRecords ?? {}, p?.placement?.rating);
   const nextIdx = PATH.findIndex((b, i) => i < unlocked && !(p?.botRecords[b.id]?.w));
   return (
     <div className="panel wide taped">
