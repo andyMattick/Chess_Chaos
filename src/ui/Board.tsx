@@ -198,8 +198,10 @@ function RectBoard({ state, bottom, selected, targets, lastMove, showCoordinates
           return (
             <g key={p.id} className={`piece ${sel ? 'lifted' : ''} ${wob ? 'wobbly' : ''}`} style={{ transform: `translate(${x}px, ${y}px)` }} data-piece={p.type} data-owner={p.owner}>
               {p.type === 'wall' ? <WallBlock seed={p.id} /> : (
-                <g className="bob">
-                  <Character skin={skinFor(skins, p.owner, baseType(p.type))} type={baseType(p.type)} owner={p.owner} seed={p.id + 1} badge={skins.badges && skinFor(skins, p.owner, baseType(p.type)) !== 'classic'} />
+                <g className="piece-zoom">
+                  <g className="bob">
+                    <Character skin={skinFor(skins, p.owner, baseType(p.type))} type={baseType(p.type)} owner={p.owner} seed={p.id + 1} badge={skins.badges && skinFor(skins, p.owner, baseType(p.type)) !== 'classic'} />
+                  </g>
                 </g>
               )}
               {pieceType(p.type).card && <text x={18} y={30} fontSize={26} className="card-badge">{pieceType(p.type).card}</text>}
