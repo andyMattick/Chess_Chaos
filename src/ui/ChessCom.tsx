@@ -140,7 +140,7 @@ export function ChessCom({ back, open, play }: { back: () => void; open: (r: Gam
           </ul>
         </>
       )}
-      <p className="muted small">Data from Chess.com's public API. Chess Chaos is not part of Chess.com.</p>
+      <p className="muted small">Data from Chess.com's public API. World of C.H.A.O.S. is not part of Chess.com.</p>
       <button className="btn" onClick={back}>← Home</button>
     </div>
   );

@@ -1,4 +1,4 @@
-# Chess Chaos
+# World of C.H.A.O.S.
 
 A standalone web app that teaches kids chess through small, visible wins, wrapped in a
 party-game layer (rotating game modes, rating-based modifiers, secret missions, power-piece

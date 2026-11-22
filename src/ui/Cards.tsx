@@ -157,7 +157,7 @@ function Collections({ onNote }: { onNote: (t: string) => void }) {
           </button>
         ))}
       </div>
-      <p className="muted small">{show}: {RARITY_TEXT[show]}. {show === 'Common' || show === 'Uncommon' ? 'Wins a colour version of a skin.' : show === 'Legendary' ? 'Wins the Chess Chaos Crown army.' : 'Wins a brand-new skin.'}</p>
+      <p className="muted small">{show}: {RARITY_TEXT[show]}. {show === 'Common' || show === 'Uncommon' ? 'Wins a colour version of a skin.' : show === 'Legendary' ? 'Wins the C.H.A.O.S. Crown army.' : 'Wins a brand-new skin.'}</p>
       <div className="set-grid">
         {COLLECTIONS.filter((c) => c.rarity === show).sort((a, b) => Number(isReady(b)) - Number(isReady(a)) || Number(owns(a)) - Number(owns(b))).map((c) => {
           const prog = setProgress(p.collection, c);

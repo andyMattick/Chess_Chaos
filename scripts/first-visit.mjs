@@ -2,8 +2,9 @@
  * First-time visitor walkthrough, for the weekly check.
  *
  * A brand-new player on a phone (no save): opens the app, makes a player,
- * looks at Home, plays a few moves against the first bot, opens Party match,
- * Puzzles and Game modes, and comes back Home. Saves a screenshot of every
+ * looks at Home (the World of C.H.A.O.S. map), walks to the Bot Tower and
+ * plays a few moves against the first bot, opens the Quest Board, Party Arena,
+ * Puzzle Cave and Chaos Carnival, and comes back Home. Saves a screenshot of every
  * step and a report of anything that went wrong (page errors, blank screens,
  * steps that could not be found, slow screens).
  *
@@ -39,6 +40,17 @@ async function step(name, fn) {
   report.steps.push({ step: name, ok, ms: Date.now() - t0, blank: text.length < 20, words: text.split(/\s+/).length, screenshot: file, note, firstText: text.slice(0, 160).replace(/\s+/g, ' ') });
 }
 
+/** Go into a place from the map's "All places" list (the map itself is tested by walking, below). */
+const place = async (name) => {
+  const list = page.locator('details.all-places');
+  if (!(await list.evaluate((d) => d.open))) await list.locator('summary').click();
+  await list.getByRole('button', { name: new RegExp(`^\\S+\\s*${name}`) }).first().click();
+};
+/** Tap a tile on the map (it must be on screen). */
+const tapTile = async (x, y) => {
+  const bb = await page.locator('svg.world-map').boundingBox();
+  await page.mouse.click(bb.x + (x + 0.5) * (bb.width / 16), bb.y + (y + 0.5) * (bb.height / 24));
+};
 const home = async () => {
   const b = page.getByRole('button', { name: /^← (Home|Back)$/ }).first();
   await b.scrollIntoViewIfNeeded({ timeout: 5000 });
@@ -57,8 +69,15 @@ await step('player number question (say not now)', async () => {
   const ask = page.locator('.number-modal');
   if (await ask.waitFor({ timeout: 3000 }).then(() => true).catch(() => false)) await ask.getByRole('button', { name: 'Not now' }).click();
 });
-await step('home screen', async () => { await page.getByText('Play the bots').waitFor({ timeout: 5000 }); });
-await step('open the bot path', async () => { await page.getByText('Play the bots').click(); });
+await step('home screen', async () => { await page.locator('svg.world-map').waitFor({ timeout: 5000 }); });
+await step('walk to the quest board', async () => {
+  // Owner, 2026-11-22: the main screen is a map to walk around. Tap the Quest Board (daily missions), then go in.
+  await tapTile(7, 8);
+  await page.getByRole('button', { name: 'Go in ▶' }).click({ timeout: 5000 });
+  await page.locator('.quest-modal').waitFor({ timeout: 3000 });
+});
+await step('back to the map', async () => { await page.getByText('← Back to the map').click(); });
+await step('open the bot path', async () => { await place('Bot Tower'); await page.getByText('The Bot Path').waitFor({ timeout: 5000 }); });
 await step('pick the first bot', async () => { await page.locator('.path-info').first().click(); });
 await step('start as white', async () => { await page.getByText(/White \(move first\)/).click(); await page.waitForSelector('svg.board'); });
 await step('play three moves', async () => {
@@ -75,12 +94,12 @@ await step('play three moves', async () => {
     await page.waitForFunction((b) => document.querySelectorAll('.moves .mv').length > b + 1 || document.querySelector('.result-card'), before, { timeout: 20000 });
   }
 });
-await step('back home from a game', async () => { await home(); await page.getByText('Play the bots').waitFor({ timeout: 5000 }); });
-await step('party match setup', async () => { await page.getByText('Party match', { exact: true }).first().click(); await page.waitForTimeout(1500); });
+await step('back home from a game', async () => { await home(); await page.locator('svg.world-map').waitFor({ timeout: 5000 }); });
+await step('party match setup', async () => { await place('Party Arena'); await page.waitForTimeout(1500); });
 await step('home again', async () => { await home(); });
-await step('puzzles', async () => { await page.getByText('Puzzles', { exact: true }).first().click(); await page.getByText('find the trick').waitFor({ timeout: 5000 }); });
+await step('puzzles', async () => { await place('Puzzle Cave'); await page.getByText('find the trick').waitFor({ timeout: 5000 }); });
 await step('home again 2', async () => { await home(); });
-await step('game modes', async () => { await page.getByText('Game modes', { exact: true }).first().click(); });
+await step('game modes', async () => { await place('Chaos Carnival'); await page.getByText('pick your chaos').waitFor({ timeout: 5000 }); });
 await step('home again 3', async () => { await home(); });
 await step('settings', async () => { await page.getByText('⚙️ Settings').click(); });
 

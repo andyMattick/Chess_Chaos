@@ -32,7 +32,7 @@ export function inviteText(code: string, game: RoomGame, clock: { minutes: numbe
   const g = ROOM_GAMES.find((x) => x.id === game);
   const name = g ? g.label : '♟️ Classic';
   const time = clock ? ` ⏱️ ${clock.minutes} min each${clock.increment ? ` +${clock.increment}s` : ''}.` : '';
-  return `Play ${name} with me on Chess Chaos! ${g?.blurb ?? ''}${time} Room code: ${code}`.replace(/\s+/g, ' ');
+  return `Play ${name} with me in World of C.H.A.O.S.! ${g?.blurb ?? ''}${time} Room code: ${code}`.replace(/\s+/g, ' ');
 }
 
 function ShareCode({ code, game, clock }: { code: string; game: RoomGame; clock: { minutes: number; increment: number } | null }) {
@@ -42,7 +42,7 @@ function ShareCode({ code, game, clock }: { code: string; game: RoomGame; clock:
   const share = async () => {
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'Chess Chaos', text, url: link });
+        await navigator.share({ title: 'World of C.H.A.O.S.', text, url: link });
         return;
       }
     } catch {
