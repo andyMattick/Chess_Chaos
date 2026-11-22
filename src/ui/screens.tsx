@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { PLACES, type Place } from '../content/world';
+import { WorldMap } from './WorldMap';
 import { canTakePlacement } from '../systems/placement';
 import { type Bot } from '../content/bots';
 import { PATH, unlockedCount } from '../systems/coins';
@@ -39,65 +41,68 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
   const mail = useMailCount();
   const save = useSave();
   const p = activeProfile(save);
+  const [dailyOpen, setDailyOpen] = useState(false);
+  const chesscomOn = save.settings.chesscomEnabled;
+  // Places on the map; Pet World and the Chess.com switch hide some (as the old buttons did).
+  const places = useMemo(() => PLACES.filter((pl) => {
+    if (pl.go === 'online') return !petWorld || !!petWorld.live;
+    if (pl.go === 'challenges' || pl.go === 'leaderboard') return !petWorld;
+    if (pl.go === 'chesscom') return !petWorld && chesscomOn;
+    return true;
+  }).map((pl) => (pl.go === 'online' && petWorld ? { ...pl, sub: 'Play your grown-up' } : pl.go === 'cards' && POWER_CARDS ? { ...pl, sub: 'Power cards' } : pl)), [chesscomOn]);
+  const daily = p ? dailyFor(p.daily, dayKey()) : null;
+  const dailyLeft = daily ? daily.ids.filter((id) => !daily.claimed.includes(id)).length : 0;
+  const streak = p ? currentStreak({ ...EMPTY_PROGRESS, ...p.puzzles }) : 0;
+  const due = p ? dueCount(p.openings) : 0;
+  const badges: Record<string, string> = {
+    ...(dailyLeft ? { quests: String(dailyLeft) } : {}),
+    ...(mail ? { post: String(mail) } : {}),
+    ...(due ? { library: String(due) } : {}),
+    ...(streak ? { cave: `🔥${streak}` } : {}),
+  };
+  const enter = (pl: Place) => {
+    if (!p) { go('profiles'); return; }
+    if (pl.go === 'daily') setDailyOpen(true); else go(pl.go);
+  };
   return (
     <div className="home">
       <header className="home-head">
-        <h1 className="logo" aria-label="Chess Chaos">
-          {'CHESS'.split('').map((c, i) => <span key={i} className="l1" style={{ ['--r' as string]: `${[-8, 5, -3, 9, -6][i]}deg` }}>{c}</span>)}
-          <span className="gap" />
-          {'CHAOS'.split('').map((c, i) => <span key={i} className="l2" style={{ ['--r' as string]: `${[7, -10, 4, -5, 12][i]}deg` }}>{c}</span>)}
-          <span className="splat" aria-hidden>💥</span>
-        </h1>
+        <div className="logo-block">
+          <h1 className="logo" aria-label="World of C.H.A.O.S.">
+            <span className="l0">World of</span>
+            {'CHAOS'.split('').map((c, i) => <span key={i} className="l2" style={{ ['--r' as string]: `${[7, -10, 4, -5, 12][i]}deg` }}>{c}<i className="dot" aria-hidden /></span>)}
+            <span className="splat" aria-hidden>💥</span>
+          </h1>
+          <p className="logo-motto"><b>C</b>heckmate <b>H</b>appens: <b>A</b>ttack, <b>O</b>utwit, <b>S</b>trike!</p>
+        </div>
         <ProfileChip onClick={() => go('profiles')} />
       </header>
-      <p className="tagline">{p ? `Hi ${p.nickname}! What shall we play?` : 'Make a player to get started.'}</p>
-      <div className="hero-buttons">
-        <button className="big" style={{ ['--c' as string]: '#5bd17a' }} onClick={() => go('bots')} disabled={!p}>
-          <span className="big-emoji">🤖</span>
-          <span className="big-title">Play the bots</span>
-          <span className="big-sub">Beat one to open the next</span>
-        </button>
-        {(!petWorld || petWorld.live) && <button className="big" style={{ ['--c' as string]: '#4aa8ff' }} onClick={() => go('online')} disabled={!p}>
-          <span className="big-emoji">🌐</span>
-          <span className="big-title">{petWorld ? 'Play your grown-up' : 'Play online'}</span>
-          <span className="big-sub">{petWorld ? 'Make a room, tell them the code' : 'Send a friend a code'}</span>
-        </button>}
-        <button className="big" style={{ ['--c' as string]: '#ff6fb5' }} onClick={() => go('party')} disabled={!p}>
-          <span className="big-emoji">🎉</span>
-          <span className="big-title">Party match</span>
-          <span className="big-sub">Surprise mode, missions, cards</span>
-        </button>
-      </div>
+      <p className="tagline">{p ? `Hi ${p.nickname}! Walk to a place, or tap it.` : 'Make a player to get started.'}</p>
       {p && !petWorld && luSession.savedCode() && (
         <button className="live-banner" onClick={() => go('levelup')}>⚡ Your live Level-Up room {luSession.savedCode()} is still open. Tap to go back.</button>
       )}
       {p && petWorld && !p.cloud && vaultBase() && (
         <div className="cloud-card">
-          <b>📱 Playing Chess Chaos on a phone or tablet too?</b>
+          <b>📱 Playing World of C.H.A.O.S. on a phone or tablet too?</b>
           <p className="small">Bring your player number here, and both places keep the same progress. You need the number and the save key (⚙️ Settings → ☁️ Cloud save on that device).</p>
           <CloudRestore />
         </div>
       )}
-      {p && <DailyPanel daily={p.daily} go={go} />}
-      <h3 className="home-section">More ways to play</h3>
-      <div className="tiles">
-        <Tile emoji="🗡️" title="Level-Up Chess" sub={p?.levelUp ? `${p.levelUp.won} battles won` : 'NEW! Pieces level up'} c="#3b5bdb" onClick={() => go('levelup')} disabled={!p} />
-        <Tile emoji="🎮" title="Game modes" sub="25 ways to play" c="#36c5c5" onClick={() => go('modes')} disabled={!p} />
-        <Tile emoji="⚔️" title="Battles" sub="3 and 4 players" c="#ff5a3c" onClick={() => go('battle')} disabled={!p} />
-        {!petWorld && <Tile emoji="📬" title="Challenges" sub={mail ? `${mail} waiting for you!` : 'Play a friend, a move at a time'} c="#5bd17a" onClick={() => go('challenges')} disabled={!p} />}
-        <Tile emoji="🌀" title="Mini-games" sub="Mazes, sprints, ladders" c="#8fd16a" onClick={() => go('minis')} disabled={!p} />
-        <Tile emoji="🎓" title="Train" sub="Alerts and hints" c="#ffc93c" onClick={() => go('train')} disabled={!p} />
-        <Tile emoji="📖" title="Openings" sub={p && dueCount(p.openings) ? `🔔 ${dueCount(p.openings)} lines to practise` : 'Learn the bots\' lines'} c="#4a6fa5" onClick={() => go('openings')} disabled={!p} />
-        <Tile emoji="🧩" title="Puzzles" sub={p && currentStreak({ ...EMPTY_PROGRESS, ...p.puzzles }) > 0 ? `🔥 ${currentStreak({ ...EMPTY_PROGRESS, ...p.puzzles })}-day streak` : 'Daily, gauntlet'} c="#ff7a59" onClick={() => go('puzzles')} disabled={!p} />
-      </div>
-      <h3 className="home-section">My stuff</h3>
-      <div className="tiles">
-        <Tile emoji="🧌" title="Wardrobe" sub="Skins and boards" c="#ff9f43" onClick={() => go('wardrobe')} />
-        <Tile emoji="🃏" title={POWER_CARDS ? 'Power cards' : 'My cards'} sub={p ? `${Object.values(p.collection ?? {}).reduce((a, n) => a + n, 0)} cards` : 'Earn by playing'} c="#c08cff" onClick={() => go('cards')} disabled={!p} />
-        <Tile emoji="📜" title="My games" sub="Replay and analyse" c="#a77bff" onClick={() => go('history')} disabled={!p} />
-        {!petWorld && <Tile emoji="🏆" title="Leaderboard" sub="Who's on top" c="#ffb13d" onClick={() => go('leaderboard')} disabled={!p} />}
-        {!petWorld && save.settings.chesscomEnabled && <Tile emoji="♟️" title="Chess.com" sub="Players, nemesis bots" c="#7fb069" onClick={() => go('chesscom')} disabled={!p} />}
-      </div>
+      <WorldMap places={places} badges={badges} enter={enter} />
+      <details className="all-places">
+        <summary>🗺️ All places</summary>
+        <div className="tiles">
+          {places.map((pl) => <Tile key={pl.id} emoji={pl.emoji} title={pl.name} sub={badges[pl.id] && pl.id !== 'quests' ? `${pl.sub} · ${badges[pl.id]}` : pl.sub} c={pl.roof} onClick={() => enter(pl)} disabled={!p} />)}
+        </div>
+      </details>
+      {dailyOpen && p && (
+        <div className="quest-modal" role="dialog" aria-label="Daily missions" onClick={(e) => { if (e.target === e.currentTarget) setDailyOpen(false); }}>
+          <div className="quest-board">
+            <DailyPanel daily={p.daily} go={(s) => { setDailyOpen(false); go(s); }} />
+            <button className="btn" onClick={() => setDailyOpen(false)}>← Back to the map</button>
+          </div>
+        </div>
+      )}
       {p && <Settings />}
     </div>
   );
@@ -197,7 +202,8 @@ export function Profiles({ done }: { done: () => void }) {
       )}
       {!save.profiles.length && !lost && (
         <div className="welcome">
-          <h1>♟️💥 Chess Chaos</h1>
+          <h1>♟️💥 World of C.H.A.O.S.</h1>
+          <p className="logo-motto"><b>C</b>heckmate <b>H</b>appens: <b>A</b>ttack, <b>O</b>utwit, <b>S</b>trike!</p>
           <p>Learn chess by playing! Beat friendly bots, solve puzzles, and try wild party modes with a friend.</p>
           <p className="small muted">No sign-up. Just pick a nickname (not your real name).</p>
         </div>
@@ -246,7 +252,7 @@ function BackupButtons({ onlyLoad }: { onlyLoad?: boolean }) {
     // On phones, the share sheet lets you save it to Files, Drive or send it to yourself.
     const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
     if (nav.canShare?.({ files: [file] })) {
-      try { await nav.share({ files: [file], title: 'Chess Chaos backup' }); setNote('Backup shared.'); return; } catch { /* cancelled: fall back to a download */ }
+      try { await nav.share({ files: [file], title: 'World of C.H.A.O.S. backup' }); setNote('Backup shared.'); return; } catch { /* cancelled: fall back to a download */ }
     }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(file);

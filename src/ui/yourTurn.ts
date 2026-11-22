@@ -31,7 +31,7 @@ export function useYourTurn(myTurn: boolean, opts: { wrap: React.RefObject<HTMLE
     }
     el?.classList.add('my-turn');
     setThemeColour('#ffcb2b');
-    document.title = '🟡 Your move! · Chess Chaos';
+    document.title = '🟡 Your move! · World of C.H.A.O.S.';
     if (opts.announce) {
       sfx.yourTurn();
       buzz([60, 40, 60]);

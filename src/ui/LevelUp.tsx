@@ -817,7 +817,7 @@ function InviteBox({ code }: { code: string }) {
             ))}
           </ul>
         )}
-      <p className="lu-small">They get a pop-up in Chess Chaos with a Join button. Or they can open Level-Up Chess → Play live and type {code}.</p>
+      <p className="lu-small">They get a pop-up in World of C.H.A.O.S. with a Join button. Or they can open Level-Up Chess → Play live and type {code}.</p>
     </div>
   );
 }

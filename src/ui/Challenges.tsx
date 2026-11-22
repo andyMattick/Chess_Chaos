@@ -182,7 +182,7 @@ export function Challenges({ back, play, playLevelUp, initialTo, initialGame }: 
         );
       })()}
       <div className="row wrap invite-row">
-        <button className="btn small primary" onClick={() => invite(number).then(setShared)}>📨 Invite a friend to Chess Chaos</button>
+        <button className="btn small primary" onClick={() => invite(number).then(setShared)}>📨 Invite a friend to World of C.H.A.O.S.</button>
         {shared && <small className="muted">{shared}</small>}
       </div>
       {invitedBy && !(p.friends ?? []).includes(invitedBy) && addNo === '' && (
@@ -322,9 +322,9 @@ function TournamentCard({ t, me, label, games, open, act }: { t: Tournament; me:
  */
 export async function invite(number: string): Promise<string> {
   const url = `${location.origin}/?friend=${number}`;
-  const text = 'Come and play Chess Chaos with me! Open the link to add me as a friend:';
+  const text = 'Come and play World of C.H.A.O.S. with me! Open the link to add me as a friend:';
   try {
-    if (navigator.share) { await navigator.share({ title: 'Chess Chaos', text, url }); return 'Invite sent!'; }
+    if (navigator.share) { await navigator.share({ title: 'World of C.H.A.O.S.', text, url }); return 'Invite sent!'; }
   } catch (e) {
     if ((e as Error).name === 'AbortError') return '';
   }

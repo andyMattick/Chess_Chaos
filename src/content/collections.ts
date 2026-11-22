@@ -8,7 +8,7 @@
  *   3 pieces: 20 Uncommon  → a colour version of a skin
  *   4 pieces: 15 Rare      → a new skin with its own art
  *   5 pieces:  6 Epic      → a new skin with its own art
- *   6 pieces:  1 Legendary → the Chess Chaos Crown army
+ *   6 pieces:  1 Legendary → the C.H.A.O.S. Crown army
  *
  * Names chosen with the owner. Art for the new skins: docs/ART-PROMPTS.md.
  */
@@ -71,7 +71,7 @@ const BIG: { without: string; name: string; slug: string; look: string }[] = [
   { without: 'B', name: 'Iron Will', slug: 'iron-will', look: 'clockwork wind-up toys with brass keys' },
   { without: 'Q', name: "King's Quest", slug: 'kings-quest', look: 'small friendly dragons' },
   { without: 'K', name: 'The Rebellion', slug: 'the-rebellion', look: 'raccoon rebels in bandanas' },
-  { without: '', name: 'Chess Chaos Crown', slug: 'chess-chaos-crown', look: 'a shining golden crystal army, every piece wearing a jewelled crown' },
+  { without: '', name: 'C.H.A.O.S. Crown', slug: 'chess-chaos-crown', look: 'a shining golden crystal army, every piece wearing a jewelled crown' },
 ];
 
 function rarityFor(n: number): SetRarity {
