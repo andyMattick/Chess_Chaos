@@ -22,11 +22,44 @@ export function buzz(pattern: number | number[]) {
   try { navigator.vibrate?.(pattern); } catch { /* not supported */ }
 }
 
+/**
+ * Phones only let a page make sound after a tap, and only if the sound system was
+ * started inside that tap (owner, 2026-11-22: "I'm not hearing sound effects on my
+ * phone"). The first sounds usually come from the bot's move, long after any tap, so
+ * on every tap we start (or wake) the sound system with a silent blip. On iPhones we
+ * also ask to play like a game (audioSession "playback"), so sounds are heard even
+ * with the ring/silent switch on silent; turning Sound off in the app stops them.
+ */
+let unlockInstalled = false;
+export function installAudioUnlock() {
+  if (unlockInstalled || typeof window === 'undefined') return;
+  unlockInstalled = true;
+  const wake = () => {
+    if (!enabled) return;
+    try {
+      const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
+      if (session && session.type !== 'playback') session.type = 'playback';
+    } catch { /* not an iPhone, or not allowed */ }
+    const a = audio();
+    if (!a) return;
+    if (a.state !== 'running') void a.resume().catch(() => {});
+    try {
+      const b = a.createBuffer(1, 1, a.sampleRate);
+      const src = a.createBufferSource();
+      src.buffer = b;
+      src.connect(a.destination);
+      src.start(0);
+    } catch { /* ignore */ }
+  };
+  for (const ev of ['pointerdown', 'touchend', 'keydown', 'click']) window.addEventListener(ev, wake, { capture: true, passive: true });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && ctx && ctx.state !== 'running') void ctx.resume().catch(() => {}); });
+}
+
 function audio(): AudioContext | null {
   if (!enabled) return null;
   try {
     ctx ??= new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-    if (ctx.state === 'suspended') void ctx.resume();
+    if (ctx.state !== 'running') void ctx.resume().catch(() => {});
     return ctx;
   } catch {
     return null;

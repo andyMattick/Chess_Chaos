@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { ScoreBar } from './ScoreBar';
 import { requestMove } from '../ai/client';
 import { botById, type Bot } from '../content/bots';
 import { addMyLine, buildMirror, learnFromGame, myLineFrom, nemesisBot, MIRROR_KEY, NEMESIS_PREFIX } from '../systems/nemesis';
@@ -50,6 +51,9 @@ import { CardTile, useHand } from './Cards';
 import { CARDS, POWER_CARDS, SUIT_ICON, cardById } from '../content/cards';
 import { cardsEarned, settleStakes, takePrize, updateCollection } from '../systems/cards';
 import { tellPetWorld } from './petWorld';
+
+/** The bot waits at least this long before it moves, so you see it coming (owner, 2026-11-22: "make computer moves slower"). */
+const BOT_MIN_THINK_MS = 900;
 
 export interface GameConfig {
   /** 'local' is only used to replay saved games. */
@@ -367,7 +371,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     setThinking(true);
     // Your missions: the bot tries to undo a shown one, or block an open one (weaker bots sometimes miss).
     const undo = partySetup && Math.random() >= strengthFor(bot?.rating ?? 800).weakChance ? defenceMoves(states, rec.actions, partySetup, botSeat) : [];
-    requestMove(live, bot?.rating ?? 800, (nemesis || bot?.id.startsWith(NEMESIS_PREFIX)) && bot ? { id: bot.id, asWhite: bot.asWhite, asBlack: bot.asBlack } : bot?.id, 450, undo.length ? undo : undefined).then((m) => {
+    requestMove(live, bot?.rating ?? 800, (nemesis || bot?.id.startsWith(NEMESIS_PREFIX)) && bot ? { id: bot.id, asWhite: bot.asWhite, asBlack: bot.asBlack } : bot?.id, BOT_MIN_THINK_MS, undo.length ? undo : undefined).then((m) => {
       if (cancelled || !m) return;
       setThinking(false);
       if (live.sq[m.to] >= 0 && bot && Math.random() < 0.5) setSpeech({ seat: botSeat, text: pick(bot.lines.capture) });
@@ -879,7 +883,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             <div className="hill-goal">
               🚩 Hill wars: first to <b>{h.target}</b>
               {(['p1', 'p2'] as PlayerId[]).map((k) => (
-                <div key={k} className="hill-bar"><div style={{ width: `${Math.min(100, ((h.scores[k] ?? 0) / h.target) * 100)}%` }} /><span>{names[k]}: {h.scores[k] ?? 0}</span></div>
+                <ScoreBar key={k} label={names[k]} value={h.scores[k] ?? 0} max={h.target} />
               ))}
             </div>
           );

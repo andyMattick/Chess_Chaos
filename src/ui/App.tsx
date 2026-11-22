@@ -28,7 +28,7 @@ import { useSave } from './store';
 import { Challenges } from './Challenges';
 import { MinisScreen } from './Minis';
 import { OpeningTrainer } from './OpeningTrainer';
-import { setShakeEnabled, setSoundEnabled } from './sound';
+import { installAudioUnlock, setShakeEnabled, setSoundEnabled } from './sound';
 import { petWorld } from './petWorld';
 
 type Screen =
@@ -80,6 +80,7 @@ export function App() {
 
   // Ask the browser to keep our saved progress (best effort; it helps on Android and installed apps).
   useEffect(() => askToKeepStorage(), []);
+  useEffect(() => installAudioUnlock(), []);
   useEffect(() => startCloudSync(), []);   // inside Pet World too: a player number brought in from her phone keeps saving (it does nothing without one)
 
   // No player number yet: ask once when the game opens (owner, 2026-11-18). "Not now" is remembered;
