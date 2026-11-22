@@ -196,7 +196,7 @@ function RectBoard({ state, bottom, selected, targets, lastMove, showCoordinates
           }
           const wob = overlays?.wobble?.has(p.at) || (checked.has(p.at) && !!fx);
           return (
-            <g key={p.id} className={`piece ${sel ? 'lifted' : ''} ${wob ? 'wobbly' : ''}`} style={{ transform: `translate(${x}px, ${y}px)` }} data-piece={p.type} data-owner={p.owner}>
+            <g key={p.id} className={`piece ${sel ? 'lifted' : ''} ${wob ? 'wobbly' : ''} ${lastMove && lastMove.to === p.at && p.owner !== bottom ? 'arriving' : ''}`} style={{ transform: `translate(${x}px, ${y}px)` }} data-piece={p.type} data-owner={p.owner}>
               {p.type === 'wall' ? <WallBlock seed={p.id} /> : (
                 <g className="piece-zoom">
                   <g className="bob">

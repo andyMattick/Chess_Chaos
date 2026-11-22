@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { MissionPictureView } from './MissionPictureView';
 import { requestRanking } from '../ai/client';
 import { bonusById, missionById, modifierById, PARTY_HINTS, type BuffTarget } from '../content/party';
 import { fileOf, rankOf } from '../core/board';
@@ -364,12 +365,12 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
       >
         {myOff ? <>🛡️ <b>{missionById(myOff)?.name}</b><small>Stopped. It is out of the game.</small></>
           : myChallenge ? <>🎯 <b>{missionById(myChallenge.id)?.name}</b><small>Shown! Keep it safe for {Math.max(1, myChallenge.left)} more {myChallenge.left > 1 ? 'turns' : 'turn'}.</small></>
-          : missionIsOpen(party, me) && missionText ? <>🎯 <b>{missionText.name}</b><small>Open mission: do it and you win at once!</small></>
-          : peek && missionText ? <>🎯 <b>{missionText.name}</b><small>{missionText.blurb}</small></> : <>🤫 Secret mission<small>{live_ ? 'LIVE! Hold to peek' : `Hold to peek · live after move ${party.gate[me] ?? 10}`}</small></>}
+          : missionIsOpen(party, me) && missionText ? <>🎯 <b>{missionText.name}</b><small>Open mission: do it and you win at once!</small>{peek && <MissionPictureView id={missionText.id} size={170} />}</>
+          : peek && missionText ? <>🎯 <b>{missionText.name}</b><small>{missionText.blurb}</small><MissionPictureView id={missionText.id} size={170} /></> : <>🤫 Secret mission<small>{live_ ? 'LIVE! Hold to peek' : `Hold to peek · live after move ${party.gate[me] ?? 10}`}</small></>}
       </button>
       )}
       {other && !missionIsOpen(party, other) && used('BUFF-23') && party.missions[other] && party.missions[other] !== '?' && !offMap[other] && (
-        <div className="mission-card live warn-card">👀 <b>Peek: {names[other]}'s secret mission is {missionById(party.missions[other]!)?.name}</b><small>{missionById(party.missions[other]!)?.blurb} {missionById(party.missions[other]!)?.stop}</small></div>
+        <div className="mission-card live warn-card">👀 <b>Peek: {names[other]}'s secret mission is {missionById(party.missions[other]!)?.name}</b><small>{missionById(party.missions[other]!)?.blurb} {missionById(party.missions[other]!)?.stop}</small><MissionPictureView id={party.missions[other]!} size={150} /></div>
       )}
       {party.bonus && Object.keys(party.bonus).length > 0 && (
         <div className="bonus-goals">

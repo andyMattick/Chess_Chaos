@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { MissionPictureView } from './MissionPictureView';
 import { BOTS } from '../content/bots';
 import { missionById, modifierById } from '../content/party';
 import { MODE_INFO } from '../core/modes';
@@ -84,17 +85,17 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
           <div className="reveal-card mission-card big open"><div className="reveal-emoji">🙅</div><h3>No secret missions</h3><p>Win the normal way for this mode.</p></div>
         ) : missionIsOpen(setup, humanSeat) && mission ? (
           <div className="reveal-card mission-card big open">
-            <div className="reveal-emoji">🎯</div><h3>{mission.name}</h3><p>{mission.blurb}</p>
+            <div className="reveal-emoji">🎯</div><h3>{mission.name}</h3><p>{mission.blurb}</p><MissionPictureView id={mission.id} />
             <small>You're the underdog, so your mission is open: {bot.name} can see it. But if you do it (after your move {setup.gate[humanSeat]}), you win at once!</small>
           </div>
         ) : (
           <button className={`reveal-card mission-card big ${peek ? 'open' : ''}`} onPointerDown={() => setPeek(true)} onPointerUp={() => setPeek(false)} onPointerLeave={() => setPeek(false)} aria-label="Hold to see your secret mission">
-            {peek && mission ? <><div className="reveal-emoji">🎯</div><h3>{mission.name}</h3><p>{mission.blurb}</p><small>Do it after your move {setup.gate[humanSeat]}. Then everyone sees it, and you must keep it standing until {bot.name}'s next turn is over. If it still stands, you win!</small></> : <><div className="reveal-emoji">🤫</div><h3>Secret mission</h3><p>Hold to peek. Don't let anyone see!</p></>}
+            {peek && mission ? <><div className="reveal-emoji">🎯</div><h3>{mission.name}</h3><p>{mission.blurb}</p><MissionPictureView id={mission.id} /><small>Do it after your move {setup.gate[humanSeat]}. Then everyone sees it, and you must keep it standing until {bot.name}'s next turn is over. If it still stands, you win!</small></> : <><div className="reveal-emoji">🤫</div><h3>Secret mission</h3><p>Hold to peek. Don't let anyone see!</p></>}
           </button>
         )}
         {missionIsOpen(setup, botSeat) && theirMission && (
           <div className="reveal-card mission-card big open warn-card">
-            <div className="reveal-emoji">⚠️</div><h3>{bot.name}'s mission: {theirMission.name}</h3><p>{theirMission.blurb}</p>
+            <div className="reveal-emoji">⚠️</div><h3>{bot.name}'s mission: {theirMission.name}</h3><p>{theirMission.blurb}</p><MissionPictureView id={theirMission.id} />
             <small>{bot.name} is the underdog, so you can see it. If they do it, they win at once. Stop them!</small>
           </div>
         )}
