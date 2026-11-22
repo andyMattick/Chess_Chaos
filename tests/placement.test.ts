@@ -100,3 +100,25 @@ describe('placement test', () => {
     expect(judgeMove(pz, s2, 2, base.line[2])).toBe('right');
   });
 });
+
+describe('placement test for current players', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  it('can be taken by anyone who has not taken it in the last day', async () => {
+    const { canTakePlacement } = await import('../src/systems/placement');
+    expect(canTakePlacement({}, 1000)).toBe(true);
+    expect(canTakePlacement({ placement: { at: 0, skipped: true } }, 1)).toBe(true);
+    expect(canTakePlacement({ placement: { at: 0, rating: 900 } }, DAY - 1)).toBe(false);
+    expect(canTakePlacement({ placement: { at: 0, rating: 900 } }, DAY)).toBe(true);
+    expect(canTakePlacement(null, 0)).toBe(false);
+  });
+
+  it('only ever moves a current player up, and keeps the best result for opening bots', async () => {
+    const { applyPlacement } = await import('../src/systems/placement');
+    // New player: the result is the start.
+    expect(applyPlacement({ rating: 600, gamesPlayed: 0 }, 500, 1, 5)).toEqual({ rating: 500, placement: { at: 5, rating: 500, solved: 1 } });
+    // Current player at 750: a 1000 result lifts them; a 500 result changes nothing.
+    expect(applyPlacement({ rating: 750, gamesPlayed: 12 }, 1000, 6, 5).rating).toBe(1000);
+    expect(applyPlacement({ rating: 750, gamesPlayed: 12 }, 500, 1, 5).rating).toBe(750);
+    expect(applyPlacement({ rating: 750, gamesPlayed: 12, placement: { at: 0, rating: 900 } }, 700, 3, 5).placement.rating).toBe(900);
+  });
+});

@@ -34,7 +34,7 @@ import { petWorld } from './petWorld';
 type Screen =
   | { name: 'home' }
   | { name: 'profiles' }
-  | { name: 'placement' }
+  | { name: 'placement'; again?: boolean }
   | { name: 'bots' }
   | { name: 'history' }
   | { name: 'online'; code?: string | null }
@@ -133,7 +133,7 @@ export function App() {
         />
       )}
       {screen.name === 'profiles' && <Profiles done={() => (luLink ? setScreen({ name: 'levelup', join: luLink, key: Date.now() }) : linkCode ? setScreen({ name: 'online', code: linkCode }) : needsPlacement(activeProfile(loadSave())) ? setScreen({ name: 'placement' }) : home())} />}
-      {screen.name === 'placement' && <Placement done={home} />}
+      {screen.name === 'placement' && <Placement done={screen.again ? () => setScreen({ name: 'bots' }) : home} again={screen.again} />}
       {screen.name === 'online' && <OnlineLobby back={home} initialCode={screen.code} />}
       {screen.name === 'wardrobe' && <Wardrobe back={home} />}
       {screen.name === 'train' && <TrainSetup start={startGame} back={home} />}
@@ -147,7 +147,7 @@ export function App() {
       {screen.name === 'battle-game' && (
         <BattleScreen key={screen.key} local={screen.local} onExit={home} onAgain={() => setScreen({ name: 'battle-game', local: screen.local, key: Date.now() })} />
       )}
-      {screen.name === 'bots' && <BotRoster start={startGame} back={home} learn={(botId) => setScreen({ name: 'openings', botId })} />}
+      {screen.name === 'bots' && <BotRoster start={startGame} back={home} learn={(botId) => setScreen({ name: 'openings', botId })} findLevel={() => setScreen({ name: 'placement', again: true })} />}
       {screen.name === 'openings' && <OpeningTrainer key={screen.botId ?? 'all'} back={home} botId={screen.botId} />}
       {screen.name === 'history' && (
         <History

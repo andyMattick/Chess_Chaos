@@ -105,3 +105,28 @@ export function judgeMove(pz: PlacementPuzzle, state: GameState, ply: number, m:
 export function needsPlacement(p: { gamesPlayed: number; placement?: unknown } | null | undefined): boolean {
   return !!p && p.gamesPlayed === 0 && !p.placement;
 }
+
+/**
+ * Current players can take the test too (owner, 2026-11-22: "we need the placement
+ * option for current players as well"), from the Bot Path, once a day. For a player
+ * who has played games it can only help: the rating moves up to the test result,
+ * never down, and bots up to the best result so far stay open.
+ */
+export const RETAKE_MS = 24 * 60 * 60 * 1000;
+
+type Placed = { at: number; rating?: number; solved?: number; skipped?: boolean };
+
+export function canTakePlacement(p: { placement?: Placed } | null | undefined, now: number): boolean {
+  if (!p) return false;
+  const a = p.placement;
+  return !a || a.skipped || a.rating === undefined || now - a.at >= RETAKE_MS;
+}
+
+/** The new rating and placement record after a test with this result. */
+export function applyPlacement(p: { rating: number; gamesPlayed: number; placement?: Placed }, placed: number, solved: number, now: number): { rating: number; placement: Placed } {
+  const fresh = p.gamesPlayed === 0;
+  return {
+    rating: fresh ? placed : Math.max(p.rating, placed),
+    placement: { at: now, rating: fresh ? placed : Math.max(p.placement?.rating ?? 0, placed), solved },
+  };
+}

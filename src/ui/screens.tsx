@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { canTakePlacement } from '../systems/placement';
 import { type Bot } from '../content/bots';
 import { PATH, unlockedCount } from '../systems/coins';
 import type { GameRecord } from '../core/record';
@@ -274,7 +275,7 @@ function BackupButtons({ onlyLoad }: { onlyLoad?: boolean }) {
   );
 }
 
-export function BotRoster({ start, back, learn }: { start: (c: GameConfig) => void; back: () => void; learn?: (botId: string) => void }) {
+export function BotRoster({ start, back, learn, findLevel }: { start: (c: GameConfig) => void; back: () => void; learn?: (botId: string) => void; findLevel?: () => void }) {
   const save = useSave();
   const p = activeProfile(save);
   const [chosen, setChosen] = useState<Bot | null>(null);
@@ -312,6 +313,14 @@ export function BotRoster({ start, back, learn }: { start: (c: GameConfig) => vo
     <div className="panel wide taped">
       <h2>The Bot Path <span className="scribble">beat one to open the next</span></h2>
       <p className="muted">After its favourite opening, each bot plays with the game's own chess engine at its own strength. Your rating: ★ {p?.rating} · 🪙 first win against a bot pays 25 extra coins.</p>
+      {findLevel && p && (
+        <div className="find-level">
+          <span>🧩 <b>Bots too easy?</b> Solve a few puzzles and we'll open the bots that match you. Your rating can only go up.</span>
+          {canTakePlacement(p, Date.now())
+            ? <button className="btn small primary" onClick={findLevel}>Find my level</button>
+            : <small className="muted">You can take it again tomorrow.</small>}
+        </div>
+      )}
       <div className="path">
         {PATH.slice(0, showAll ? PATH.length : Math.min(PATH.length, unlocked + 2)).map((b, i) => {
           const r = p?.botRecords[b.id];
