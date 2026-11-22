@@ -21,6 +21,14 @@ describe('World of C.H.A.O.S. map', () => {
     }
   });
 
+  it('every place has a short description for its card', () => {
+    for (const p of PLACES) {
+      expect(p.about.length, p.id).toBeGreaterThan(20);
+      expect(p.about.length, p.id).toBeLessThanOrEqual(100);
+      expect(p.about.split('. ').length, p.id).toBeLessThanOrEqual(2);
+    }
+  });
+
   it('can walk from the town square to every door, and the door says which place it is', () => {
     expect(walkable(w, WORLD_START)).toBe(true);
     for (const p of PLACES) {

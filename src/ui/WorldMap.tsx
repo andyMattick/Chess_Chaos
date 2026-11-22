@@ -52,6 +52,8 @@ export function WorldMap({ places, badges, enter }: { places: Place[]; badges: R
   }, [route, hero]);
 
   const here = route.length ? null : doorPlace(world, hero);
+  // The card: where you are standing, or (while walking there) the place you tapped, with a short description.
+  const card = here ?? (route.length && target ? target : null);
 
   function walkTo(t: Tile) {
     const p = placeOn(world, t);
@@ -123,11 +125,11 @@ export function WorldMap({ places, badges, enter }: { places: Place[]; badges: R
             </g>
           </g>
         </svg>
-        {here && (
-          <div className="world-card" role="status">
-            <span className="world-card-emoji">{here.emoji}</span>
-            <span><b>{here.name}</b><small>{here.sub}</small></span>
-            <button className="btn primary" onClick={() => enter(here)}>Go in ▶</button>
+        {card && (
+          <div className="world-card" role="status" key={card.id}>
+            <span className="world-card-emoji">{card.emoji}</span>
+            <span><b>{card.name}</b><small>{card.about}</small></span>
+            <button className="btn primary" onClick={() => enter(card)}>{here ? 'Go in ▶' : 'Go ▶'}</button>
           </div>
         )}
         <div className="dpad" aria-label="Walk">

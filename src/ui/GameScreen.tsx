@@ -587,6 +587,14 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
     );
   };
 
+  // Which colour each player is and which way they go (owner, 2026-11-22: in challenges it was unclear who is White
+  // and which direction they are going). The bottom player always moves up the screen.
+  const sideTag = (seat: PlayerId): string | null => {
+    if (live.seats.length !== 2 || shown.board.topology === 'tri') return null;
+    const colourName = seat === 'p1' ? '♙ White' : '♟ Black';
+    return `${seat === me && !reviewing ? 'You: ' : ''}${colourName}${seat === 'p1' ? ' (goes first)' : ''} · moves ${seat === bottom ? 'up ↑' : 'down ↓'}`;
+  };
+
   return (
     <div className="game">
       <div className="game-main">
@@ -594,7 +602,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           name={names[top]} rating={bot && top === botSeat ? bot.rating : net.seats[top]?.rating} avatar={avatar(top)}
           active={shown.turn === top && !shown.result} captured={captured(bottom)} speech={speech?.seat === top ? speech.text : null}
           colour={bot && top === botSeat ? bot.colour : undefined}
-          lead={lead(top)} skins={skinsNow}
+          lead={lead(top)} skins={skinsNow} side={sideTag(top)}
           clockMs={isOnline && !reviewing ? () => timeLeft(net, top) : null} clockRunning={net.clock?.running === top}
           note={isOnline && opp && top !== me ? (opp.botControlled ? '🤖 a bot took over' : !opp.connected ? '📡 reconnecting…' : null) : null}
         />
@@ -798,7 +806,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           name={names[bottom]} rating={bot && bottom === botSeat ? bot.rating : net.seats[bottom]?.rating} avatar={avatar(bottom)}
           active={shown.turn === bottom && !shown.result} captured={captured(top)} speech={speech?.seat === bottom ? speech.text : null}
           colour={bot && bottom === botSeat ? bot.colour : undefined}
-          lead={lead(bottom)} skins={skinsNow}
+          lead={lead(bottom)} skins={skinsNow} side={sideTag(bottom)}
           clockMs={isOnline && !reviewing ? () => timeLeft(net, bottom) : null} clockRunning={net.clock?.running === bottom}
         />
       </div>
@@ -956,7 +964,8 @@ function MoveCell({ san, idx, view, onPick }: { san?: string; idx: number; view:
   );
 }
 
-function PlayerBar({ name, rating, avatar, active, captured, speech, colour, note, clockMs, clockRunning, lead, skins }: {
+function PlayerBar({ name, rating, avatar, active, captured, speech, colour, note, clockMs, clockRunning, lead, skins, side }: {
+  side?: string | null;
   name: string; rating?: number; avatar: ReactNode; active: boolean; captured: GameState['pieces'];
   speech: string | null; colour?: string; note?: string | null; clockMs?: (() => number | null) | null; clockRunning?: boolean; lead?: number; skins: import('../content/cosmetics').SkinChoice;
 }) {
@@ -976,6 +985,7 @@ function PlayerBar({ name, rating, avatar, active, captured, speech, colour, not
         {name}
         {rating !== undefined && <span className="prating">★{rating}</span>}
         {note && <span className="pnote">{note}</span>}
+        {side && <span className="pside">{side}</span>}
       </div>
       {speech && <div className="speech">{speech}</div>}
       {ms !== null && (

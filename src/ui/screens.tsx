@@ -49,7 +49,7 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
     if (pl.go === 'challenges' || pl.go === 'leaderboard') return !petWorld;
     if (pl.go === 'chesscom') return !petWorld && chesscomOn;
     return true;
-  }).map((pl) => (pl.go === 'online' && petWorld ? { ...pl, sub: 'Play your grown-up' } : pl.go === 'cards' && POWER_CARDS ? { ...pl, sub: 'Power cards' } : pl)), [chesscomOn]);
+  }).map((pl) => (pl.go === 'online' && petWorld ? { ...pl, sub: 'Play your grown-up', about: 'Play your grown-up: make a room and tell them the code.' } : pl.go === 'cards' && POWER_CARDS ? { ...pl, sub: 'Power cards', about: 'Your power cards: collect them and use them in party matches.' } : pl)), [chesscomOn]);
   const daily = p ? dailyFor(p.daily, dayKey()) : null;
   const dailyLeft = daily ? daily.ids.filter((id) => !daily.claimed.includes(id)).length : 0;
   const streak = p ? currentStreak({ ...EMPTY_PROGRESS, ...p.puzzles }) : 0;
