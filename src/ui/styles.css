@@ -917,6 +917,12 @@ body[data-calm] .die { animation: none; }
 @keyframes hero-walk { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
 .house.glow > rect:first-of-type, .house.glow > path:nth-of-type(1) { filter: drop-shadow(0 0 4px #fff59a); }
 .wave { animation: wave 2.4s ease-in-out infinite; }
+.smoke { animation: smoke 3s ease-in-out infinite; }
+@keyframes smoke { 0% { opacity: 0.2; translate: 0 4px; } 50% { opacity: 0.9; } 100% { opacity: 0.2; translate: 3px -6px; } }
+.flag { animation: flag 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: left center; }
+@keyframes flag { 0%, 100% { scale: 1 1; } 50% { scale: 0.85 1; } }
+.lamp { animation: lamp 2.8s ease-in-out infinite; }
+@keyframes lamp { 0%, 100% { opacity: 1; } 50% { opacity: 0.75; } }
 .tree-sway { animation: tree-sway 4.5s ease-in-out infinite; }
 @keyframes tree-sway { 0%, 100% { rotate: -1.5deg; } 50% { rotate: 1.5deg; } }
 @keyframes wave { 0%, 100% { translate: 0 0; } 50% { translate: 3px 0; } }
@@ -934,4 +940,4 @@ body[data-calm] .die { animation: none; }
 .quest-modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgba(30, 25, 40, 0.45); }
 .quest-modal > div { max-width: 440px; width: 100%; display: grid; gap: 8px; }
 .quest-board { background: #fffaf0; border: 3px solid var(--ink); border-radius: var(--wonky2); padding: 12px; box-shadow: 4px 6px 0 var(--ink); max-height: 90vh; overflow: auto; }
-@media (prefers-reduced-motion: reduce) { .world-map, .world-hero { transition: none; } .wave, .tree-sway, .world-hero.walking .hero-bob, .world-card { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .world-map, .world-hero { transition: none; } .wave, .tree-sway, .smoke, .flag, .lamp, .world-hero.walking .hero-bob, .world-card { animation: none; } }

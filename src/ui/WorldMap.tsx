@@ -243,16 +243,113 @@ function House({ p, badge, glow }: { p: Place; badge?: string; glow: boolean }) 
     );
   }
   const roofH = Math.min(H * 0.55, 46);
+  const wallTop = Y + roofH - 6;
+  const clip = `roof-${p.id}`;
+  const winY = Y + roofH + 6;
+  const wins = W > U * 2 ? [X + 12, X + W - 30] : [];
+  const isCave = p.id === 'cave';
+  if (isCave) return <Cave p={p} X={X} Y={Y} W={W} H={H} doorX={doorX} badge={badge} glow={glow} />;
+  const roof = `M${X} ${Y + roofH} L${X + 10} ${Y + 4} H${X + W - 10} L${X + W} ${Y + roofH} Z`;
+  const striped = p.id === 'carnival' || p.id === 'arena';
+  return (
+    <g className={`house ${glow ? 'glow' : ''}`} aria-label={p.name}>
+      <defs><clipPath id={clip}><path d={roof} /></clipPath></defs>
+      <ellipse cx={X + W / 2} cy={Y + H - 1} rx={W / 2 - 2} ry={5} fill="rgba(0,0,0,0.22)" />
+      {/* Behind the roof: chimneys, towers, flags */}
+      {p.id === 'tower' && <TowerTop X={X} Y={Y} W={W} roof={p.roof} />}
+      {!striped && p.id !== 'tower' && p.id !== 'ring' && (
+        <g>
+          <rect x={X + W - 26} y={Y - 2} width={10} height={16} fill="#b45a3c" stroke={INK} strokeWidth={2} />
+          <rect x={X + W - 28} y={Y - 5} width={14} height={4} rx={1} fill="#8a3f28" stroke={INK} strokeWidth={1.5} />
+          <g className="smoke" fill="rgba(255,255,255,0.75)"><circle cx={X + W - 20} cy={Y - 10} r={3.5} /><circle cx={X + W - 15} cy={Y - 17} r={4.5} /><circle cx={X + W - 9} cy={Y - 25} r={5.5} /></g>
+        </g>
+      )}
+      {p.id === 'ring' && [X + 6, X + W - 6].map((fx, i) => <g key={i}><path d={`M${fx} ${Y + roofH} V${Y - 8}`} stroke={INK} strokeWidth={2} /><path d={`M${fx} ${Y - 8} l${i ? -12 : 12} 4 l${i ? 12 : -12} 4 z`} fill={i ? '#4aa8ff' : '#ff5a3c'} stroke={INK} strokeWidth={1.5} /></g>)}
+      {/* Walls: brick (or logs for the woods cabin), with a stone footing */}
+      <rect x={X + 5} y={wallTop} width={W - 10} height={H - roofH + 4} rx={3} fill={p.wall} stroke={INK} strokeWidth={2.5} />
+      <g stroke="rgba(45,42,62,0.16)" strokeWidth={1.2}>
+        {Array.from({ length: Math.floor((H - roofH) / 7) }, (_, i) => {
+          const yy = wallTop + 6 + i * 7;
+          return p.id === 'woods'
+            ? <path key={i} d={`M${X + 6} ${yy} H${X + W - 6}`} stroke="rgba(90,58,34,0.45)" strokeWidth={2} />
+            : <g key={i}><path d={`M${X + 6} ${yy} H${X + W - 6}`} />{Array.from({ length: Math.floor(W / 14) }, (_, j) => <path key={j} d={`M${X + 9 + j * 14 + (i % 2) * 7} ${yy} v-7`} />)}</g>;
+        })}
+      </g>
+      <rect x={X + 5} y={Y + H - 7} width={W - 10} height={5} fill="#9a917f" stroke={INK} strokeWidth={1.5} />
+      {/* Windows: frame, panes, shutters, a flower box */}
+      {wins.map((wx, i) => (
+        <g key={i}>
+          {p.id === 'cards' || p.id === 'tailor' ? <path d={`M${wx - 3} ${winY - 6} h24 l-3 6 h-18 z`} fill={p.roof} stroke={INK} strokeWidth={1.5} /> : null}
+          <rect x={wx - 3} y={winY - 1} width={4} height={14} fill={p.roof} stroke={INK} strokeWidth={1.2} />
+          <rect x={wx + 15} y={winY - 1} width={4} height={14} fill={p.roof} stroke={INK} strokeWidth={1.2} />
+          <rect x={wx + 1} y={winY} width={14} height={12} rx={1.5} fill="#bfe3ff" stroke={INK} strokeWidth={2} />
+          <path d={`M${wx + 8} ${winY} v12 M${wx + 1} ${winY + 6} h14`} stroke="#fffaf0" strokeWidth={1.6} />
+          <path d={`M${wx + 3} ${winY + 3} l3 -2`} stroke="#fff" strokeWidth={1.4} strokeLinecap="round" />
+          <rect x={wx} y={winY + 12} width={16} height={4} fill="#8a5a2b" stroke={INK} strokeWidth={1} />
+          <circle cx={wx + 4} cy={winY + 11} r={1.8} fill="#ff6fb5" /><circle cx={wx + 8} cy={winY + 10.5} r={1.8} fill="#ffd84a" /><circle cx={wx + 12} cy={winY + 11} r={1.8} fill="#ff6fb5" />
+        </g>
+      ))}
+      {/* Roof: shingles (or circus stripes), a light ridge, and a shadow under the eaves */}
+      <path d={roof} fill={p.roof} stroke={INK} strokeWidth={2.5} strokeLinejoin="round" />
+      <g clipPath={`url(#${clip})`}>
+        {striped
+          ? Array.from({ length: Math.ceil(W / 16) + 1 }, (_, i) => <rect key={i} x={X + i * 16} y={Y} width={8} height={roofH} fill="rgba(255,255,255,0.55)" />)
+          : Array.from({ length: Math.ceil(roofH / 8) }, (_, r) => (
+            <path key={r} d={Array.from({ length: Math.ceil(W / 10) + 1 }, (_, i) => `M${X + i * 10 - (r % 2) * 5} ${Y + 10 + r * 8} a5 4 0 0 0 10 0`).join(' ')} fill="none" stroke="rgba(45,42,62,0.28)" strokeWidth={1.4} />
+          ))}
+        <path d={`M${X} ${Y + roofH - 3} H${X + W}`} stroke="rgba(0,0,0,0.25)" strokeWidth={4} />
+      </g>
+      <path d={roof} fill="none" stroke={INK} strokeWidth={2.5} strokeLinejoin="round" />
+      <path d={`M${X + 12} ${Y + 7} H${X + W - 12}`} stroke="rgba(255,255,255,0.5)" strokeWidth={3} strokeLinecap="round" />
+      {p.id === 'arena' && <path d={Array.from({ length: Math.floor(W / 12) }, (_, i) => `M${X + 4 + i * 12} ${Y + roofH - 2} l6 8 l6 -8`).join(' ')} fill="#ffd84a" stroke={INK} strokeWidth={1.2} />}
+      {/* Columns by the library and hall doors */}
+      {(p.id === 'library' || p.id === 'fame') && [doorX - 17, doorX + 12].map((cx, i) => <rect key={i} x={cx} y={wallTop + 4} width={5} height={H - roofH - 6} fill="#fffaf0" stroke={INK} strokeWidth={1.4} />)}
+      {/* Door: steps, planks, a lamp */}
+      <rect x={doorX - 12} y={Y + H - 4} width={24} height={4} rx={1.5} fill="#bdb4a2" stroke={INK} strokeWidth={1.4} />
+      <path d={`M${doorX - 9} ${Y + H - 4} v-13 a9 9 0 0 1 18 0 v13 z`} fill="#6b4426" stroke={INK} strokeWidth={2} />
+      <path d={`M${doorX - 3} ${Y + H - 4} v-20 M${doorX + 3} ${Y + H - 4} v-20`} stroke="rgba(0,0,0,0.25)" strokeWidth={1.2} />
+      <circle cx={doorX + 5} cy={Y + H - 11} r={1.6} fill="#ffd84a" />
+      <g><rect x={doorX + 12} y={Y + H - 26} width={2} height={6} fill={INK} /><rect x={doorX + 10} y={Y + H - 21} width={6} height={7} rx={1.5} fill="#ffe27a" stroke={INK} strokeWidth={1.2} className="lamp" /></g>
+      {p.id === 'post' && <g><rect x={X + W - 4} y={Y + H - 20} width={3} height={18} fill={INK} /><rect x={X + W - 10} y={Y + H - 27} width={14} height={9} rx={4} fill="#e8413c" stroke={INK} strokeWidth={1.5} /></g>}
+      {p.id === 'harbour' && <g><circle cx={X + 10} cy={wallTop + 12} r={6} fill="none" stroke="#fff" strokeWidth={4} /><circle cx={X + 10} cy={wallTop + 12} r={6} fill="none" stroke="#e8413c" strokeWidth={4} strokeDasharray="4.7 4.7" /></g>}
+      {p.id === 'fame' && <path d={`M${X + W / 2} ${Y - 8} l3 6 l7 1 l-5 5 l1 7 l-6 -3 l-6 3 l1 -7 l-5 -5 l7 -1 z`} fill="#ffd84a" stroke={INK} strokeWidth={1.5} />}
+      {p.id === 'school' && <g><rect x={X + W / 2 - 7} y={Y - 10} width={14} height={14} fill={p.wall} stroke={INK} strokeWidth={1.5} /><path d={`M${X + W / 2 - 9} ${Y - 10} l9 -8 l9 8 z`} fill={p.roof} stroke={INK} strokeWidth={1.5} /><circle cx={X + W / 2} cy={Y - 3} r={3} fill="#ffd84a" stroke={INK} strokeWidth={1} /></g>}
+      {/* The sign: the place's picture on a round plaque */}
+      <circle cx={X + W / 2} cy={Y + roofH / 2 + 2} r={Math.min(15, roofH * 0.36)} fill="rgba(255,250,240,0.9)" stroke={INK} strokeWidth={2} />
+      <text x={X + W / 2} y={Y + roofH / 2 + 9} fontSize={Math.min(20, roofH * 0.48)} textAnchor="middle">{p.emoji}</text>
+      <Label x={X + W / 2} y={Y + H + 1} text={p.name} />
+      {badge && <Badge x={X + W - 6} y={Y + 6} text={badge} />}
+    </g>
+  );
+}
+
+/** The Bot Tower's top: battlements and a flag. */
+function TowerTop({ X, Y, W, roof }: { X: number; Y: number; W: number; roof: string }) {
+  return (
+    <g>
+      <rect x={X + W / 2 - 14} y={Y - 16} width={28} height={26} fill="#d9d2c3" stroke={INK} strokeWidth={2} />
+      {[0, 1, 2].map((i) => <rect key={i} x={X + W / 2 - 14 + i * 11} y={Y - 22} width={7} height={7} fill="#d9d2c3" stroke={INK} strokeWidth={1.5} />)}
+      <rect x={X + W / 2 - 4} y={Y - 10} width={8} height={10} rx={4} fill="#3a3550" />
+      <path d={`M${X + W / 2} ${Y - 22} V${Y - 40}`} stroke={INK} strokeWidth={2} />
+      <path className="flag" d={`M${X + W / 2} ${Y - 40} l16 5 l-16 5 z`} fill={roof} stroke={INK} strokeWidth={1.5} />
+    </g>
+  );
+}
+
+/** The Puzzle Cave: a rocky hill with a dark way in. */
+function Cave({ p, X, Y, W, H, doorX, badge, glow }: { p: Place; X: number; Y: number; W: number; H: number; doorX: number; badge?: string; glow: boolean }) {
   return (
     <g className={`house ${glow ? 'glow' : ''}`} aria-label={p.name}>
       <ellipse cx={X + W / 2} cy={Y + H - 1} rx={W / 2 - 2} ry={5} fill="rgba(0,0,0,0.22)" />
-      <rect x={X + 5} y={Y + roofH - 6} width={W - 10} height={H - roofH + 4} rx={3} fill={p.wall} stroke="#2d2a3e" strokeWidth={2.5} />
-      {W > U * 2 && <><rect x={X + 14} y={Y + roofH + 6} width={14} height={12} rx={2} fill="#bfe3ff" stroke="#2d2a3e" strokeWidth={2} /><rect x={X + W - 28} y={Y + roofH + 6} width={14} height={12} rx={2} fill="#bfe3ff" stroke="#2d2a3e" strokeWidth={2} /></>}
-      <path d={`M${X} ${Y + roofH} L${X + 10} ${Y + 4} H${X + W - 10} L${X + W} ${Y + roofH} Z`} fill={p.roof} stroke="#2d2a3e" strokeWidth={2.5} strokeLinejoin="round" />
-      <path d={`M${X + 12} ${Y + 12} H${X + W - 12}`} stroke="rgba(255,255,255,0.45)" strokeWidth={3} strokeLinecap="round" />
-      <path d={`M${doorX - 9} ${Y + H - 2} v-14 a9 9 0 0 1 18 0 v14 z`} fill="#5a3a22" stroke="#2d2a3e" strokeWidth={2} />
-      <circle cx={doorX + 4} cy={Y + H - 9} r={1.6} fill="#ffd84a" />
-      <text x={X + W / 2} y={Y + roofH / 2 + 10} fontSize={Math.min(26, roofH * 0.62)} textAnchor="middle">{p.emoji}</text>
+      <path d={`M${X + 2} ${Y + H - 2} Q${X + 4} ${Y + 18} ${X + W * 0.3} ${Y + 8} Q${X + W * 0.5} ${Y - 6} ${X + W * 0.72} ${Y + 8} Q${X + W - 2} ${Y + 18} ${X + W - 2} ${Y + H - 2} Z`} fill="#8a7f73" stroke={INK} strokeWidth={2.5} />
+      <path d={`M${X + 14} ${Y + 30} q10 -8 20 -2 M${X + W - 40} ${Y + 22} q10 -6 22 0 M${X + 30} ${Y + 52} q8 -5 16 0`} stroke="#6e655c" strokeWidth={3} fill="none" strokeLinecap="round" />
+      <path d={`M${X + W * 0.35} ${Y + 12} q8 -6 16 -2`} stroke="#b3a99c" strokeWidth={3} fill="none" strokeLinecap="round" />
+      <path d={`M${X + W - 22} ${Y + 14} q4 -8 10 -4 q-2 6 -10 4`} fill="#5cc265" stroke={INK} strokeWidth={1.2} />
+      <path d={`M${doorX - 15} ${Y + H - 2} v-14 a15 15 0 0 1 30 0 v14 z`} fill="#231f2e" stroke={INK} strokeWidth={2.5} />
+      <path d={`M${doorX - 15} ${Y + H - 16} l4 5 l4 -5 l4 5 l4 -5 l4 5 l4 -5 l4 5`} fill="none" stroke="#b3a99c" strokeWidth={2} />
+      <circle cx={doorX - 22} cy={Y + H - 26} r={3} fill="#ffe27a" className="lamp" /><path d={`M${doorX - 22} ${Y + H - 23} v20`} stroke="#8a5a2b" strokeWidth={2.5} />
+      <circle cx={X + W / 2 + 22} cy={Y + 26} r={13} fill="rgba(255,250,240,0.9)" stroke={INK} strokeWidth={2} />
+      <text x={X + W / 2 + 22} y={Y + 32} fontSize={17} textAnchor="middle">{p.emoji}</text>
       <Label x={X + W / 2} y={Y + H + 1} text={p.name} />
       {badge && <Badge x={X + W - 6} y={Y + 6} text={badge} />}
     </g>
