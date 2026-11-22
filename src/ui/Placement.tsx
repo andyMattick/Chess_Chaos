@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { legalActions, play } from '../core/rules';
 import type { GameState, MoveAction } from '../core/types';
 import { PATH } from '../systems/coins';
-import { judgeMove, nextIndex, pickTest, placementRating, type PlacementPuzzle } from '../systems/placement';
+import { applyPlacement, judgeMove, nextIndex, pickTest, placementRating, type PlacementPuzzle } from '../systems/placement';
 import { solverMoves } from '../systems/puzzle';
 import { activeProfile, boardSkins, lookOf, updateProfile } from '../storage/storage';
 import { Board } from './Board';
@@ -17,11 +17,13 @@ import { useSave } from './store';
  */
 type Phase = 'ask' | 'intro' | 'play' | 'reply' | 'right' | 'missed' | 'done';
 
-export function Placement({ done }: { done: () => void }) {
+export function Placement({ done, again = false }: { done: () => void; again?: boolean }) {
   const save = useSave();
   const p = activeProfile(save);
   const test = useMemo(() => pickTest(Math.random), []);
-  const [phase, setPhase] = useState<Phase>('ask');
+  // A current player (from the Bot Path) goes straight to the explanation.
+  const [phase, setPhase] = useState<Phase>(again ? 'intro' : 'ask');
+  const [before, setBefore] = useState<number | null>(null);
   const [results, setResults] = useState<boolean[]>([]);
   const [idx, setIdx] = useState(0);
   const [state, setState] = useState<GameState | null>(null);
@@ -52,12 +54,13 @@ export function Placement({ done }: { done: () => void }) {
     const r = placementRating(res);
     setRating(r);
     setPhase('done');
-    updateProfile((x) => (x.gamesPlayed > 0 ? { ...x, placement: { at: Date.now(), rating: r, solved: res.filter(Boolean).length } } : {
-      ...x,
-      rating: r,
-      ratingHistory: [{ at: Date.now(), rating: r }],
-      placement: { at: Date.now(), rating: r, solved: res.filter(Boolean).length },
-    }));
+    setBefore(p ? p.rating : null);
+    updateProfile((x) => {
+      const now = Date.now();
+      const next = applyPlacement(x, r, res.filter(Boolean).length, now);
+      const history = x.gamesPlayed === 0 ? [{ at: now, rating: next.rating }] : next.rating !== x.rating ? [...x.ratingHistory, { at: now, rating: next.rating }] : x.ratingHistory;
+      return { ...x, rating: next.rating, ratingHistory: history, placement: next.placement };
+    });
   }
 
   function after(res: boolean[]) {
@@ -144,9 +147,10 @@ export function Placement({ done }: { done: () => void }) {
             <h2>Find your level</h2>
             <p>Up to {test.length} puzzles. They get harder: first find 1 good move, then 2, then 3, then 4.</p>
             <p>You get one try at each. Missing some is fine! It just helps us pick the right bots for you.</p>
+            {again && p && p.gamesPlayed > 0 && <p>Your rating is ★{p.rating}. The test can only move it up, never down.</p>}
             <div className="row wrap">
               <button className="btn primary" onClick={() => begin(0)}>Start the puzzles</button>
-              <button className="btn" onClick={skip}>Skip for now</button>
+              <button className="btn" onClick={again ? done : skip}>{again ? 'Not now' : 'Skip for now'}</button>
             </div>
           </>
         )}
@@ -156,11 +160,12 @@ export function Placement({ done }: { done: () => void }) {
 
   if (phase === 'done' && rating !== null) {
     const solved = results.filter(Boolean).length;
-    const open = PATH.filter((b) => b.rating <= rating);
+    const open = PATH.filter((b) => b.rating <= Math.max(rating, p?.placement?.rating ?? 0));
     return (
       <div className="panel placement">
         <div className="result-emoji">{solved >= 6 ? '🏆' : solved >= 3 ? '🌟' : '🌱'}</div>
-        <h2>Your starting rating: ★{rating}</h2>
+        <h2>{again && before !== null && before > rating ? `Puzzle level: ★${rating}` : `${again ? 'Your rating' : 'Your starting rating'}: ★${Math.max(rating, again && before !== null ? before : 0)}`}</h2>
+        {again && before !== null && before >= rating && <p>Your rating stays ★{before}. You're already playing at that level or better!</p>}
         <p>You solved {solved} puzzle{solved === 1 ? '' : 's'}. {solved ? 'Nice thinking!' : 'Every chess player starts somewhere. You will grow fast!'}</p>
         <p>{open.length > 3 ? `We opened the Bot Path up to ${open[open.length - 1].name} ★${open[open.length - 1].rating}.` : 'The first bots on the Bot Path are ready for you.'} Your rating goes up as you win.</p>
         <button className="btn primary" onClick={done}>Let's play!</button>
