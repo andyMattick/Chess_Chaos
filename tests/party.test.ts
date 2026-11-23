@@ -2,10 +2,10 @@ import { newRecord, replay, play, parseSAN, initialState, legalActions } from '.
 import type { Action, GameState } from '../src/core';
 import { MISSIONS, MODIFIERS } from '../src/content/party';
 import { IMPLEMENTED } from '../src/core/modifiers';
-import { blockingMoves, blockingMoves2, dealMissions, defenceMoves, drawMode, missionDefence, missionOff, pickModifiers, refereeAll, refereeMission, setupParty, slotsForGap, redactParty, undoingMoves, PARTY_DECK } from '../src/systems/party';
+import { blockingMoves, blockingMoves2, dealMissions, defenceMoves, drawMode, missionDefence, missionOff, missionWinsAtOnce, pickModifiers, refereeAll, refereeMission, setupParty, slotsForGap, redactParty, undoingMoves, PARTY_DECK } from '../src/systems/party';
 import { missionChallenges } from '../src/core/rules';
 import { MISSION_DEFENCE_TURNS, MISSION_DEFENCE_TURNS_VS_UNDERDOG } from '../src/content/party';
-import { missionDone, MISSION_CHECKS } from '../src/systems/missions';
+import { missionDone, missionHolds, MISSION_CHECKS } from '../src/systems/missions';
 import { fromFEN } from '../src/core';
 
 const seeded = (seed: number) => () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -253,9 +253,35 @@ describe('mission advantage for the weaker player', () => {
     rec.setup.party!.defence = { p1: 0, p2: 1 };
     expect(redactParty(rec.setup.party!, 'p2').missions).toEqual({ p1: 'MISSION-17', p2: 'MISSION-23' });
     expect(redactParty(rec.setup.party!, 'p1').missions).toEqual({ p1: 'MISSION-17', p2: '?' });
+    // Runaway pawn is always shown first, even when open: the other player gets one turn to stop it.
+    expect(missionWinsAtOnce(rec.setup.party!, 'p1')).toBe(false);
     const g = go(rec, 'd5');
-    expect(g.added.map((a) => a.t === 'mission' && a.stage)).toEqual(['win']);
-    expect(g.last.result).toEqual({ reason: 'mission', winners: ['p1'] });
+    expect(g.added).toMatchObject([{ stage: 'reveal', turns: 1 }]);
+    expect(g.last.result).toBeFalsy();
+    const h = go(rec, 'd5 Kb7');
+    expect(h.added.map((a) => a.t === 'mission' && a.stage)).toEqual(['reveal', 'win']);
+    // Other open missions still win at once.
+    rec.setup.party!.missions.p1 = 'MISSION-05';
+    expect(missionWinsAtOnce(rec.setup.party!, 'p1')).toBe(true);
+  });
+});
+
+describe('Skewer can be undone', () => {
+  const skewer = (fen: string, defend: string) => {
+    let s = fromFEN(fen);
+    const m = parseSAN(s, 'Re1+')!;
+    expect(missionDone('MISSION-15', { states: [s, play(s, m)], ply: 0, move: m, player: 'p1', movesMade: 20 })).toBe(true);
+    s = play(play(s, m), parseSAN(play(s, m), defend)!);
+    return missionHolds('MISSION-15', s, 'p1', [m.piece]);
+  };
+  it('still stands when the king steps aside and the piece behind is loose', () => {
+    expect(skewer('4n3/8/8/4k3/8/8/8/R5K1 w - - 0 1', 'Kd5')).toBe(true);
+  });
+  it('is undone when the piece behind is guarded', () => {
+    expect(skewer('4n2r/8/8/4k3/8/8/8/R5K1 w - - 0 1', 'Kd5')).toBe(false);
+  });
+  it('is undone by blocking the line', () => {
+    expect(skewer('4n3/8/2b5/4k3/8/8/8/R5K1 w - - 0 1', 'Be4')).toBe(false);
   });
 });
 

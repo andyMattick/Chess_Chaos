@@ -38,10 +38,46 @@ export function evaluate(s: GameState, pov: PlayerId): number {
   for (const [owner, n] of Object.entries(bishops)) {
     if (n >= 2) score += owner === pov ? 30 : -30;
   }
+  score += mopUpTerm(s, pov, cx, cy);
   score += hillTerm(s, pov);
   score += raceTerm(s, pov);
   score += paintTerm(s, pov);
   return Math.round(score);
+}
+
+/** Who is down to a bare king in a two-player game, or null. */
+export function bareKingSide(s: GameState): PlayerId | null {
+  if (s.seats.length !== 2 || s.board.topology === 'tri' || s.board.wrapFiles) return null;
+  for (const seat of s.seats) {
+    const mine = s.pieces.filter((p) => p.at >= 0 && p.owner === seat.id);
+    const other = s.pieces.filter((p) => p.at >= 0 && p.owner !== seat.id && p.type !== 'king' && p.type !== 'pawn');
+    let otherMaterial = 0;
+    for (const p of other) otherMaterial += pieceType(p.type).value;
+    if (mine.length === 1 && mine[0].type === 'king' && otherMaterial >= 5) return seat.id;
+  }
+  return null;
+}
+
+/**
+ * Mop-up: with a big piece against a bare king, push that king to the edge
+ * and bring our own king close. Without this, a shallow search shuffles the
+ * queen around and never finds the mate (weekly review 2026-11-20).
+ */
+function mopUpTerm(s: GameState, pov: PlayerId, cx: number, cy: number): number {
+  const bare = bareKingSide(s);
+  if (!bare) return 0;
+  const kings = s.pieces.filter((p) => p.at >= 0 && p.type === 'king');
+  const lone = kings.find((k) => k.owner === bare);
+  const hunter = kings.find((k) => k.owner !== bare);
+  if (!lone || !hunter) return 0;
+  const b = s.board;
+  const lf = fileOf(b, lone.at), lr = rankOf(b, lone.at);
+  const hf = fileOf(b, hunter.at), hr = rankOf(b, hunter.at);
+  const edge = Math.abs(lf - cx) + Math.abs(lr - cy);
+  const apart = Math.abs(lf - hf) + Math.abs(lr - hr);
+  // Proximity outweighs the usual endgame pull of our king to the centre.
+  const v = edge * 10 + (14 - apart) * 12;
+  return pov === bare ? -v : v;
 }
 
 function pieceTerm(s: GameState, p: Piece, cx: number, cy: number, endgame: number): number {

@@ -73,3 +73,16 @@ describe('bots', () => {
     expect(toSAN(s, chooseMove(s, { bot: sal, rating: sal.rating, random: () => 0 })!.move)).toBe('c5');
   });
 });
+
+describe('bare king endgames', () => {
+  // Weekly review 2026-11-20: ★800 bots could not always mate with K+Q vs K.
+  const seeded = (seed: number) => () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (const fen of ['7k/8/8/8/8/8/8/Q3K3 w - - 0 1', '8/8/8/4k3/8/8/8/3QK3 w - - 0 1', '8/8/8/8/3k4/8/8/K6R w - - 0 1']) {
+    it(`★800 mates from ${fen}`, () => {
+      let s = fromFEN(fen);
+      const rand = seeded(7);
+      for (let n = 0; n < 100 && !s.result; n++) s = play(s, chooseMove(s, { rating: 800, random: rand })!.move);
+      expect(s.result?.reason).toBe('checkmate');
+    }, 60000);
+  }
+});

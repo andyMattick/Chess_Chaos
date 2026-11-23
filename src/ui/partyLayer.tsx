@@ -10,7 +10,7 @@ import { makeMove } from '../core/movegen';
 import { play } from '../core/rules';
 import type { Action, GameState, MoveAction, PlayerId } from '../core/types';
 import type { PartySetup } from '../systems/party';
-import { missionIsOpen, missionsLive } from '../systems/party';
+import { missionIsOpen, missionsLive, missionWinsAtOnce } from '../systems/party';
 import { missionChallenges } from '../core/rules';
 import { attackersOf, defendersOf, hanging } from '../tactics/attacks';
 import type { BoardOverlays } from './Board';
@@ -100,7 +100,7 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
   // "Missions are live" announcement.
   const live_ = party ? missionsLive(live, party, me) : false;
   useEffect(() => {
-    if (party && party.missions[me] && live_ && !announced.current) { announced.current = true; say(missionIsOpen(party, me) ? '🎯 Missions are LIVE! Do yours and you win at once.' : '🎯 Secret missions are LIVE! Do yours, then keep it safe through their next turn to win.'); }
+    if (party && party.missions[me] && live_ && !announced.current) { announced.current = true; say(missionWinsAtOnce(party, me) ? '🎯 Missions are LIVE! Do yours and you win at once.' : '🎯 Secret missions are LIVE! Do yours, then keep it safe through their next turn to win.'); }
   }, [live_, party]);
 
   // Tax (HCAP-10) and Toll road (HCAP-23): your own move can cost a hint.
@@ -365,7 +365,7 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
       >
         {myOff ? <>🛡️ <b>{missionById(myOff)?.name}</b><small>Stopped. It is out of the game.</small></>
           : myChallenge ? <>🎯 <b>{missionById(myChallenge.id)?.name}</b><small>Shown! Keep it safe for {Math.max(1, myChallenge.left)} more {myChallenge.left > 1 ? 'turns' : 'turn'}.</small></>
-          : missionIsOpen(party, me) && missionText ? <>🎯 <b>{missionText.name}</b><small>Open mission: do it and you win at once!</small>{peek && <MissionPictureView id={missionText.id} size={170} />}</>
+          : missionIsOpen(party, me) && missionText ? <>🎯 <b>{missionText.name}</b><small>{missionWinsAtOnce(party, me) ? 'Open mission: do it and you win at once!' : 'Open mission: do it, then keep it safe for one turn.'}</small>{peek && <MissionPictureView id={missionText.id} size={170} />}</>
           : peek && missionText ? <>🎯 <b>{missionText.name}</b><small>{missionText.blurb}</small><MissionPictureView id={missionText.id} size={170} /></> : <>🤫 Secret mission<small>{live_ ? 'LIVE! Hold to peek' : `Hold to peek · live after move ${party.gate[me] ?? 10}`}</small></>}
       </button>
       )}
@@ -387,7 +387,7 @@ export function usePartyLayer({ party, live, me, myTurn, names, push, takeBack, 
         </div>
       )}
       {other && missionIsOpen(party, other) && party.missions[other] && party.missions[other] !== '?' && !offMap[other] && (
-        <div className="mission-card live warn-card">⚠️ <b>{names[other]}'s mission: {missionById(party.missions[other]!)?.name}</b><small>{missionById(party.missions[other]!)?.blurb} If they do it, they win at once!</small></div>
+        <div className="mission-card live warn-card">⚠️ <b>{names[other]}'s mission: {missionById(party.missions[other]!)?.name}</b><small>{missionById(party.missions[other]!)?.blurb} {missionWinsAtOnce(party, other) ? 'If they do it, they win at once!' : 'If they do it, you get one turn to stop it!'}</small></div>
       )}
       {(myCards.length > 0 || (other && (party.cards?.[other]?.length ?? 0) > 0)) && (
         <div className="party-cards">

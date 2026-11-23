@@ -202,6 +202,11 @@ export function missionIsOpen(p: PartySetup, player: PlayerId): boolean {
   return p.defence?.[player] === 0;
 }
 
+/** Does doing this mission win on the spot? Open missions do, unless the mission is always shown first. */
+export function missionWinsAtOnce(p: PartySetup, player: PlayerId, id = p.missions[player]): boolean {
+  return missionIsOpen(p, player) && !MISSIONS.find((m) => m.id === id)?.alwaysShown;
+}
+
 /** Turns to undo each player's shown mission: fewer against the weaker player's mission when the gap is big enough. */
 export function missionDefence(p1: number, p2: number): Record<'p1' | 'p2', number> {
   const out = { p1: MISSION_DEFENCE_TURNS, p2: MISSION_DEFENCE_TURNS };
@@ -247,8 +252,9 @@ export function refereeMission(states: GameState[], actions: Action[], party: Pa
   const ctx = { states, ply, move: a as MoveAction, player, movesMade: made };
   if (!missionDone(id, ctx)) return null;
   // The weaker player's open mission wins at once.
-  if (missionIsOpen(party, player)) return { t: 'mission', by: player, id, stage: 'win' };
-  return { t: 'mission', by: player, id, stage: 'reveal', target: missionTarget(id, ctx), turns: party.defence?.[player] ?? MISSION_DEFENCE_TURNS };
+  if (missionWinsAtOnce(party, player, id)) return { t: 'mission', by: player, id, stage: 'win' };
+  const turns = Math.max(party.defence?.[player] ?? MISSION_DEFENCE_TURNS, missionIsOpen(party, player) ? 1 : 0);
+  return { t: 'mission', by: player, id, stage: 'reveal', target: missionTarget(id, ctx), turns };
 }
 
 /** Run the referee until it has nothing more to add. Returns the new states and actions. */

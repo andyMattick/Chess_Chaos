@@ -2,6 +2,7 @@ import type { GameState, MoveAction } from '../core/types';
 import { legalActions } from '../core/rules';
 import { pieceType } from '../core/pieces';
 import { allowsMateInOne, bestMove, rankMoves } from './search';
+import { bareKingSide } from './evaluate';
 import { bookMove, compileBook } from './book';
 import type { Bot } from '../content/bots';
 
@@ -79,7 +80,9 @@ export function chooseMove(s: GameState, opts: ChooseOptions): Choice | null {
     return v >= 0 && s.pieces[v].type === 'queen';
   });
 
-  if (rand() < st.weakChance) {
+  // Against a bare king every bot plays its best: a slip lets the mate drift away.
+  const hunting = bareKingSide(s) !== null && bareKingSide(s) !== s.turn;
+  if (!hunting && rand() < st.weakChance) {
     const ranked = rankMoves(s, Math.min(2, st.depth), false, st.timeMs);
     const pool = ranked.slice(2, 6).filter((r) => !allowsMateInOne(s, r.move));
     if (pool.length && !(freeQueen && opts.rating <= 500)) {
@@ -89,7 +92,9 @@ export function chooseMove(s: GameState, opts: ChooseOptions): Choice | null {
 
   // Modes where one side moves twice in a row need one more ply to see the other side's reply.
   const extra = s.mode === 'monster' && s.turn === s.seats[0].id ? 1 : 0;
-  const res = bestMove(s, { depth: st.depth + extra, quiescence: st.quiescence, timeMs: st.timeMs * (extra ? 2 : 1) });
+  // So few pieces that a deeper look is cheap, and it is what finds the mate.
+  const depth = hunting ? Math.max(st.depth, 4) : st.depth;
+  const res = bestMove(s, { depth: depth + extra, quiescence: st.quiescence, timeMs: st.timeMs * (extra ? 2 : 1) });
   let move = res.best ?? legal[0];
   if (freeQueen && opts.rating <= 500 && s.sq[move.to] < 0) {
     const qv = pieceType('queen').value;

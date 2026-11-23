@@ -123,6 +123,24 @@ export function isSkewer(s: GameState, m: MoveAction): boolean {
   return false;
 }
 
+/**
+ * Does this piece still make a skewer threat? Either the skewer line still
+ * stands, or (after the big piece stepped aside) it attacks a piece it wins:
+ * one worth more than itself, or one nobody defends. Blocking the line,
+ * capturing the piece or defending the one behind all end it.
+ */
+export function skewerStands(s: GameState, id: number): boolean {
+  const p = s.pieces[id];
+  if (!p || p.at < 0 || !isSlider(p)) return false;
+  for (const { first, second } of lines(s, p)) {
+    if (!areEnemies(s, p.owner, first.owner)) continue;
+    if (second && first.owner === second.owner && value(first.type) >= 5 && value(second.type) < value(first.type) && value(second.type) >= 3) return true;
+    if (first.type === 'king' || value(first.type) < 3) continue;
+    if (value(first.type) > value(p.type) || defendersOf(s, first.at, first.owner).length === 0) return true;
+  }
+  return false;
+}
+
 /** Moving this piece opens a line so another piece of ours newly attacks the king or a piece worth 3+. */
 export function isDiscovered(s: GameState, m: MoveAction): boolean {
   const owner = s.pieces[m.piece].owner;

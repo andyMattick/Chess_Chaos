@@ -3,7 +3,7 @@ import { baseType, pieceType } from '../core/pieces';
 import { inCheck, makeMove } from '../core/movegen';
 import type { GameState, MoveAction, PlayerId } from '../core/types';
 import { attackersOf, defendersOf } from '../tactics/attacks';
-import { isDiscovered, isFork, isPin, isSkewer } from '../tactics/detectors';
+import { isDiscovered, isFork, isPin, isSkewer, skewerStands } from '../tactics/detectors';
 
 /**
  * Secret-mission detectors (docs/03 Secret missions), checked by the referee
@@ -137,6 +137,7 @@ export const MISSION_HOLDS: Record<string, (s: GameState, player: PlayerId, targ
   'MISSION-07': (s, p) => rookRaid(s, p).length > 0,
   'MISSION-10': ownsCentre,
   'MISSION-11': (s, p) => lead(s, p) >= 2,
+  'MISSION-15': (s, p, target) => target.some((id) => s.pieces[id]?.owner === p && skewerStands(s, id)),
   'MISSION-17': (s, p) => passedPawns(s, p).length > 0,
   'MISSION-18': (s, p, files) => files.some((f) => doubledFiles(s, p).has(f)),
   'MISSION-19': (s, p) => live(s, p, 'bishop').length >= 2,

@@ -5,7 +5,7 @@ import { missionById, modifierById } from '../content/party';
 import { MODE_INFO } from '../core/modes';
 import { activeProfile, updateProfile } from '../storage/storage';
 import { PATH, unlockedCount } from '../systems/coins';
-import { PARTY_MODES, drawMode, missionIsOpen, setupParty } from '../systems/party';
+import { PARTY_MODES, drawMode, missionIsOpen, missionWinsAtOnce, setupParty } from '../systems/party';
 import type { GameConfig } from './GameScreen';
 import { useSave } from './store';
 import { CardTile, HandPicker, useHand } from './Cards';
@@ -86,7 +86,7 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
         ) : missionIsOpen(setup, humanSeat) && mission ? (
           <div className="reveal-card mission-card big open">
             <div className="reveal-emoji">🎯</div><h3>{mission.name}</h3><p>{mission.blurb}</p><MissionPictureView id={mission.id} />
-            <small>You're the underdog, so your mission is open: {bot.name} can see it. But if you do it (after your move {setup.gate[humanSeat]}), you win at once!</small>
+            <small>You're the underdog, so your mission is open: {bot.name} can see it. {missionWinsAtOnce(setup, humanSeat) ? <>But if you do it (after your move {setup.gate[humanSeat]}), you win at once!</> : <>Do it after your move {setup.gate[humanSeat]}, then keep it safe for one turn to win.</>}</small>
           </div>
         ) : (
           <button className={`reveal-card mission-card big ${peek ? 'open' : ''}`} onPointerDown={() => setPeek(true)} onPointerUp={() => setPeek(false)} onPointerLeave={() => setPeek(false)} aria-label="Hold to see your secret mission">
@@ -96,7 +96,7 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
         {missionIsOpen(setup, botSeat) && theirMission && (
           <div className="reveal-card mission-card big open warn-card">
             <div className="reveal-emoji">⚠️</div><h3>{bot.name}'s mission: {theirMission.name}</h3><p>{theirMission.blurb}</p><MissionPictureView id={theirMission.id} />
-            <small>{bot.name} is the underdog, so you can see it. If they do it, they win at once. Stop them!</small>
+            <small>{bot.name} is the underdog, so you can see it. {missionWinsAtOnce(setup, botSeat) ? 'If they do it, they win at once. Stop them!' : 'If they do it, you get one turn to stop it.'}</small>
           </div>
         )}
       </div>
