@@ -5,11 +5,12 @@ import { buildWorld, doorPlace, groundAt, pathTo, placeOn, walkable, type Tile }
 import { lookOf } from '../storage/storage';
 import { Character } from './skins';
 import { useSave } from './store';
+import { IconShapes, PLACE_ICON, PlaceIcon } from './icons';
 
 /**
  * The main screen as a little world to walk around (owner, 2026-11-22): tap
  * anywhere to walk there (tap a building to walk to its door), or use the arrow
- * pad / arrow keys. At a door, a card says where you are: "Go in ▶".
+ * pad / arrow keys. At a door, a card says where you are: "Go in".
  * Our own art, drawn in code: grass, roads, trees, flowers, the sea and houses.
  */
 const U = 40; // SVG units per tile
@@ -127,9 +128,9 @@ export function WorldMap({ places, badges, enter }: { places: Place[]; badges: R
         </svg>
         {card && (
           <div className="world-card" role="status" key={card.id}>
-            <span className="world-card-emoji">{card.emoji}</span>
+            <PlaceIcon id={card.id} emoji={card.emoji} className="world-card-emoji" />
             <span><b>{card.name}</b><small>{card.about}</small></span>
-            <button className="btn primary" onClick={() => enter(card)}>{here ? 'Go in ▶' : 'Go ▶'}</button>
+            <button className="btn primary" onClick={() => enter(card)}>{here ? 'Go in' : 'Go'}</button>
           </div>
         )}
         <div className="dpad" aria-label="Walk">
@@ -239,7 +240,7 @@ function House({ p, badge, glow }: { p: Place; badge?: string; glow: boolean }) 
       <g className={`house ${glow ? 'glow' : ''}`} aria-label={p.name}>
         <rect x={X + 17} y={Y + 10} width={6} height={30} fill="#8a5a2b" stroke="#2d2a3e" strokeWidth={1.5} />
         <path d={`M${X + 2} ${Y + 6} h30 l7 7 l-7 7 h-30 z`} fill={p.wall} stroke="#2d2a3e" strokeWidth={2} />
-        <text x={X + 18} y={Y + 18} fontSize={12} textAnchor="middle">{p.emoji}</text>
+        {PLACE_ICON[p.id] ? <IconShapes name={PLACE_ICON[p.id]} x={X + 11} y={Y + 6.5} size={14} /> : <text x={X + 18} y={Y + 18} fontSize={12} textAnchor="middle">{p.emoji}</text>}
         <Label x={X + U / 2} y={Y + H + 1} text="Chess.com" />
       </g>
     );
@@ -318,7 +319,7 @@ function House({ p, badge, glow }: { p: Place; badge?: string; glow: boolean }) 
       {p.id === 'school' && <g><rect x={X + W / 2 - 7} y={Y - 10} width={14} height={14} fill={p.wall} stroke={INK} strokeWidth={1.5} /><path d={`M${X + W / 2 - 9} ${Y - 10} l9 -8 l9 8 z`} fill={p.roof} stroke={INK} strokeWidth={1.5} /><circle cx={X + W / 2} cy={Y - 3} r={3} fill="#ffd84a" stroke={INK} strokeWidth={1} /></g>}
       {/* The sign: the place's picture on a round plaque */}
       <circle cx={X + W / 2} cy={Y + roofH / 2 + 2} r={Math.min(15, roofH * 0.36)} fill="rgba(255,250,240,0.9)" stroke={INK} strokeWidth={2} />
-      <text x={X + W / 2} y={Y + roofH / 2 + 9} fontSize={Math.min(20, roofH * 0.48)} textAnchor="middle">{p.emoji}</text>
+      {PLACE_ICON[p.id] ? <IconShapes name={PLACE_ICON[p.id]} x={X + W / 2 - Math.min(11, roofH * 0.27)} y={Y + roofH / 2 + 2 - Math.min(11, roofH * 0.27)} size={Math.min(22, roofH * 0.54)} /> : <text x={X + W / 2} y={Y + roofH / 2 + 9} fontSize={Math.min(20, roofH * 0.48)} textAnchor="middle">{p.emoji}</text>}
       <Label x={X + W / 2} y={Y + H + 1} text={p.name} />
       {badge && <Badge x={X + W - 6} y={Y + 6} text={badge} />}
     </g>
@@ -351,7 +352,7 @@ function Cave({ p, X, Y, W, H, doorX, badge, glow }: { p: Place; X: number; Y: n
       <path d={`M${doorX - 15} ${Y + H - 16} l4 5 l4 -5 l4 5 l4 -5 l4 5 l4 -5 l4 5`} fill="none" stroke="#b3a99c" strokeWidth={2} />
       <circle cx={doorX - 22} cy={Y + H - 26} r={3} fill="#ffe27a" className="lamp" /><path d={`M${doorX - 22} ${Y + H - 23} v20`} stroke="#8a5a2b" strokeWidth={2.5} />
       <circle cx={X + W / 2 + 22} cy={Y + 26} r={13} fill="rgba(255,250,240,0.9)" stroke={INK} strokeWidth={2} />
-      <text x={X + W / 2 + 22} y={Y + 32} fontSize={17} textAnchor="middle">{p.emoji}</text>
+      {PLACE_ICON[p.id] ? <IconShapes name={PLACE_ICON[p.id]} x={X + W / 2 + 12} y={Y + 16} size={20} /> : <text x={X + W / 2 + 22} y={Y + 32} fontSize={17} textAnchor="middle">{p.emoji}</text>}
       <Label x={X + W / 2} y={Y + H + 1} text={p.name} />
       {badge && <Badge x={X + W - 6} y={Y + 6} text={badge} />}
     </g>

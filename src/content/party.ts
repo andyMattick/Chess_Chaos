@@ -165,3 +165,16 @@ export const BONUS_CHANCE = 1 / 3;
 export function bonusById(id: string): BonusDef | undefined {
   return BONUS_MISSIONS.find((m) => m.id === id);
 }
+
+/**
+ * How the Party mode list is grouped on screen (design review, 2026-11-25:
+ * 26 modes in one wall of chips). Every Party mode is in exactly one group
+ * (tests/party.test.ts).
+ */
+export const PARTY_MODE_GROUPS: { name: string; modes: string[] }[] = [
+  { name: 'Chess, almost', modes: ['standard', 'shuffle', 'truce', 'mini', 'pawn-wars'] },
+  { name: 'A new way to win', modes: ['koth', 'three-check', 'capture-race', 'capture-the-flag', 'racing-kings', 'giveaway', 'hill-wars', 'paint'] },
+  { name: 'Wild boards', modes: ['wrap', 'lava', 'shrinking', 'atomic'] },
+  { name: 'Wild armies', modes: ['horde', 'monster', 'boss', 'mystery-army', 'hidden-queen', 'drop-in'] },
+  { name: 'Luck and turns', modes: ['random-piece', 'card-chess', 'progressive'] },
+];

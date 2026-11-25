@@ -13,6 +13,7 @@ import { Board, type BoardOverlays } from './Board';
 import type { GameConfig } from './GameScreen';
 import { sfx } from './sound';
 import { useSave } from './store';
+import { Icon } from './icons';
 
 /** Solo mini-games (docs/03 MINI-01 to MINI-09). */
 export function MinisScreen({ back, play }: { back: () => void; play: (c: GameConfig) => void }) {
@@ -39,7 +40,7 @@ export function MinisScreen({ back, play }: { back: () => void; play: (c: GameCo
     const reached = prog(open).level ?? 0;
     const bot = open === 'MINI-04' ? strongBot() : nearBot();
     return (
-      <div className="panel taped">
+      <div className="panel">
         <h2>{MINIS.find((m) => m.id === open)!.emoji} {MINIS.find((m) => m.id === open)!.name}</h2>
         <p>{MINIS.find((m) => m.id === open)!.blurb}</p>
         <ol className="ladder">
@@ -64,19 +65,19 @@ export function MinisScreen({ back, play }: { back: () => void; play: (c: GameCo
     return '';
   };
   return (
-    <div className="panel wide taped">
-      <h2>Mini-games <span className="scribble">quick skills, just you</span></h2>
+    <div className="panel wide">
+      <h2>Mini-games <small className="h-note">Quick skills, just you</small></h2>
       <div className="mini-grid">
         {MINIS.map((m) => (
           <button key={m.id} className="mini-tile" onClick={() => (m.id === 'MINI-01' ? startBot(nearBot(), { mode: 'pawn-wars' }) : setOpen(m.id))}>
             <span className="mini-emoji">{m.emoji}</span>
             <b>{m.name}</b>
             <small>{m.blurb}</small>
-            <span className="mini-skill">{m.skill}{best(m.id) ? ` · ${best(m.id)}` : ''}</span>
+            <span className="mini-skill">{m.skill}{best(m.id) ? `. ${best(m.id)}` : ''}</span>
           </button>
         ))}
       </div>
-      <button className="btn" onClick={back}>← Home</button>
+      <button className="btn" onClick={back}><Icon name="home" /> Home</button>
     </div>
   );
 }
@@ -139,12 +140,12 @@ function PathGame({ id, levels, goal, back }: { id: string; levels: PathLevel[];
   const overlays: BoardOverlays = { walls: true, badges: new Map(left.map((g) => [g, goal])) };
   const mini = MINIS.find((m) => m.id === id)!;
   return (
-    <div className="panel wide taped mini-play">
+    <div className="panel wide mini-play">
       <h2>{mini.emoji} {mini.name}</h2>
       <div className="clock-chips">
         {levels.map((_, i) => <button key={i} className={`chip ${i === idx ? 'on' : ''}`} onClick={() => reset(i)}>{i + 1}{stars[i] ? ` ${'⭐'.repeat(stars[i])}` : ''}</button>)}
       </div>
-      <p><b>Moves: {moves}</b> · best possible: {par} · {left.length ? `${left.length} ${goal} to go` : ''}</p>
+      <p><b>{moves} moves</b> (it can be done in {par}).{left.length ? ` ${left.length} ${goal} to go.` : ''}</p>
       <div className="board-wrap">
         <Board state={s} bottom="p1" selected={done === null ? pieceSq : null} targets={targets} interactive={done === null} onSquare={onSquare} overlays={overlays} {...look} />
       </div>
@@ -186,12 +187,12 @@ function Sprint({ back }: { back: () => void }) {
   });
   const left = end === null ? SPRINT_SECONDS : Math.max(0, Math.ceil((end - now) / 1000));
   return (
-    <div className="panel wide taped mini-play">
+    <div className="panel wide mini-play">
       <h2>⚡ Mate in one sprint</h2>
       {end === null ? (
         <div className="result-card"><p>White to move. Find the checkmate! As many as you can in {SPRINT_SECONDS} seconds.</p><button className="btn primary" onClick={() => { setEnd(Date.now() + SPRINT_SECONDS * 1000); setNow(Date.now()); }}>Go!</button></div>
       ) : (
-        <p className="sprint-bar"><b>⏱️ {left}s</b> · ✅ {score}{flash ? ` · ${flash}` : ''}</p>
+        <p className="sprint-bar"><b>⏱️ {left}s</b> ✅ {score}{flash ? ` ${flash}` : ''}</p>
       )}
       <div className="board-wrap">
         <Board state={s} bottom="p1" selected={taps.selected} targets={taps.targets} interactive={!over && end !== null} onSquare={taps.onSquare} {...look} />
@@ -240,9 +241,9 @@ function GuardRounds({ back, again }: { back: () => void; again: () => void }) {
     const ok = guardsAll(r.item.fen, m);
     r.mark(ok, ok ? '✅ Everything is safe!' : '❌ Something is still in danger.');
   });
-  if (r.done) return <div className="panel taped"><h2>🛡️ Guard duty</h2><Finish score={r.score} id="MINI-06" back={back} again={again} /></div>;
+  if (r.done) return <div className="panel"><h2>🛡️ Guard duty</h2><Finish score={r.score} id="MINI-06" back={back} again={again} /></div>;
   return (
-    <div className="panel wide taped mini-play">
+    <div className="panel wide mini-play">
       <h2>🛡️ Guard duty</h2>
       <p>Round {r.i + 1} of {ROUNDS} · ✅ {r.score}. The wobbly pieces are in danger. Find ONE move that keeps every piece safe (move it, guard it, or block).</p>
       <div className="board-wrap">
@@ -267,12 +268,12 @@ function TradeRounds({ back, again }: { back: () => void; again: () => void }) {
   useEffect(() => { if (r.answer || r.done) return; const t = setInterval(() => setNow(Date.now()), 200); return () => clearInterval(t); }, [r.answer, r.done]);
   const left = Math.max(0, Math.ceil((until - now) / 1000));
   useEffect(() => { if (!r.answer && !r.done && left === 0) r.mark(false, `⏱️ Too slow! ${r.item.wins ? 'It wins material.' : 'It does not win material.'}`); }, [left]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (r.done) return <div className="panel taped"><h2>⚖️ Trade or no trade</h2><Finish score={r.score} id="MINI-07" back={back} again={again} /></div>;
+  if (r.done) return <div className="panel"><h2>⚖️ Trade or no trade</h2><Finish score={r.score} id="MINI-07" back={back} again={again} /></div>;
   const s = fromFEN(r.item.fen);
   const m = tradeMove(r.item.fen, r.item.move)!;
   const answer = (yes: boolean) => r.mark(yes === r.item.wins, yes === r.item.wins ? '✅ Right!' : r.item.wins ? '❌ It does win material: count the pieces that can take back.' : '❌ It loses material once they take back.');
   return (
-    <div className="panel wide taped mini-play">
+    <div className="panel wide mini-play">
       <h2>⚖️ Trade or no trade</h2>
       <p>Round {r.i + 1} of {ROUNDS} · ✅ {r.score} · ⏱️ {left}s. White plays the arrow move. After Black takes back (if it can), has White won material?</p>
       <div className="board-wrap">
@@ -297,7 +298,7 @@ function SpotRounds({ back, again }: { back: () => void; again: () => void }) {
   const look = useBoardLook();
   const r = useRounds(SPOTLIGHT);
   const s = useMemo(() => (r.item ? fromFEN(r.item.fen) : null), [r.item]);
-  if (r.done || !s) return <div className="panel taped"><h2>🔦 Spotlight</h2><Finish score={r.score} id="MINI-08" back={back} again={again} /></div>;
+  if (r.done || !s) return <div className="panel"><h2>🔦 Spotlight</h2><Finish score={r.score} id="MINI-08" back={back} again={again} /></div>;
   const lit = s.sq[r.item.square];
   // The lit piece is always picked up: just tap where it goes.
   const targets = r.answer ? [] : legalActions(s).filter((m) => m.piece === lit);
@@ -308,7 +309,7 @@ function SpotRounds({ back, again }: { back: () => void; again: () => void }) {
     r.mark(ok, ok ? '✅ That\'s the best move for it!' : `❌ Better: ${r.item.best.join(' or ')}.`);
   };
   return (
-    <div className="panel wide taped mini-play">
+    <div className="panel wide mini-play">
       <h2>🔦 Spotlight</h2>
       <p>Round {r.i + 1} of {ROUNDS} · ✅ {r.score}. The lit-up piece is ready to move. Tap its best square!</p>
       <div className="board-wrap">

@@ -12,6 +12,7 @@ import { Character } from './skins';
 import { useSave } from './store';
 import { lookOf } from '../storage/storage';
 import { skinFor } from '../content/cosmetics';
+import { Icon } from './icons';
 
 /**
  * Every 1 vs 1 game mode against a bot on this device. Party matches draw
@@ -50,8 +51,8 @@ export function ModesScreen({ start, back }: { start: (c: GameConfig) => void; b
   if (drafting) return <ArmyShop onDone={(army) => begin('draft', army)} onCancel={() => setDrafting(false)} />;
 
   return (
-    <div className="panel wide taped">
-      <h2>Game modes <span className="scribble">pick your chaos</span></h2>
+    <div className="panel wide">
+      <h2>Game modes</h2>
       <p className="muted">Every mode here, against a bot. (Party matches pick one of these for you at random.)</p>
       <h3>Opponent</h3>
       <div className="clock-chips">
@@ -81,7 +82,7 @@ export function ModesScreen({ start, back }: { start: (c: GameConfig) => void; b
           );
         })}
       </div>
-      <button className="btn" onClick={back}>← Home</button>
+      <button className="btn" onClick={back}><Icon name="home" /> Home</button>
     </div>
   );
 }
@@ -100,8 +101,8 @@ export function ArmyShop({ onDone, onCancel, title = 'Build your army' }: { onDo
   const add = (t: string, c: number) => { if (spent + c <= DRAFT_BUDGET && army.length < 15) setArmy([...army, t]); };
   const remove = (t: string) => { const i = army.lastIndexOf(t); if (i >= 0) setArmy(army.filter((_, k) => k !== i)); };
   return (
-    <div className="panel taped army-shop">
-      <h2>{title} <span className="scribble">{DRAFT_BUDGET - spent} points left</span></h2>
+    <div className="panel army-shop">
+      <h2>{title} <small className="h-note">{DRAFT_BUDGET - spent} points left</small></h2>
       <p className="muted">You get a king for free. Spend up to {DRAFT_BUDGET} points. Pieces go on your first two rows.</p>
       <div className="shop-rows">
         {SHOP.map(({ type, cost }) => (
@@ -118,7 +119,7 @@ export function ArmyShop({ onDone, onCancel, title = 'Build your army' }: { onDo
       <div className="row wrap">
         <button className="btn primary" disabled={!army.length} onClick={() => onDone(army)}>Ready! ⚔️</button>
         <button className="btn" onClick={() => setArmy(randomArmy(DRAFT_BUDGET, (n) => Math.floor(Math.random() * n)))}>🎲 Surprise me</button>
-        {onCancel && <button className="btn" onClick={onCancel}>← Back</button>}
+        {onCancel && <button className="btn" onClick={onCancel}>Back</button>}
       </div>
     </div>
   );
@@ -139,7 +140,7 @@ function EveryoneLikes() {
           <p className="muted small">{votes.voters} {votes.voters === 1 ? 'player has' : 'players have'} ranked modes (only players with a player number, no names).</p>
           <ol className="leaderboard">
             {votes.modes.slice(0, 10).map((m, i) => (
-              <li key={m.mode}><span className="place">{i + 1}</span><span className="lb-name"><b>{name(m.mode)}</b><small>❤️ {m.favourite} favourite · 🚫 {m.never} never</small></span><span className="bot-rating">{'★'.repeat(Math.round(m.average))}{'☆'.repeat(3 - Math.round(m.average))}</span></li>
+              <li key={m.mode}><span className="place">{i + 1}</span><span className="lb-name"><b>{name(m.mode)}</b><small>❤️ {m.favourite} love it, 🚫 {m.never} never want it</small></span><span className="bot-rating">{'★'.repeat(Math.round(m.average))}{'☆'.repeat(3 - Math.round(m.average))}</span></li>
             ))}
           </ol>
         </>

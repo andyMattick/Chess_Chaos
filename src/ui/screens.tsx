@@ -21,6 +21,8 @@ import { POWER_CARDS } from '../content/cards';
 import type { GameConfig } from './GameScreen';
 import { petWorld } from './petWorld';
 import { vaultBase } from '../storage/cloud';
+import { recordText } from './words';
+import { Icon, PlaceIcon } from './icons';
 
 const COLOURS = ['#ff7a59', '#ffc93c', '#5bd17a', '#4aa8ff', '#a77bff', '#ff6fb5'];
 
@@ -77,7 +79,7 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
         </div>
         <ProfileChip onClick={() => go('profiles')} />
       </header>
-      <p className="tagline">{p ? `Hi ${p.nickname}! Walk to a place, or tap it.` : 'Make a player to get started.'}</p>
+      <p className="home-hint">{p ? `Hi ${p.nickname}! Tap a place to walk there.` : 'Make a player to get started.'}</p>
       {p && !petWorld && luSession.savedCode() && (
         <button className="live-banner" onClick={() => go('levelup')}>⚡ Your live Level-Up room {luSession.savedCode()} is still open. Tap to go back.</button>
       )}
@@ -92,14 +94,14 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
       <details className="all-places">
         <summary>🗺️ All places</summary>
         <div className="tiles">
-          {places.map((pl) => <Tile key={pl.id} emoji={pl.emoji} title={pl.name} sub={badges[pl.id] && pl.id !== 'quests' ? `${pl.sub} · ${badges[pl.id]}` : pl.sub} c={pl.roof} onClick={() => enter(pl)} disabled={!p} />)}
+          {places.map((pl) => <Tile key={pl.id} id={pl.id} emoji={pl.emoji} title={pl.name} sub={badges[pl.id] && pl.id !== 'quests' ? `${pl.sub} (${badges[pl.id]})` : pl.sub} c={pl.roof} onClick={() => enter(pl)} disabled={!p} />)}
         </div>
       </details>
       {dailyOpen && p && (
         <div className="quest-modal" role="dialog" aria-label="Daily missions" onClick={(e) => { if (e.target === e.currentTarget) setDailyOpen(false); }}>
           <div className="quest-board">
             <DailyPanel daily={p.daily} go={(s) => { setDailyOpen(false); go(s); }} />
-            <button className="btn" onClick={() => setDailyOpen(false)}>← Back to the map</button>
+            <button className="btn" onClick={() => setDailyOpen(false)}>Back to the map</button>
           </div>
         </div>
       )}
@@ -129,7 +131,7 @@ function DailyPanel({ daily, go }: { daily: DailyState | undefined; go: (s: Dail
                 <span className="small">{Math.min(got, m.need)} / {m.need}</span>
                 {claimed ? <span className="small">🪙 {m.coins} collected</span>
                   : done ? <button className="btn primary small" onClick={() => claimDaily(id)}>Collect 🪙 {m.coins}</button>
-                  : <button className="btn small" onClick={() => go(m.go)}>Go ▶</button>}
+                  : <button className="btn small" onClick={() => go(m.go)}>Go</button>}
               </div>
             </div>
           );
@@ -140,10 +142,10 @@ function DailyPanel({ daily, go }: { daily: DailyState | undefined; go: (s: Dail
   );
 }
 
-function Tile({ emoji, title, sub, c, onClick, disabled }: { emoji: string; title: string; sub: string; c: string; onClick: () => void; disabled?: boolean }) {
+function Tile({ id, emoji, title, sub, c, onClick, disabled }: { id?: string; emoji: string; title: string; sub: string; c: string; onClick: () => void; disabled?: boolean }) {
   return (
     <button className="tile" style={{ ['--c' as string]: c }} onClick={onClick} disabled={disabled}>
-      <span className="tile-emoji">{emoji}</span>
+      {id ? <PlaceIcon id={id} emoji={emoji} className="tile-emoji" /> : <span className="tile-emoji">{emoji}</span>}
       <span className="tile-title">{title}</span>
       <span className="tile-sub">{sub}</span>
     </button>
@@ -230,7 +232,7 @@ export function Profiles({ done }: { done: () => void }) {
       </div>
       {petWorld && vaultBase() && <p className="small">📱 Already play on a phone or tablet? Load your player number below and keep the same progress.</p>}
       <CloudRestore done={done} />
-      {save.profiles.length > 0 ? <button className="btn" onClick={done}>← Back</button> : <BackupButtons onlyLoad />}
+      {save.profiles.length > 0 ? <button className="btn" onClick={done}>Back</button> : <BackupButtons onlyLoad />}
     </div>
   );
 }
@@ -309,21 +311,21 @@ export function BotRoster({ start, back, learn, findLevel }: { start: (c: GameCo
           <button className="btn" onClick={() => begin('random')}>🎲 Surprise me</button>
         </div>
         {learn && <button className="btn" onClick={() => learn(chosen.id)}>📖 Learn this opening</button>}
-        <button className="btn" onClick={() => setChosen(null)}>← All bots</button>
+        <button className="btn" onClick={() => setChosen(null)}>All bots</button>
       </div>
     );
   }
   const unlocked = unlockedCount(p?.botRecords ?? {}, p?.placement?.rating);
   const nextIdx = PATH.findIndex((b, i) => i < unlocked && !(p?.botRecords[b.id]?.w));
   return (
-    <div className="panel wide taped">
-      <h2>The Bot Path <span className="scribble">beat one to open the next</span></h2>
-      <p className="muted">After its favourite opening, each bot plays with the game's own chess engine at its own strength. Your rating: ★ {p?.rating} · 🪙 first win against a bot pays 25 extra coins.</p>
+    <div className="panel wide">
+      <h2>The Bot Path <small className="h-note">Beat one to open the next</small></h2>
+      <p className="muted">Each bot is a bit tougher than the last. Your rating is ★ {p?.rating}. Beat a bot for the first time and you get 25 extra coins.</p>
       {findLevel && p && (
         <div className="find-level">
           <span>🧩 <b>Bots too easy?</b> Solve a few puzzles and we'll open the bots that match you. Your rating can only go up.</span>
           {canTakePlacement(p, Date.now())
-            ? <button className="btn small primary" onClick={findLevel}>Find my level</button>
+            ? <button className="btn small" onClick={findLevel}>Find my level</button>
             : <small className="muted">You can take it again tomorrow.</small>}
         </div>
       )}
@@ -344,7 +346,7 @@ export function BotRoster({ start, back, learn, findLevel }: { start: (c: GameCo
                 <button className="path-info" disabled={!open} onClick={() => setChosen(b)}>
                   <b>{open ? b.name : '???'} <span className="bot-rating">★ {b.rating}</span></b>
                   <span className="bot-opening">{open ? b.opening : 'Beat the bot before to unlock'}</span>
-                  {r && <span className="bot-record">W {r.w} · L {r.l} · D {r.d}</span>}
+                  {r && <span className="bot-record">{recordText(r)}</span>}
                 </button>
               </div>
             </div>
@@ -357,16 +359,16 @@ export function BotRoster({ start, back, learn, findLevel }: { start: (c: GameCo
       {p && <MirrorSection p={p} games={save.games[p.id] ?? []} play={(b) => setChosen(b)} />}
       {(p?.nemeses?.length ?? 0) > 0 && (
         <section className="nemesis-list">
-          <h3>😈 Your nemeses <span className="scribble">bots that play like real people</span></h3>
+          <h3>😈 Your nemeses <small className="h-note">Bots that play like real people</small></h3>
           {p!.nemeses.map((n) => {
             const b = nemesisBot(n);
             const r = p!.botRecords[b.id];
             return (
               <NemesisCard key={n.key} n={n}>
                 <div className="row wrap">
-                  <button className="btn primary" onClick={() => setChosen(b)}>Play {n.name}'s nemesis</button>
+                  <button className="btn" onClick={() => setChosen(b)}>Play {n.name}'s nemesis</button>
                   <button className="btn small" onClick={() => updateProfile((x) => ({ ...x, nemeses: x.nemeses.filter((y) => y.key !== n.key) }))}>Remove</button>
-                  {r && <span className="bot-record">W {r.w} · L {r.l} · D {r.d}</span>}
+                  {r && <span className="bot-record">{recordText(r)}</span>}
                 </div>
               </NemesisCard>
             );
@@ -374,7 +376,7 @@ export function BotRoster({ start, back, learn, findLevel }: { start: (c: GameCo
         </section>
       )}
       {!petWorld && save.settings.chesscomEnabled && <p className="muted small">Make a nemesis bot of any Chess.com player in the Chess.com corner.</p>}
-      <button className="btn" onClick={back}>← Home</button>
+      <button className="btn" onClick={back}><Icon name="home" /> Home</button>
     </div>
   );
 }
@@ -393,12 +395,12 @@ function MirrorSection({ p, games, play }: { p: Profile; games: GameRecord[]; pl
   const r = p.botRecords['NEM:@me'];
   return (
     <section className="nemesis-list">
-      <h3>🪞 Your Mirror <span className="scribble">a bot that plays like you</span></h3>
+      <h3>🪞 Your Mirror <small className="h-note">A bot that plays like you</small></h3>
       {n && lines.length >= need ? (
         <NemesisCard n={n}>
           <div className="row wrap">
-            <button className="btn primary" onClick={open}>Play your Mirror</button>
-            {r && <span className="bot-record">W {r.w} · L {r.l} · D {r.d}</span>}
+            <button className="btn" onClick={open}>Play your Mirror</button>
+            {r && <span className="bot-record">{recordText(r)}</span>}
           </div>
         </NemesisCard>
       ) : (
@@ -425,13 +427,13 @@ export function History({ open, back }: { open: (r: GameRecord) => void; back: (
             <li key={g.id}>
               <button onClick={() => open(g)}>
                 <b>{names.p1} vs {names.p2}</b>
-                <span>{outcome} · {Math.ceil((g.meta.san?.length ?? g.actions.length) / 2)} moves · {new Date(g.meta.startedAt).toLocaleDateString()}</span>
+                <span>{outcome} in {Math.ceil((g.meta.san?.length ?? g.actions.length) / 2)} moves, {new Date(g.meta.startedAt).toLocaleDateString()}</span>
               </button>
             </li>
           );
         })}
       </ul>
-      <button className="btn" onClick={back}>← Home</button>
+      <button className="btn" onClick={back}><Icon name="home" /> Home</button>
     </div>
   );
 }

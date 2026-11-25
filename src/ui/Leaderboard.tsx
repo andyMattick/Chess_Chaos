@@ -7,6 +7,8 @@ import { activeProfile, type Opponent } from '../storage/storage';
 import { BOTS } from '../content/bots';
 import type { GameRecord } from '../core/record';
 import { useSave } from './store';
+import { recordText, count } from './words';
+import { Icon } from './icons';
 
 /**
  * Leaderboard: you, everyone you have played online, and the bots you have
@@ -42,8 +44,8 @@ export function Leaderboard({ back, challenge }: { back: () => void; challenge?:
   const unknown = rows.some((r) => r.kind === 'online' && !liveRow(r.name));
   const medal = ['🥇', '🥈', '🥉'];
   return (
-    <div className="panel taped">
-      <h2>Leaderboard <span className="scribble">who's on top?</span></h2>
+    <div className="panel">
+      <h2>Leaderboard</h2>
       {vaultBase() && (
         <div className="tabs">
           <button className="chip on">📱 People I've played</button>
@@ -67,7 +69,7 @@ export function Leaderboard({ back, challenge }: { back: () => void; challenge?:
         ))}
       </ol>
       {unknown && <p className="muted small">🌐 Players met with a room code only share their nickname, so their world rank and live record can't be looked up. ★ ? means no rating saved yet. Add them as a friend after your next game to see everything.</p>}
-      <button className="btn" onClick={back}>← Home</button>
+      <button className="btn" onClick={back}><Icon name="home" /> Home</button>
     </div>
   );
 }
@@ -123,7 +125,7 @@ function WorldBoard({ back, mine, challenge }: { back: () => void; mine: () => v
   const row = (r: BoardRow) => (
     <li key={`${r.rank}-${r.n}`} className={r.me ? 'me' : friends.includes(r.n) ? 'friend' : ''}>
       <span className="place">{medal[r.rank - 1] ?? r.rank}</span>
-      <span className="lb-name"><b>{nameOf(r)}</b><small>W {r.w} · L {r.l} · D {r.d} · {r.g} games</small>
+      <span className="lb-name"><b>{nameOf(r)}</b><small>{recordText(r)} ({count(r.g, 'game')})</small>
         {p?.cloud && !r.me && !friends.includes(r.n) && /^\d{8}$/.test(r.n) && (
           asked[r.n] ? <small className="muted">{asked[r.n]}</small> : (
             <span className="row wrap">
@@ -137,8 +139,8 @@ function WorldBoard({ back, mine, challenge }: { back: () => void; mine: () => v
     </li>
   );
   return (
-    <div className="panel taped">
-      <h2>Leaderboard <span className="scribble">the whole world</span></h2>
+    <div className="panel">
+      <h2>Leaderboard</h2>
       <div className="tabs">
         <button className="chip" onClick={mine}>📱 People I've played</button>
         <button className="chip on">🌍 World</button>
@@ -159,7 +161,7 @@ function WorldBoard({ back, mine, challenge }: { back: () => void; mine: () => v
       {!board && !err && <p className="muted">Loading…</p>}
       {board && view === 'top' && (
         <>
-          <p className="muted small">{board.players} {board.players === 1 ? 'player' : 'players'}{board.me ? ` · you are #${board.me.rank}` : ''}</p>
+          <p className="muted small">{board.players} {board.players === 1 ? 'player' : 'players'}{board.me ? `. You are number ${board.me.rank}.` : ''}</p>
           <ol className="leaderboard">
             {board.top.map(row)}
             {board.me && board.me.rank > board.top.length && row(board.me)}
@@ -186,7 +188,7 @@ function WorldBoard({ back, mine, challenge }: { back: () => void; mine: () => v
           </ol>
         )
       )}
-      <button className="btn" onClick={back}>← Home</button>
+      <button className="btn" onClick={back}><Icon name="home" /> Home</button>
     </div>
   );
 }

@@ -18,6 +18,7 @@ import { QuickToggles } from './QuickToggles';
 import { SURVIVAL } from '../content/survival';
 import type { GameConfig } from './GameScreen';
 import { petWorld } from './petWorld';
+import { Icon } from './icons';
 
 /**
  * Puzzles (docs/06 CC-02, CC-03): Chess.com's daily and random puzzles played
@@ -327,7 +328,7 @@ export function PuzzleScreen({ back, startGame }: { back: () => void; startGame?
               {reward.streakUp && <p className="rating-change">Daily streak: {reward.streak} day{reward.streak === 1 ? '' : 's'}!</p>}
               <p className="rating-change">{reward.coins ? `+${reward.coins} 🪙` : 'You already got coins for this one.'}</p>
               <div className="share-row">
-                <button className="btn primary" onClick={nextPuzzle}>Next puzzle →</button>
+                <button className="btn primary" onClick={nextPuzzle}>Next puzzle</button>
                 <button className="btn" onClick={() => setReward(null)}>Look at the board</button>
               </div>
             </div>
@@ -335,23 +336,23 @@ export function PuzzleScreen({ back, startGame }: { back: () => void; startGame?
         </div>
       </div>
       <aside className="game-side">
-        <h2 style={{ margin: 0 }}>Puzzles <span className="scribble">find the trick</span></h2>
+        <h2 style={{ margin: 0 }}>Puzzles</h2>
         <div className="puzzle-stats">
           <span title="Days in a row with the daily puzzle solved">🔥 {streak} day{streak === 1 ? '' : 's'}</span>
           <span>🏅 best {progress.best}</span>
           <span>🧩 {progress.solved} solved</span>
         </div>
         <div className="puzzle-tabs">
-          {ccOn && <button className={`btn ${tab === 'daily' ? 'primary' : ''}`} onClick={() => load('daily')}>📅 Today's</button>}
-          {ccOn && <button className={`btn ${tab === 'random' ? 'primary' : ''}`} onClick={() => load('random')}>🎲 Random</button>}
-          <button className={`btn ${tab === 'warmup' ? 'primary' : ''}`} onClick={() => load('warmup')}>🌱 Warm-ups</button>
-          <button className={`btn ${tab === 'gauntlet' ? 'primary' : ''}`} onClick={() => { setRun(null); setTimeout(() => load('gauntlet'), 0); }}>❤️ Gauntlet</button>
-          {startGame && <button className={`btn ${tab === 'survival' ? 'primary' : ''}`} onClick={() => load('survival')}>🛡️ Survival</button>}
-          <button className={`btn ${tab === 'slips' ? 'primary' : ''}`} onClick={() => { setSlipIdx(0); load('slips', 0); }}>🔁 My slips{(p?.slips?.pending.length ?? 0) > 0 ? ` (${p!.slips!.pending.length})` : ''}</button>
+          {ccOn && <button className={`btn ${tab === 'daily' ? 'on' : ''}`} onClick={() => load('daily')}>📅 Today's</button>}
+          {ccOn && <button className={`btn ${tab === 'random' ? 'on' : ''}`} onClick={() => load('random')}>🎲 Random</button>}
+          <button className={`btn ${tab === 'warmup' ? 'on' : ''}`} onClick={() => load('warmup')}>🌱 Warm-ups</button>
+          <button className={`btn ${tab === 'gauntlet' ? 'on' : ''}`} onClick={() => { setRun(null); setTimeout(() => load('gauntlet'), 0); }}>❤️ Gauntlet</button>
+          {startGame && <button className={`btn ${tab === 'survival' ? 'on' : ''}`} onClick={() => load('survival')}>🛡️ Survival</button>}
+          <button className={`btn ${tab === 'slips' ? 'on' : ''}`} onClick={() => { setSlipIdx(0); load('slips', 0); }}>🔁 My slips{(p?.slips?.pending.length ?? 0) > 0 ? ` (${p!.slips!.pending.length})` : ''}</button>
         </div>
         {tab === 'gauntlet' && run && (
           <div className="gauntlet">
-            <b>{'❤️'.repeat(Math.max(0, run.lives))}{'🖤'.repeat(Math.max(0, 3 - run.lives))}</b> Score: <b>{run.score}</b> · Best: {progress.gauntletBest ?? 0}
+            <b>{'❤️'.repeat(Math.max(0, run.lives))}{'🖤'.repeat(Math.max(0, 3 - run.lives))}</b> Score <b>{run.score}</b>, your best is {progress.gauntletBest ?? 0}
             {run.over && <p><b>{run.lives <= 0 ? 'Out of lives!' : 'You did every puzzle we have!'}</b> Final score: {run.score}. <button className="btn small" onClick={() => { setRun(null); setTimeout(() => load('gauntlet'), 0); }}>Go again</button></p>}
           </div>
         )}
@@ -394,11 +395,11 @@ export function PuzzleScreen({ back, startGame }: { back: () => void; startGame?
             {tries >= 3 && <button className="btn" onClick={showMe}>👀 Show me</button>}
           </div>
         )}
-        {(phase === 'solved' || phase === 'shown') && !reward && <button className="btn primary" onClick={nextPuzzle}>Next puzzle →</button>}
+        {(phase === 'solved' || phase === 'shown') && !reward && <button className="btn primary" onClick={nextPuzzle}>Next puzzle</button>}
         {phase === 'error' && <button className="btn primary" onClick={() => load('warmup')}>🌱 Play a warm-up</button>}
         <p className="muted small">Puzzles don't change your rating. A hint halves the coins.</p>
         <QuickToggles />
-        <button className="btn" onClick={back}>← Home</button>
+        <button className="btn" onClick={back}><Icon name="home" /> Home</button>
       </aside>
     </div>
   );

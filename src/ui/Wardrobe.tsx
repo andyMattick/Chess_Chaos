@@ -5,6 +5,7 @@ import { LANDSCAPES, squareDoodle } from './landscapes';
 import { Character, SKINS, skinInfo } from './skins';
 import { sfx } from './sound';
 import { useSave } from './store';
+import { Icon } from './icons';
 
 const TYPES = ['king', 'queen', 'rook', 'bishop', 'knight', 'pawn'];
 const SIDES = [
@@ -55,9 +56,9 @@ export function Wardrobe({ back }: { back: () => void }) {
   };
 
   return (
-    <div className="panel wide taped">
+    <div className="panel wide">
       <div className="wardrobe-head">
-        <h2>Wardrobe <span className="scribble">dress 'em up</span></h2>
+        <h2>Wardrobe</h2>
         <div className="wallet">🪙 {p.coins}</div>
       </div>
       <p className="muted small">Win games, finish goals and find tricks to earn coins. Every game pays something.</p>
@@ -68,7 +69,7 @@ export function Wardrobe({ back }: { back: () => void }) {
       </div>
       {SIDES.filter(({ seat }) => seat === tab).map(({ seat, label }) => (
         <section key={seat} className="army">
-          <h3>{label}{seat === 'p1' && <span className="scribble">this is your army online</span>}</h3>
+          <h3>{label}{seat === 'p1' && <small className="h-note">This is your army online</small>}</h3>
           <div className="skin-row">
             {allIds.map((id) => ({ id, ...skinInfo(id) })).map((s) => {
               const have = owns(s.id);
@@ -150,7 +151,7 @@ export function Wardrobe({ back }: { back: () => void }) {
           );
         })}
       </div>}
-      <button className="btn" onClick={back}>← Home</button>
+      <button className="btn" onClick={back}><Icon name="home" /> Home</button>
 
       {buying && (
         <div className="shop-modal" role="dialog" aria-label="Buy">

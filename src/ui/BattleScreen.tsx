@@ -23,6 +23,7 @@ import { useSave } from './store';
 import { PAINT_COLOUR, paintTints } from './paintOverlay';
 import { PAINT_ROUNDS, paintRound, paintScores } from '../core/modes2';
 import { QuickToggles } from './QuickToggles';
+import { Icon } from './icons';
 
 /**
  * Three and four player battles (docs/09 s4-5): everyone for themselves or
@@ -291,7 +292,7 @@ export function BattleScreen({ local, onExit, onAgain }: { local?: LocalBattle; 
         )}
         {!live.result && myStatus === 'active' && <button className="btn small danger" onClick={() => push({ t: 'resign', by: me })}>🏳 Give up</button>}
         <QuickToggles />
-        <button className="btn" onClick={onExit}>← Home</button>
+        <button className="btn" onClick={onExit}><Icon name="home" /> Home</button>
       </aside>
     </div>
   );

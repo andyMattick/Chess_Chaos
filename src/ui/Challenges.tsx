@@ -12,6 +12,7 @@ import { NumberPrompt } from './CloudSave';
 import { StatsLine, useWorldBoard } from './FriendStats';
 import type { GameConfig } from './GameScreen';
 import { useSave } from './store';
+import { Icon } from './icons';
 
 /**
  * Challenges by player number (owner, 2026-11-18): send a friend a game,
@@ -55,14 +56,14 @@ export function Challenges({ back, play, playLevelUp, initialTo, initialGame }: 
   }, [number]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!p) return null;
-  if (!vaultBase()) return <div className="panel"><h2>📬 Challenges</h2><p>Challenges need the game server, which is not set up here.</p><button className="btn" onClick={back}>← Home</button></div>;
+  if (!vaultBase()) return <div className="panel"><h2>📬 Challenges</h2><p>Challenges need the game server, which is not set up here.</p><button className="btn" onClick={back}><Icon name="home" /> Home</button></div>;
   if (!number) {
     return (
-      <div className="panel taped">
-        <h2>📬 Challenges <span className="scribble">play a friend, a move at a time</span></h2>
+      <div className="panel">
+        <h2>📬 Challenges <small className="h-note">Play a friend, a move at a time</small></h2>
         <p>Send a friend a game and play a move whenever you like. First you need a player number: it's your address for challenges.</p>
         <NumberPrompt why="Challenges, friends and tournaments need a player number: it's your address." />
-        <button className="btn" onClick={back}>← Home</button>
+        <button className="btn" onClick={back}><Icon name="home" /> Home</button>
       </div>
     );
   }
@@ -129,12 +130,12 @@ export function Challenges({ back, play, playLevelUp, initialTo, initialGame }: 
     );
   };
   const row = (g: MailGame, actions: React.ReactNode) => (
-    <li key={g.id} className="mail-row">{who(g)}<small>{g.tournament ? '🏆 Tournament · ' : g.ladder ? '🪜 Ladder · ' : ''}{modeLabel(g)} · you play {g.lu ? (mySeat(g) === 'p1' ? 'Blue' : 'Red') : mySeat(g) === 'p1' ? 'White' : 'Black'}</small><span className="row wrap">{actions}</span></li>
+    <li key={g.id} className="mail-row">{who(g)}<small>{g.tournament ? '🏆 Tournament: ' : g.ladder ? '🪜 Ladder: ' : ''}{modeLabel(g)}. You play {g.lu ? (mySeat(g) === 'p1' ? 'Blue' : 'Red') : mySeat(g) === 'p1' ? 'White' : 'Black'}</small><span className="row wrap">{actions}</span></li>
   );
 
   return (
-    <div className="panel wide taped">
-      <h2>📬 Challenges <span className="scribble">a move at a time</span></h2>
+    <div className="panel wide">
+      <h2>📬 Challenges <small className="h-note">A move at a time</small></h2>
       <div className="cloud-card">
         <span>Your player number</span>
         <code className="big-number">{showNumber(number)}</code>
@@ -149,7 +150,7 @@ export function Challenges({ back, play, playLevelUp, initialTo, initialGame }: 
       {theirTurn.length > 0 && <><h3>⏳ Their move</h3><ul className="mail-list">{theirTurn.map((g) => row(g, <button className="btn small" onClick={() => open(g)}>Look</button>))}</ul></>}
       {sent.length > 0 && <><h3>📤 Waiting for an answer</h3><ul className="mail-list">{sent.map((g) => row(g, <button className="btn small" onClick={() => act(g, 'cancel')}>Cancel</button>))}</ul></>}
 
-      <h3>👫 Friends <span className="scribble">only on this phone</span></h3>
+      <h3>👫 Friends <small className="h-note">Only on this phone</small></h3>
       {(p.friends ?? []).length === 0 && <p className="muted small">No friends yet. Add a friend's number below, or tap "Add as friend" after you play someone.</p>}
       <ul className="mail-list">
         {(p.friends ?? []).map((n) => (
@@ -209,7 +210,7 @@ export function Challenges({ back, play, playLevelUp, initialTo, initialGame }: 
         <button className="btn small" disabled={addNo.replace(/\D/g, '').length !== 8} onClick={() => { const no = addNo, nm = addName; requestFriend(no, nm).then((st) => { setAddNo(''); setAddName(''); setFriendNote(st === 'friends' ? '🤝 Friends on both phones now!' : '📨 Friend request sent. They\'ll see it in the app.'); return refresh(); }).catch((e) => setErr((e as Error).message)); }}>➕ Add friend</button>
       </div>
 
-      <h3>🏆 Tournaments <span className="scribble">knockout, a move at a time</span></h3>
+      <h3>🏆 Tournaments <small className="h-note">Knockout, a move at a time</small></h3>
       {tours.map((t) => <TournamentCard key={t.id} t={t} me={number} label={(n) => seatName(n, t.id)} games={list} open={open} act={(a) => tournamentAction(t.id, a).then(refresh).catch((e) => setErr((e as Error).message))} />)}
       {(() => {
         const free = TOURNAMENT_MAX - 1 - tPick.length;
@@ -267,7 +268,7 @@ export function Challenges({ back, play, playLevelUp, initialTo, initialGame }: 
         <span className="small">{resultText(g)}</span>
         {g.status === 'done' && <button className="btn small" onClick={() => open(g)}>Look</button>}
       </>))}</ul></>}
-      <button className="btn" onClick={back}>← Home</button>
+      <button className="btn" onClick={back}><Icon name="home" /> Home</button>
     </div>
   );
 }
@@ -280,7 +281,7 @@ function TournamentCard({ t, me, label, games, open, act }: { t: Tournament; me:
   const myGame = t.status === 'running' ? games.find((g) => g.tournament === t.id && g.status === 'playing') : undefined;
   return (
     <div className="tour-card">
-      <b>🏆 {mode} Cup</b> <small className="muted">by {who(t.organizer)} · {t.players.length} players</small>
+      <b>🏆 {mode} Cup</b> <small className="muted">by {who(t.organizer)}, {t.players.length} players</small>
       {t.status === 'invited' && (
         <>
           <p className="small">Joined: {t.joined.map(who).join(', ')}{t.declined.length ? ` · said no: ${t.declined.map(who).join(', ')}` : ''}</p>

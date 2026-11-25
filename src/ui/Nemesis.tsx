@@ -40,7 +40,7 @@ export function NemesisCard({ n, children }: { n: Nemesis; children?: React.Reac
           <p className="small">Copies the openings from your last {n.games} classic games, then thinks at about your strength (★ {n.rating}).</p>
         ) : (
           <p className="small">
-            Plays the openings of <b>{n.name}</b> from {n.games} real games, then thinks with our engine at about ★ {n.rating} strength
+            Plays the openings of <b>{n.name}</b> from {n.games} real games, then plays like a ★ {n.rating} player
             {n.ccRating && n.ccRating > n.rating ? ` (the strongest we have; ${n.name} is ★ ${n.ccRating} on Chess.com)` : ''}.
           </p>
         )}

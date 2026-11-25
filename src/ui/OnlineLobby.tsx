@@ -7,6 +7,7 @@ import { GameScreen } from './GameScreen';
 import { useSave } from './store';
 import { HandPicker, useHand } from './Cards';
 import { POWER_CARDS } from '../content/cards';
+import { Icon } from './icons';
 
 /**
  * Online play: make a room and share its code, or type a friend's code.
@@ -101,10 +102,10 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
 
   if (!roomServerUrl()) {
     return (
-      <div className="panel taped">
+      <div className="panel">
         <h2>Online play isn't switched on here yet</h2>
         <p>This copy of the game doesn't know where its room server lives. The setup steps are in the README (it takes about five minutes and is free).</p>
-        <button className="btn" onClick={back}>← Home</button>
+        <button className="btn" onClick={back}><Icon name="home" /> Home</button>
       </div>
     );
   }
@@ -118,7 +119,7 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
 
   if (net.code) {
     return (
-      <div className="panel taped center-text">
+      <div className="panel center-text">
         <h2>Your room is ready!</h2>
         <p>Send this to your friend. They tap the link, or type the code under <b>Play online → Join</b>:</p>
         <div className="big-code" aria-label={`Room code ${net.code.split('').join(' ')}`}>
@@ -140,7 +141,7 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
   }
 
   return (
-    <div className="panel taped">
+    <div className="panel">
       <h2>Play online</h2>
       <p className="muted">Play a friend on their own phone, tablet or computer.</p>
       {net.error && <p className="error-note">⚠️ {net.error}</p>}
@@ -183,7 +184,7 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
           {seatsFor === 2 && (
             <div className="mission-toggle">
               <label><input type="checkbox" checked={missions} onChange={(e) => setMissionsPick(e.target.checked)} /> 🤫 Secret missions</label>
-              <p className="muted small">Each player gets a secret goal. Do it and you can win! Extras (buffs and handicaps from your ratings) are suggested when your friend joins, and you both vote on them.</p>
+              <p className="muted small">Each player gets a secret goal. Do it and you can win! If one of you is much stronger, the other can get a head start. You both vote on it when your friend joins.</p>
             </div>
           )}
           <p className="muted small">How much time each?</p>
@@ -220,7 +221,7 @@ export function OnlineLobby({ back, initialCode }: { back: () => void; initialCo
           </details>}
         </section>
       )}
-      <button className="btn" onClick={exit}>← Home</button>
+      <button className="btn" onClick={exit}><Icon name="home" /> Home</button>
     </div>
   );
 }

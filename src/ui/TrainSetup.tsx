@@ -5,6 +5,7 @@ import { alertMode, chooseAlert } from '../systems/alerts';
 import { EASY_GOALS, GOAL_TEXT, type EasyGoalId } from '../tactics/missions';
 import type { GameConfig } from './GameScreen';
 import { useSave } from './store';
+import { Icon } from './icons';
 
 /**
  * Train mode setup: picks a bot near your rating, reveals the one alert for
@@ -34,7 +35,7 @@ export function TrainSetup({ start, back }: { start: (c: GameConfig) => void; ba
   };
 
   return (
-    <div className="panel taped">
+    <div className="panel">
       <h2>Training time!</h2>
       <div className="alert-reveal">
         <div className="alert-emoji">{alert.emoji}</div>
@@ -58,7 +59,7 @@ export function TrainSetup({ start, back }: { start: (c: GameConfig) => void; ba
       <div className="row">
         <button className="btn primary" onClick={go}>Let's go!</button>
         <button className="btn" onClick={() => setBotIdx((i) => i + 1)}>🔄 Different bot</button>
-        <button className="btn" onClick={back}>← Home</button>
+        <button className="btn" onClick={back}><Icon name="home" /> Home</button>
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ import { Board } from './Board';
 import { moveEvents, type MoveEvents } from './effects';
 import { sfx } from './sound';
 import { useSave } from './store';
+import { Icon } from './icons';
 
 /**
  * Opening trainer (docs/07 phase 8): a bot quizzes you on its own opening
@@ -127,8 +128,8 @@ export function OpeningTrainer({ back, botId: startBot }: { back: () => void; bo
   // ---- Choosing a bot and a colour ----
   if (!bot || phase === 'pick') {
     return (
-      <div className="panel wide taped">
-        <h2>📖 Opening trainer <span className="scribble">learn their lines</span></h2>
+      <div className="panel wide">
+        <h2>📖 Opening trainer</h2>
         <p className="muted">Each bot teaches the opening it loves. You play your side, the bot plays the other. Get a line right and it comes back in a few days; slip and you practise it again soon.</p>
         {bot ? (
           <div className="reveal-card">
@@ -139,12 +140,12 @@ export function OpeningTrainer({ back, botId: startBot }: { back: () => void; bo
                 return (
                   <button key={c} className={`btn ${c === 'w' ? 'primary' : 'primary dark'}`} disabled={!st.total} onClick={() => begin(bot, c)}>
                     {c === 'w' ? '♙ As White' : '♟ As Black'}
-                    <small> {st.due ? `${st.due} due` : st.fresh ? `${st.fresh} new` : 'all learned'} · {st.learned}/{st.total} learned</small>
+                    <small> {st.learned} of {st.total} learned{st.due ? `, ${st.due} to practise today` : st.fresh ? `, ${st.fresh} new` : ''}</small>
                   </button>
                 );
               })}
             </div>
-            <button className="btn small" onClick={() => setBot(null)}>← Other bots</button>
+            <button className="btn small" onClick={() => setBot(null)}>Other bots</button>
           </div>
         ) : (
           <div className="mode-grid">
@@ -157,13 +158,13 @@ export function OpeningTrainer({ back, botId: startBot }: { back: () => void; bo
                   <span className="mode-emoji">{b.emoji}</span>
                   <b>{(b.id as string) === `${NEMESIS_PREFIX}${MIRROR_KEY}` ? 'Your own openings' : b.name}</b>
                   <small>{b.opening}</small>
-                  <small>{w.learned + bl.learned}/{w.total + bl.total} learned{due ? ` · 🔔 ${due} due` : ''}</small>
+                  <small>{w.learned + bl.learned} of {w.total + bl.total} learned{due ? `, 🔔 ${due} to practise today` : ''}</small>
                 </button>
               );
             })}
           </div>
         )}
-        <button className="btn" onClick={back}>← Home</button>
+        <button className="btn" onClick={back}><Icon name="home" /> Home</button>
       </div>
     );
   }
@@ -200,7 +201,7 @@ export function OpeningTrainer({ back, botId: startBot }: { back: () => void; bo
                 </ul>
               )}
               <div className="share-row">
-                {phase === 'line-done' && idx + 1 < queue.length && <button className="btn primary" onClick={() => startLine(queue, idx + 1, colour)}>Next line →</button>}
+                {phase === 'line-done' && idx + 1 < queue.length && <button className="btn primary" onClick={() => startLine(queue, idx + 1, colour)}>Next line</button>}
                 {phase === 'line-done' && idx + 1 >= queue.length && <button className="btn primary" onClick={() => setPhase('done')}>Finish</button>}
                 {phase === 'done' && <button className="btn primary" onClick={() => begin(bot, colour)}>Practise more</button>}
                 <button className="btn" onClick={() => setPhase('pick')}>Pick another bot</button>
@@ -213,7 +214,7 @@ export function OpeningTrainer({ back, botId: startBot }: { back: () => void; bo
         <h2 style={{ margin: 0 }}>{bot.emoji} {bot.name}</h2>
         <p className="muted small">Learning the {bot.opening} as {colour === 'w' ? 'White' : 'Black'}. Line {Math.min(idx + 1, queue.length)} of {queue.length}.</p>
         <p className="tip small">💡 {bot.tip}</p>
-        <button className="btn" onClick={() => setPhase('pick')}>← Stop</button>
+        <button className="btn" onClick={() => setPhase('pick')}>Stop</button>
       </aside>
     </div>
   );

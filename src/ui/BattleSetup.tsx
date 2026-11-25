@@ -5,6 +5,7 @@ import type { LocalBattle } from './BattleScreen';
 import type { GameConfig } from './GameScreen';
 import { useSave } from './store';
 import { BOTS } from '../content/bots';
+import { Icon } from './icons';
 
 /**
  * Battle setup: 3-way, 4-way, 2 vs 2 and Hill wars against bots on this
@@ -38,8 +39,8 @@ export function BattleSetup({ startBattle, startDuel, back }: { startBattle: (b:
   };
 
   return (
-    <div className="panel wide taped">
-      <h2>Battle modes <span className="scribble">more kings, more chaos</span></h2>
+    <div className="panel wide">
+      <h2>Battle modes</h2>
       <p className="muted">Bots on this device. To battle real friends, use <b>Play online</b> and pick a battle.</p>
       <div className="clock-chips" role="radiogroup" aria-label="Bot level">
         {LEVELS.map((l, i) => <button key={l.label} role="radio" aria-checked={i === level} className={`chip ${i === level ? 'on' : ''}`} onClick={() => setLevel(i)}>{l.label}</button>)}
@@ -63,7 +64,7 @@ export function BattleSetup({ startBattle, startDuel, back }: { startBattle: (b:
           <span className="big-sub">Score a point for every middle square you hold, every round. First to 20.</span>
         </button>
       </div>
-      <button className="btn" onClick={back}>← Home</button>
+      <button className="btn" onClick={back}><Icon name="home" /> Home</button>
     </div>
   );
 }

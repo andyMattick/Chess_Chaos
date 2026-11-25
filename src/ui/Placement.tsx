@@ -208,7 +208,7 @@ export function Placement({ done, again = false }: { done: () => void; again?: b
         <h2 style={{ margin: 0 }}>Find your level</h2>
         <p className="status">Puzzle {idx + 1} of {test.length}: {pz.tier === 1 ? '1 good move' : `${pz.tier} moves ahead`}</p>
         {(phase === 'right' || phase === 'missed') && (
-          <button className="btn primary" onClick={moreAfter}>{nextIndex(test, [...results, phase === 'right']) === null ? 'See my level →' : 'Next puzzle →'}</button>
+          <button className="btn primary" onClick={moreAfter}>{nextIndex(test, [...results, phase === 'right']) === null ? 'See my level' : 'Next puzzle'}</button>
         )}
         <button className="btn" onClick={() => finish(results)}>Stop here</button>
       </aside>

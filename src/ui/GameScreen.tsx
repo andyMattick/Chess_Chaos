@@ -44,6 +44,7 @@ import { moveEvents, shakeFor, type MoveEvents } from './effects';
 import { setSoundEnabled, sfx } from './sound';
 import { useYourTurn } from './yourTurn';
 import { QuickToggles } from './QuickToggles';
+import { Icon } from './icons';
 import { AnalysisPanel, noteOverlay } from './Analysis';
 import { ArmyShop } from './ModesScreen';
 import type { Analysis, MoveNote } from '../systems/analysis';
@@ -591,8 +592,11 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
   // and which direction they are going). The bottom player always moves up the screen.
   const sideTag = (seat: PlayerId): string | null => {
     if (live.seats.length !== 2 || shown.board.topology === 'tri') return null;
-    const colourName = seat === 'p1' ? '♙ White' : '♟ Black';
-    return `${seat === me && !reviewing ? 'You: ' : ''}${colourName}${seat === 'p1' ? ' (goes first)' : ''} · moves ${seat === bottom ? 'up ↑' : 'down ↓'}`;
+    const colour = seat === 'p1' ? 'White' : 'Black';
+    const you = seat === me && !reviewing;
+    const first = seat === 'p1' ? (you ? ', you go first' : ', goes first') : '';
+    // A sentence, not a list of labels (design review 2026-11-25).
+    return `${you ? `You're ${colour}` : colour}${first}, moving ${seat === bottom ? 'up ↑' : 'down ↓'}`;
   };
 
   return (
@@ -664,7 +668,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
               <p>🚲 <b>{names[ask.from]}</b> asks for training wheels: danger alerts and hints that only they can see.</p>
               <div className="wheels-answers">
                 <button className="btn primary" onClick={() => online.answerWheels('fun')}>Yes, just for fun<small>your rating stays the same</small></button>
-                <button className="btn primary" onClick={() => online.answerWheels('rated')}>Yes, and it counts<small>for both ratings</small></button>
+                <button className="btn" onClick={() => online.answerWheels('rated')}>Yes, and it counts<small>for both ratings</small></button>
                 <button className="btn" onClick={() => online.answerWheels('no')}>No thanks</button>
               </div>
             </div>
@@ -860,7 +864,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
           </div>
         )}
         {live.mode === 'hidden-queen' && !reviewRecord && !live.result && hiddenQueens(live)[me] === undefined && (
-          <button className={`btn small ${pickingQueen ? 'primary' : ''}`} onClick={() => setPickingQueen((x) => !x)}>
+          <button className={`btn small ${pickingQueen ? 'on' : ''}`} onClick={() => setPickingQueen((x) => !x)}>
             {pickingQueen ? 'Tap one of your pawns… (tap here to cancel)' : '👑 Pick your secret queen'}
           </button>
         )}
@@ -896,7 +900,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             </div>
           );
         })()}
-        {retrying && <button className="btn small" onClick={() => { setRetry(null); setView(null); }}>← Back to results</button>}
+        {retrying && <button className="btn small" onClick={() => { setRetry(null); setView(null); }}>Back to results</button>}
         <div className={`status ${shown.result ? 'over' : ''}`} aria-live="polite">{status}</div>
         {reviewing ? (
           <div className="review-controls">
@@ -907,11 +911,15 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             <button className="btn small" onClick={() => setView(reviewRecord ? states.length - 1 : null)} aria-label="Last move">⏭</button>
           </div>
         ) : (
-          <div className="row wrap">
-            <button className="btn small" aria-pressed={!!save.settings.plainPieces} onClick={() => update((d) => ({ ...d, settings: { ...d.settings, plainPieces: !d.settings.plainPieces } }))}>{save.settings.plainPieces ? '🎨 Show skins' : '♟ Plain pieces'}</button>
-            {!isOnline && !isMail && !party.noTakeBacks && <button className="btn small" onClick={undo} disabled={!rec.actions.length || !!live.result || thinking}>↩ Take back</button>}
-            <button className="btn small" onClick={() => setFlipped((f) => !f)}>⇅ Flip</button>
-            <button className="btn small danger" onClick={resign} disabled={!!live.result}>🏳 Give up</button>
+          <div className="controls" role="toolbar" aria-label="Game buttons">
+            <button className={`ctl ${save.settings.plainPieces ? 'on' : ''}`} aria-pressed={!!save.settings.plainPieces} aria-label={save.settings.plainPieces ? 'Show skins' : 'Plain pieces'} title="Plain pieces are easier to tell apart" onClick={() => update((d) => ({ ...d, settings: { ...d.settings, plainPieces: !d.settings.plainPieces } }))}>
+              <Icon name="pawn" /><span>{save.settings.plainPieces ? 'Skins' : 'Plain'}</span>
+            </button>
+            {!isOnline && !isMail && !party.noTakeBacks && <button className="ctl" onClick={undo} disabled={!rec.actions.length || !!live.result || thinking}><Icon name="undo" /><span>Take back</span></button>}
+            <button className="ctl" onClick={() => setFlipped((f) => !f)}><Icon name="flip" /><span>Flip</span></button>
+            <QuickToggles bare />
+            <button className="ctl danger" onClick={resign} disabled={!!live.result}><Icon name="flag" /><span>Give up</span></button>
+            <button className="ctl" onClick={onExit}><Icon name="home" /><span>Home</span></button>
           </div>
         )}
         {isOnline && (
@@ -933,8 +941,7 @@ export function GameScreen({ config, onExit, onRematch, reviewRecord }: Props) {
             </li>
           ))}
         </ol>}
-        <QuickToggles />
-        <button className="btn" onClick={onExit}>← Home</button>
+        {reviewing && <button className="btn" onClick={onExit}><Icon name="home" /> Home</button>}
       </aside>
     </div>
   );

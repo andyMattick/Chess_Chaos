@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { MissionPictureView } from './MissionPictureView';
 import { BOTS } from '../content/bots';
-import { missionById, modifierById } from '../content/party';
+import { PARTY_MODE_GROUPS, missionById, modifierById } from '../content/party';
 import { MODE_INFO } from '../core/modes';
 import { activeProfile, updateProfile } from '../storage/storage';
 import { PATH, unlockedCount } from '../systems/coins';
@@ -11,6 +11,7 @@ import { useSave } from './store';
 import { CardTile, HandPicker, useHand } from './Cards';
 import { cardById, POWER_CARDS } from '../content/cards';
 import { botPrize } from '../systems/cards';
+import { Icon } from './icons';
 
 /**
  * Party match setup against a bot: a surprise mode off your mode deck, or one
@@ -67,8 +68,8 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
   }) : <p className="muted small">Nothing. You're evenly matched!</p>);
 
   return (
-    <div className="panel wide taped">
-      <h2>Party match! <span className="scribble">every game is different</span></h2>
+    <div className="panel wide">
+      <h2>Party match!</h2>
       <div className="reveal-grid">
         <div className="reveal-card mode-card">
           <div className="reveal-emoji">{mode.emoji}</div>
@@ -114,23 +115,30 @@ export function PartySetup({ start, back }: { start: (c: GameConfig) => void; ba
       <h3>Mode</h3>
       <div className="clock-chips">
         <button className={`chip ${pick === 'surprise' ? 'on' : ''}`} onClick={() => setPick('surprise')}>🎲 Surprise me</button>
-        {PARTY_MODES.map((id) => {
-          const m = MODE_INFO.find((x) => x.id === id);
-          return m ? <button key={id} className={`chip ${pick === id ? 'on' : ''}`} onClick={() => setPick(id)}>{m.emoji} {m.name}</button> : null;
-        })}
       </div>
+      {PARTY_MODE_GROUPS.map((g) => (
+        <div key={g.name} className="mode-group">
+          <h4>{g.name}</h4>
+          <div className="clock-chips">
+            {g.modes.filter((id) => PARTY_MODES.includes(id)).map((id) => {
+              const m = MODE_INFO.find((x) => x.id === id);
+              return m ? <button key={id} className={`chip ${pick === id ? 'on' : ''}`} onClick={() => setPick(id)}>{m.emoji} {m.name}</button> : null;
+            })}
+          </div>
+        </div>
+      ))}
       <div className="mission-toggle">
         <label><input type="checkbox" checked={missionsOn} onChange={(e) => setMissionsOn(e.target.checked)} /> 🤫 Secret missions</label>
-        <label><input type="checkbox" checked={extrasOn} onChange={(e) => setExtrasOn(e.target.checked)} /> ⚖️ Use the extras (buffs and handicaps from your ratings)</label>
+        <label><input type="checkbox" checked={extrasOn} onChange={(e) => setExtrasOn(e.target.checked)} /> ⚖️ Even it out: whoever is behind gets a head start</label>
       </div>
       <h3>Opponent</h3>
       <div className="clock-chips">
         {open.map((b) => <button key={b.id} className={`chip ${b.id === botId ? 'on' : ''}`} onClick={() => setBotId(b.id)}>{b.emoji} {b.name} ★{b.rating}</button>)}
       </div>
-      <p className="muted small">You play {humanSeat === 'p1' ? 'White' : 'Black'}. Extras come from the rating gap: the lower-rated side gets buffs, the higher-rated side gets handicaps. Want some modes more (or never)? Rank them with ▲ ▼ in Game modes.</p>
+      <p className="muted small">You play {humanSeat === 'p1' ? 'White' : 'Black'}. If one of you is much stronger, the other gets a head start. You can choose which modes come up more often in the Chaos Carnival.</p>
       <div className="row">
         <button className="btn primary" onClick={go}>Let's party!</button>
-        <button className="btn" onClick={back}>← Home</button>
+        <button className="btn" onClick={back}><Icon name="home" /> Home</button>
       </div>
     </div>
   );

@@ -7,6 +7,8 @@ import { useSave } from './store';
 import type { GameConfig } from './GameScreen';
 import type { Nemesis } from '../systems/nemesis';
 import { makeNemesis, NemesisCard, startNemesis } from './Nemesis';
+import { recordText } from './words';
+import { Icon } from './icons';
 
 /**
  * Chess.com corner (docs/06): look up any public player, see their ratings,
@@ -75,12 +77,12 @@ export function ChessCom({ back, open, play }: { back: () => void; open: (r: Gam
     block?.last ? (
       <div className="cc-rating" key={label}>
         <b>{label}</b> <span className="bot-rating">★ {block.last.rating}</span>
-        {block.record && <span className="muted small"> W {block.record.win} · L {block.record.loss} · D {block.record.draw}</span>}
+        {block.record && <span className="muted small"> {recordText({ w: block.record.win, l: block.record.loss, d: block.record.draw })}</span>}
       </div>
     ) : null;
 
   return (
-    <div className="panel taped">
+    <div className="panel">
       <h2>Chess.com corner</h2>
       <p className="muted">Type any Chess.com username to see their ratings and download their recent games to replay here.</p>
       <div className="row">
@@ -132,7 +134,7 @@ export function ChessCom({ back, open, play }: { back: () => void; open: (r: Gam
                 <li key={g.id}>
                   <button onClick={() => open(g)}>
                     <b>{g.meta.players.p1} vs {g.meta.players.p2}</b>
-                    <span>{outcome} · {Math.ceil(g.actions.length / 2)} moves · {new Date(g.meta.startedAt).toLocaleDateString()}</span>
+                    <span>{outcome} in {Math.ceil(g.actions.length / 2)} moves, {new Date(g.meta.startedAt).toLocaleDateString()}</span>
                   </button>
                 </li>
               );
@@ -141,7 +143,7 @@ export function ChessCom({ back, open, play }: { back: () => void; open: (r: Gam
         </>
       )}
       <p className="muted small">Data from Chess.com's public API. World of C.H.A.O.S. is not part of Chess.com.</p>
-      <button className="btn" onClick={back}>← Home</button>
+      <button className="btn" onClick={back}><Icon name="home" /> Home</button>
     </div>
   );
 }

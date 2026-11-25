@@ -60,7 +60,7 @@ export function AnalysisPanel({ a, names, me, note, onPick }: {
           </li>
         ))}
       </ol>
-      <p className="muted small">Checked by the game's own chess engine (about ★ 1400 strength). It catches most slips, not every deep idea.</p>
+      <p className="muted small">Checked by our own chess robot (about as strong as a ★ 1400 player). It spots most slips, but not every deep idea.</p>
     </div>
   );
 }

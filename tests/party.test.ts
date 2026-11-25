@@ -4,7 +4,7 @@ import { MISSIONS, MODIFIERS } from '../src/content/party';
 import { IMPLEMENTED } from '../src/core/modifiers';
 import { blockingMoves, blockingMoves2, dealMissions, defenceMoves, drawMode, missionDefence, missionOff, missionWinsAtOnce, pickModifiers, refereeAll, refereeMission, setupParty, slotsForGap, redactParty, undoingMoves, PARTY_DECK } from '../src/systems/party';
 import { missionChallenges } from '../src/core/rules';
-import { MISSION_DEFENCE_TURNS, MISSION_DEFENCE_TURNS_VS_UNDERDOG } from '../src/content/party';
+import { MISSION_DEFENCE_TURNS, MISSION_DEFENCE_TURNS_VS_UNDERDOG, PARTY_MODE_GROUPS } from '../src/content/party';
 import { missionDone, missionHolds, MISSION_CHECKS } from '../src/systems/missions';
 import { fromFEN } from '../src/core';
 
@@ -342,5 +342,13 @@ describe('fairness tuning', () => {
       const normal = pickModifiers(o('standard'), seeded(i + 1)).p1.length;
       expect(pickModifiers(o('three-check'), seeded(i + 1)).p1.length).toBe(normal + 1);
     }
+  });
+});
+
+describe('Party mode groups', () => {
+  it('put every Party mode in exactly one group', () => {
+    const all = PARTY_MODE_GROUPS.flatMap((g) => g.modes);
+    expect(new Set(all).size).toBe(all.length);
+    expect([...all].sort()).toEqual([...PARTY_MODES].sort());
   });
 });

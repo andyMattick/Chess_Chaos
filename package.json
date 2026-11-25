@@ -13,6 +13,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@fontsource/andika": "^5.0.0",
+    "@fontsource/baloo-2": "^5.0.0",
+    "@fontsource/bangers": "^5.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

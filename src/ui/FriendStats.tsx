@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { activeProfile } from '../storage/storage';
 import { fetchBoard, postBoard, recordVs, type Board, type BoardRow } from '../storage/world';
 import { useSave } from './store';
+import { recordText, count } from './words';
 
 /** The world leaderboard, with your friends' rows in full (looked up by the numbers you saved). */
 export function useWorldBoard(): { board: Board | null; err: string | null } {
@@ -33,10 +34,10 @@ export function StatsLine({ row, n }: { row: BoardRow | undefined; n?: string })
     <span className="stats-line">
       {row ? (
         <>
-          <span className="bot-rating">★ {row.r}</span> <b>#{row.rank}</b> in the world · W {row.w} · L {row.l} · D {row.d} · {row.g} {row.g === 1 ? 'game' : 'games'}
+          <span className="bot-rating">★ {row.r}</span> number <b>{row.rank}</b> in the world. {recordText(row)} ({count(row.g, 'game')}).
         </>
       ) : n ? <span className="muted">Not on the world leaderboard yet (their app puts them on it once it syncs)</span> : null}
-      {vs && <span className="vs"> · you vs them: W {vs.w} · L {vs.l} · D {vs.d}</span>}
+      {vs && <span className="vs"> Against them you {recordText(vs).toLowerCase()}.</span>}
     </span>
   );
 }

@@ -7,6 +7,11 @@ import { sfx } from './sound';
 import { activeProfile, updateProfile } from '../storage/storage';
 import { COPIES_TO_PLAY, currentHand, handOptions } from '../systems/cards';
 import { useSave } from './store';
+import { Icon } from './icons';
+
+/** "A rare", "An epic". */
+const aRarity = (r: string) => `${/^[AEIOU]/i.test(r) ? 'An' : 'A'} ${r.toLowerCase()}`;
+
 
 /**
  * Power cards on screen: a single card tile, the collection screen
@@ -21,8 +26,8 @@ export function CardTile({ c, count, on, onClick, children, small }: { c: CardDe
       {!POWER_CARDS && <span className="pc-suit" title={`${SUIT_NAME[c.suit]} card`}>{SUIT_ICON[c.suit]}</span>}
       <span className="pc-emoji">{owned ? c.emoji : '❔'}</span>
       <span className="pc-name">{c.name}</span>
-      {!small && POWER_CARDS && <span className="pc-kind">{SUIT_ICON[c.suit]} {c.kind} · {c.rarity}{c.usesMove ? ' · uses your move' : ' · free action'}</span>}
-      {!small && !POWER_CARDS && <span className="pc-kind">{SUIT_NAME[c.suit]} card · {c.rarity}</span>}
+      {!small && POWER_CARDS && <span className="pc-kind">{SUIT_ICON[c.suit]} {aRarity(c.rarity)} {c.kind.toLowerCase()}. {c.usesMove ? 'Uses your move.' : 'Free: you still move.'}</span>}
+      {!small && !POWER_CARDS && <span className="pc-kind">{aRarity(c.rarity)} {SUIT_NAME[c.suit]} card</span>}
       {!small && POWER_CARDS && <span className="pc-blurb">{c.blurb}</span>}
       {!small && !owned && <span className="pc-earn">🔓 {c.earn}</span>}
       {count !== undefined && count > 0 && (POWER_CARDS
@@ -49,8 +54,8 @@ export function CardsScreen({ back }: { back: () => void }) {
     setSelling(null);
   };
   return (
-    <div className="panel wide taped">
-      <h2>{POWER_CARDS ? 'My power cards' : 'My cards'} <span className="scribble">{owned} of {CARDS.length} found</span></h2>
+    <div className="panel wide">
+      <h2>{POWER_CARDS ? 'My power cards' : 'My cards'} <small className="h-note">{owned} of {CARDS.length} found</small></h2>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'cards'} className={`tab ${tab === 'cards' ? 'on' : ''}`} onClick={() => setTab('cards')}>🃏 My cards</button>
         <button role="tab" aria-selected={tab === 'sets'} className={`tab ${tab === 'sets' ? 'on' : ''}`} onClick={() => setTab('sets')}>🏆 Collections</button>
@@ -99,7 +104,7 @@ export function CardsScreen({ back }: { back: () => void }) {
           )}
         </>
       ) : <Collections onNote={setNote} />}
-      <button className="btn" onClick={back}>← Home</button>
+      <button className="btn" onClick={back}><Icon name="home" /> Home</button>
     </div>
   );
 }
