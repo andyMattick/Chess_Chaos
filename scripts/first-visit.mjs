@@ -72,7 +72,7 @@ await step('player number question (say not now)', async () => {
 await step('home screen', async () => { await page.locator('svg.world-map').waitFor({ timeout: 5000 }); });
 await step('walk to the quest board', async () => {
   // Owner, 2026-11-22: the main screen is a map to walk around. Tap the Quest Board (daily missions), then go in.
-  await tapTile(7, 8);
+  await tapTile(11, 8);
   await page.getByRole('button', { name: 'Go in', exact: true }).click({ timeout: 5000 });
   await page.locator('.quest-modal').waitFor({ timeout: 3000 });
 });

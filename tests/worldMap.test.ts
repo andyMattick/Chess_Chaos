@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DISTRICTS, districtAt, doorOf, PLACES, SIGNPOSTS, WORLD_H, WORLD_START, WORLD_W } from '../src/content/world';
-import { buildWorld, doorPlace, groundAt, pathTo, placeOn, walkable } from '../src/systems/world';
+import { DISTRICTS, districtAt, doorOf, GATE_STEP, PLACES, SIGNPOSTS, wallBetween, WORLD_H, WORLD_START, WORLD_W } from '../src/content/world';
+import { buildWorld, canStep, doorPlace, groundAt, pathTo, placeOn, walkable } from '../src/systems/world';
 
 const HOME_SCREENS = ['bots', 'online', 'party', 'levelup', 'modes', 'battle', 'challenges', 'minis', 'train', 'openings', 'puzzles', 'wardrobe', 'cards', 'history', 'leaderboard', 'chesscom', 'daily'];
 
@@ -39,7 +39,10 @@ describe('World of C.H.A.O.S. map', () => {
       const path = pathTo(w, WORLD_START, { x: p.x, y: p.y }); // tapping the roof walks to the door
       expect(path.length, p.id).toBeGreaterThan(0);
       expect(path[path.length - 1]).toEqual(d);
-      for (let i = 1; i < path.length; i++) expect(Math.abs(path[i].x - path[i - 1].x) + Math.abs(path[i].y - path[i - 1].y)).toBe(1);
+      for (let i = 1; i < path.length; i++) {
+        expect(Math.abs(path[i].x - path[i - 1].x) + Math.abs(path[i].y - path[i - 1].y)).toBe(1);
+        expect(wallBetween(path[i - 1], path[i]), `${p.id}: the path goes through a wall`).toBe(false);
+      }
       expect(path.every((t) => walkable(w, t))).toBe(true);
       expect(placeOn(w, { x: p.x, y: p.y })?.id).toBe(p.id);
     }
@@ -71,7 +74,13 @@ describe('World of C.H.A.O.S. map', () => {
     }
     for (const d of DISTRICTS) {
       expect(PLACES.some((p) => p.district === d.id), d.id).toBe(true);
-      expect(groundAt(w, d.board), d.id).toBe('sign');
+      // Every gate opens onto the square or the main street, and you can walk through it.
+      for (const g of d.gates) {
+        const [dx, dy] = GATE_STEP[g.side];
+        const out = { x: g.x + dx, y: g.y + dy };
+        expect(districtAt(out.x, out.y), `${d.id} gate`).toBeNull();
+        expect(canStep(w, out, g) && canStep(w, g, out), `${d.id} gate at ${g.x},${g.y}`).toBe(true);
+      }
       expect(SIGNPOSTS.some((s) => s.arms.some((a) => a.to === d.id)), `a signpost points to ${d.id}`).toBe(true);
     }
     for (const s of SIGNPOSTS) {
@@ -85,5 +94,16 @@ describe('World of C.H.A.O.S. map', () => {
         if (a.dir === 'right') expect(cx, a.to).toBeGreaterThan(s.x);
       }
     }
+  });
+
+  it('walls keep you out except through a gate, and the town stays tidy', () => {
+    // Straight across the wall between the main street and Train: blocked. Through the gate: fine.
+    expect(wallBetween({ x: 7, y: 12 }, { x: 6, y: 12 })).toBe(true);
+    expect(wallBetween({ x: 7, y: 13 }, { x: 6, y: 13 })).toBe(false);
+    expect(wallBetween({ x: 8, y: 13 }, { x: 9, y: 13 })).toBe(true); // Records opens a row lower
+    // Between two parts of town there is never a gate.
+    expect(wallBetween({ x: 3, y: 16 }, { x: 3, y: 17 })).toBe(true);
+    // No stray trees inside the town (only the forest at the edges).
+    for (let y = 1; y < WORLD_H - 2; y++) for (let x = 1; x < WORLD_W - 1; x++) expect(groundAt(w, { x, y }), `${x},${y}`).not.toBe('tree');
   });
 });

@@ -3,7 +3,7 @@
  * roads from the town square to every door, trees and flowers, and finding
  * a path for a tap. Pure and deterministic, so the map is the same every visit.
  */
-import { DISTRICTS, doorOf, PLACES, SIGNPOSTS, WATER, WORLD_H, WORLD_START, WORLD_W, type District, type Place, type Signpost } from '../content/world';
+import { DISTRICTS, districtAt, doorOf, PLACES, SIGNPOSTS, wallBetween, WATER, WORLD_H, WORLD_START, WORLD_W, type District, type Place, type Signpost } from '../content/world';
 
 export type Ground = 'grass' | 'road' | 'tree' | 'flowers' | 'water' | 'building' | 'sign';
 export interface Tile { x: number; y: number }
@@ -26,7 +26,7 @@ function bfs(from: Tile, open: (t: Tile) => boolean): Map<number, number> {
     const t = queue.shift()!;
     for (const d of STEPS) {
       const n = { x: t.x + d.x, y: t.y + d.y };
-      if (!inside(n) || prev.has(key(n)) || !open(n)) continue;
+      if (!inside(n) || prev.has(key(n)) || !open(n) || wallBetween(t, n)) continue;
       prev.set(key(n), key(t));
       queue.push(n);
     }
@@ -66,27 +66,30 @@ export function buildWorld(places: Place[] = PLACES): World {
   // Name boards and signposts stand on their own tile, so roads go round them.
   const districts = DISTRICTS.filter((d) => places.some((p) => p.district === d.id));
   const signposts = SIGNPOSTS.map((s) => ({ ...s, arms: s.arms.filter((a) => districts.some((d) => d.id === a.to)) })).filter((s) => s.arms.length);
-  for (const d of districts) ground[key(d.board)] = 'sign';
   for (const s of signposts) ground[key(s)] = 'sign';
   // Roads: the shortest way from the town square to every door.
   const walk = (t: Tile) => ground[key(t)] === 'grass' || ground[key(t)] === 'road';
   const prev = bfs(WORLD_START, walk);
   for (const p of places) for (const t of walkBack(prev, doorOf(p))) ground[key(t)] = 'road';
-  // Trees and flowers on the grass, never next to a door or on the square.
+  // Inside the town it stays tidy (owner, 2026-11-25: "still pretty chaotic"): no stray trees in the
+  // walled parts, the square or the main street, just a few flowers in the yards, never by a door or a sign.
   const nearDoor = (t: Tile) => places.some((p) => { const d = doorOf(p); return Math.abs(d.x - t.x) + Math.abs(d.y - t.y) <= 1; });
+  const nearSign = (t: Tile) => signposts.some((s) => Math.abs(s.x - t.x) <= 1 && Math.abs(s.y - t.y) <= 1);
   for (let y = 1; y < WORLD_H; y++) for (let x = 1; x < WORLD_W - 1; x++) {
     const t = { x, y };
-    const nearSign = [...signposts, ...districts.map((d) => d.board)].some((s) => Math.abs(s.x - x) <= 1 && Math.abs(s.y - y) <= 1);
-    if (ground[key(t)] !== 'grass' || nearDoor(t) || nearSign || (Math.abs(x - WORLD_START.x) <= 1 && Math.abs(y - WORLD_START.y) <= 1)) continue;
-    const r = hash(x, y);
-    if (r < 0.12) ground[key(t)] = 'tree';
-    else if (r < 0.24) ground[key(t)] = 'flowers';
+    if (ground[key(t)] !== 'grass' || nearDoor(t) || nearSign(t) || !districtAt(x, y)) continue;
+    if (hash(x, y) < 0.14) ground[key(t)] = 'flowers';
   }
   return { ground, placeAt, places, districts, signposts };
 }
 
 export function groundAt(w: World, t: Tile): Ground {
   return inside(t) ? w.ground[key(t)] : 'tree';
+}
+
+/** Can you step from one tile to the next (open ground, no wall in between)? */
+export function canStep(w: World, a: Tile, b: Tile): boolean {
+  return walkable(w, b) && !wallBetween(a, b);
 }
 
 export function walkable(w: World, t: Tile): boolean {
@@ -114,7 +117,7 @@ export function pathTo(w: World, from: Tile, to: Tile): Tile[] {
   const p = placeOn(w, to);
   let goal = p ? doorOf(p) : to;
   if (!walkable(w, goal)) {
-    const near = STEPS.map((d) => ({ x: goal.x + d.x, y: goal.y + d.y })).filter((n) => inside(n) && walkable(w, n));
+    const near = STEPS.map((d) => ({ x: goal.x + d.x, y: goal.y + d.y })).filter((n) => inside(n) && walkable(w, n) && !wallBetween(n, goal));
     if (!near.length) return [];
     near.sort((a, b) => Math.abs(a.x - from.x) + Math.abs(a.y - from.y) - (Math.abs(b.x - from.x) + Math.abs(b.y - from.y)));
     goal = near[0];

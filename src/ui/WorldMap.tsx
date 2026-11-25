@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent, type ReactElement } from 'react';
 import { skinFor } from '../content/cosmetics';
-import { districtAt, doorOf, WORLD_H, WORLD_START, WORLD_W, type District, type Place, type Signpost } from '../content/world';
-import { buildWorld, doorPlace, groundAt, pathTo, placeOn, walkable, type Tile } from '../systems/world';
+import { districtAt, doorOf, GATE_STEP, MAIN_STREET, SQUARE, wallBetween, WORLD_H, WORLD_START, WORLD_W, type District, type Place, type Signpost } from '../content/world';
+import { buildWorld, canStep, doorPlace, groundAt, pathTo, placeOn, walkable, type Tile } from '../systems/world';
 import { lookOf } from '../storage/storage';
 import { Character } from './skins';
 import { useSave } from './store';
@@ -67,7 +67,7 @@ export function WorldMap({ places, badges, enter }: { places: Place[]; badges: R
   function step(dx: number, dy: number) {
     const n = { x: hero.x + dx, y: hero.y + dy };
     if (dx) setFacing(dx < 0 ? -1 : 1);
-    if (!walkable(world, n)) {
+    if (!canStep(world, hero, n)) {
       // Bumping into a house from its door goes in.
       const p = placeOn(world, n);
       if (p && here?.id === p.id) enter(p);
@@ -116,6 +116,7 @@ export function WorldMap({ places, badges, enter }: { places: Place[]; badges: R
           style={{ transform: `translate(${camX}px, ${camY}px)` }} onPointerUp={onTap} role="img" aria-label="Map of the World of C.H.A.O.S."
         >
           <Ground world={world} />
+          <Walls />
           {places.map((p) => <House key={p.id} p={p} badge={badges[p.id]} glow={target?.id === p.id || here?.id === p.id} />)}
           <Signs world={world} />
           <g className={`world-hero ${walking ? 'walking' : ''}`} style={{ transform: `translate(${hero.x * U}px, ${hero.y * U}px)` }}>
@@ -158,6 +159,14 @@ function Ground({ world }: { world: ReturnType<typeof buildWorld> }) {
       out.push(<g key={k}><rect x={X} y={Y} width={U} height={U} fill={(x + y) % 2 ? '#4aa8ff' : '#45a0f5'} /><path className="wave" d={`M${X + 6} ${Y + 16} q5 -5 10 0 t10 0 M${X + 14} ${Y + 30} q5 -5 10 0`} stroke="#d6efff" strokeWidth={2.5} fill="none" strokeLinecap="round" /></g>);
       continue;
     }
+    // The square and the main street are paved; roads there are just more paving.
+    const inRect = (r: { x: number; y: number; w: number; h: number }) => x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h;
+    if (!dist && g !== 'tree' && (inRect(SQUARE) || inRect(MAIN_STREET))) {
+      out.push(<rect key={k} x={X} y={Y} width={U + 0.5} height={U + 0.5} fill={(x + y) % 2 ? '#e8dfcc' : '#e2d9c5'} />);
+      out.push(<path key={`${k}p`} d={`M${X} ${Y + 20} H${X + U} M${X + (y % 2 ? 10 : 26)} ${Y} V${Y + 20} M${X + (y % 2 ? 30 : 14)} ${Y + 20} V${Y + U}`} stroke="#c9bea6" strokeWidth={1.5} fill="none" />);
+      if (g === 'flowers') out.push(<circle key={`${k}f`} cx={X + 20} cy={Y + 20} r={4} fill="#ff6fb5" stroke={INK} strokeWidth={1} />);
+      continue;
+    }
     out.push(<rect key={k} x={X} y={Y} width={U + 0.5} height={U + 0.5} fill={g === 'road' ? '#e9d08f' : grass} />);
     if (g === 'road') out.push(<g key={`${k}r`} fill="#cfae63"><circle cx={X + 9 + ((x * 7) % 13)} cy={Y + 12 + ((y * 5) % 11)} r={1.8} /><circle cx={X + 27 - ((y * 3) % 9)} cy={Y + 29} r={1.4} /></g>);
     if (shown?.paved && g !== 'road') out.push(<g key={`${k}p`} fill="none" stroke="#bfb39a" strokeWidth={1.5}><path d={`M${X} ${Y + 13} H${X + U} M${X} ${Y + 27} H${X + U} M${X + 14} ${Y} V${Y + 13} M${X + 30} ${Y + 13} V${Y + 27} M${X + 10} ${Y + 27} V${Y + U}`} /></g>);
@@ -168,12 +177,41 @@ function Ground({ world }: { world: ReturnType<typeof buildWorld> }) {
   return <g>{out}</g>;
 }
 
-/** Name boards and signposts, drawn over the houses so a plank is never hidden behind a roof. */
+/**
+ * Low stone walls round each part of town (owner, 2026-11-25: "put walls up
+ * around areas to make it more clear where I am"), drawn on the edges between
+ * tiles, with a gap at each gate.
+ */
+function Walls() {
+  const out: ReactElement[] = [];
+  const interior = (x: number, y: number) => x >= 1 && y >= 1 && x < WORLD_W - 1 && y < WORLD_H - 2;
+  for (let y = 1; y < WORLD_H - 2; y++) for (let x = 1; x < WORLD_W - 1; x++) {
+    if (interior(x + 1, y) && wallBetween({ x, y }, { x: x + 1, y })) out.push(<WallPiece key={`v${x},${y}`} x1={(x + 1) * U} y1={y * U} x2={(x + 1) * U} y2={(y + 1) * U} />);
+    if (interior(x, y + 1) && wallBetween({ x, y }, { x, y: y + 1 })) out.push(<WallPiece key={`h${x},${y}`} x1={x * U} y1={(y + 1) * U} x2={(x + 1) * U} y2={(y + 1) * U} />);
+  }
+  return <g className="walls" pointerEvents="none">{out}</g>;
+}
+
+function WallPiece({ x1, y1, x2, y2 }: { x1: number; y1: number; x2: number; y2: number }) {
+  const T = 9;
+  const flat = y1 === y2;
+  const x = Math.min(x1, x2) - (flat ? 0 : T / 2), y = Math.min(y1, y2) - (flat ? T / 2 : 0);
+  const w = flat ? Math.abs(x2 - x1) : T, h = flat ? T : Math.abs(y2 - y1);
+  return (
+    <g>
+      <rect x={x} y={y + 3} width={w} height={h} fill="rgba(0,0,0,0.18)" />
+      <rect x={x} y={y} width={w + (flat ? 0.5 : 0)} height={h + (flat ? 0 : 0.5)} fill="#d6cdb9" stroke={INK} strokeWidth={1.6} />
+      <path d={flat ? `M${x + 13} ${y} v${T} M${x + 27} ${y} v${T}` : `M${x} ${y + 13} h${T} M${x} ${y + 27} h${T}`} stroke="#a89c84" strokeWidth={1.3} />
+    </g>
+  );
+}
+
+/** Name boards over the gates, and the signposts, drawn over the houses so a plank is never hidden behind a roof. */
 function Signs({ world }: { world: ReturnType<typeof buildWorld> }) {
   const names = Object.fromEntries(world.districts.map((d) => [d.id, d.name]));
   return (
     <g>
-      {world.districts.map((d) => <DistrictBoard key={d.id} d={d} />)}
+      {world.districts.map((d) => <GateArt key={d.id} d={d} />)}
       {world.signposts.map((s) => <SignpostArt key={`${s.x},${s.y}`} s={s} names={names} />)}
     </g>
   );
@@ -182,19 +220,40 @@ function Signs({ world }: { world: ReturnType<typeof buildWorld> }) {
 const WOOD = '#b77a3d';
 const WOOD_DARK = '#8a5a2b';
 
-/** A part of town's name board: a wide plank on two posts with its picture and name. */
-function DistrictBoard({ d }: { d: District }) {
-  const cx = d.board.x * U + U / 2, Y = d.board.y * U;
-  const w = Math.max(64, d.name.length * 10 + 34);
+function Pillar({ x, y }: { x: number; y: number }) {
+  return <g><rect x={x - 7} y={y - 7} width={14} height={14} rx={2} fill="#e6dec9" stroke={INK} strokeWidth={1.8} /><rect x={x - 4} y={y - 4} width={8} height={8} rx={1} fill="#cfc4ac" /></g>;
+}
+
+/**
+ * Each gate: a stone pillar either side of the gap. Over the first gate, the
+ * part of town's name board with its picture.
+ */
+function GateArt({ d }: { d: District }) {
+  // The gap of each gate: the edge between the gate tile and the tile it opens to.
+  const gaps = d.gates.map((g) => {
+    const [dx, dy] = GATE_STEP[g.side];
+    if (dy) { const y = (dy > 0 ? g.y + 1 : g.y) * U; return { x1: g.x * U, y1: y, x2: (g.x + 1) * U, y2: y }; }
+    const x = (dx > 0 ? g.x + 1 : g.x) * U; return { x1: x, y1: g.y * U, x2: x, y2: (g.y + 1) * U };
+  });
+  // Gates side by side make one wide gap.
+  const merged: typeof gaps = [];
+  for (const g of gaps) {
+    const last = merged[merged.length - 1];
+    if (last && last.y1 === last.y2 && g.y1 === g.y2 && last.y1 === g.y1 && last.x2 === g.x1) last.x2 = g.x2;
+    else merged.push({ ...g });
+  }
+  const first = merged[0];
+  const w = Math.max(70, d.name.length * 10 + 36);
+  const bx = (first.x1 + first.x2) / 2;
+  const by = first.y1 === first.y2 ? first.y1 - 30 : first.y1 - 14;
   return (
-    <g className="district-board" pointerEvents="none" aria-label={d.name}>
-      <ellipse cx={cx} cy={Y + 37} rx={w / 2 - 6} ry={3.5} fill="rgba(0,0,0,0.2)" />
-      <rect x={cx - w / 2 + 8} y={Y + 18} width={5} height={20} fill={WOOD_DARK} stroke={INK} strokeWidth={1.5} />
-      <rect x={cx + w / 2 - 13} y={Y + 18} width={5} height={20} fill={WOOD_DARK} stroke={INK} strokeWidth={1.5} />
-      <rect x={cx - w / 2} y={Y - 2} width={w} height={24} rx={5} fill={WOOD} stroke={INK} strokeWidth={2.5} />
-      <rect x={cx - w / 2 + 3} y={Y + 1} width={w - 6} height={18} rx={3} fill="#fff6e0" />
-      <IconShapes name={d.icon} x={cx - w / 2 + 5} y={Y + 2} size={16} />
-      <text className="sign-text" x={cx - w / 2 + 25} y={Y + 15} fontSize={13} fontWeight={800} fill={INK}>{d.name}</text>
+    <g className="district-gate" pointerEvents="none" aria-label={d.name}>
+      {merged.map((g, i) => <g key={i}><Pillar x={g.x1} y={g.y1} /><Pillar x={g.x2} y={g.y2} /></g>)}
+      {first.y1 === first.y2 && <><rect x={first.x1 - 2} y={by + 10} width={4} height={first.y1 - by - 14} fill={WOOD_DARK} /><rect x={first.x2 - 2} y={by + 10} width={4} height={first.y1 - by - 14} fill={WOOD_DARK} /></>}
+      <rect x={bx - w / 2} y={by - 12} width={w} height={24} rx={5} fill={WOOD} stroke={INK} strokeWidth={2.5} />
+      <rect x={bx - w / 2 + 3} y={by - 9} width={w - 6} height={18} rx={3} fill="#fff6e0" />
+      <IconShapes name={d.icon} x={bx - w / 2 + 5} y={by - 8} size={16} />
+      <text className="sign-text" x={bx - w / 2 + 25} y={by + 5} fontSize={13} fontWeight={800} fill={INK}>{d.name}</text>
     </g>
   );
 }
