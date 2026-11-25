@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent, type ReactElement } from 'react';
 import { skinFor } from '../content/cosmetics';
-import { doorOf, WORLD_H, WORLD_START, WORLD_W, type Place } from '../content/world';
+import { districtAt, doorOf, WORLD_H, WORLD_START, WORLD_W, type District, type Place, type Signpost } from '../content/world';
 import { buildWorld, doorPlace, groundAt, pathTo, placeOn, walkable, type Tile } from '../systems/world';
 import { lookOf } from '../storage/storage';
 import { Character } from './skins';
@@ -117,6 +117,7 @@ export function WorldMap({ places, badges, enter }: { places: Place[]; badges: R
         >
           <Ground world={world} />
           {places.map((p) => <House key={p.id} p={p} badge={badges[p.id]} glow={target?.id === p.id || here?.id === p.id} />)}
+          <Signs world={world} />
           <g className={`world-hero ${walking ? 'walking' : ''}`} style={{ transform: `translate(${hero.x * U}px, ${hero.y * U}px)` }}>
             <ellipse cx={U / 2} cy={U - 4} rx={13} ry={4} fill="rgba(0,0,0,0.25)" />
             <g transform={`translate(${U / 2} 0) scale(${facing} 1) translate(${-U / 2} 0)`}>
@@ -149,18 +150,85 @@ function Ground({ world }: { world: ReturnType<typeof buildWorld> }) {
   for (let y = 0; y < WORLD_H; y++) for (let x = 0; x < WORLD_W; x++) {
     const g = groundAt(world, { x, y });
     const X = x * U, Y = y * U, k = `${x},${y}`;
-    const grass = (x + y) % 2 ? '#7fcf6b' : '#77c763';
+    // Each part of town has its own ground (owner, 2026-11-25: "the map is kind of nondescript").
+    const dist = districtAt(x, y);
+    const shown = dist && world.districts.some((d) => d.id === dist.id) ? dist : null;
+    const grass = shown ? shown.ground[(x + y) % 2] : (x + y) % 2 ? '#7fcf6b' : '#77c763';
     if (g === 'water') {
       out.push(<g key={k}><rect x={X} y={Y} width={U} height={U} fill={(x + y) % 2 ? '#4aa8ff' : '#45a0f5'} /><path className="wave" d={`M${X + 6} ${Y + 16} q5 -5 10 0 t10 0 M${X + 14} ${Y + 30} q5 -5 10 0`} stroke="#d6efff" strokeWidth={2.5} fill="none" strokeLinecap="round" /></g>);
       continue;
     }
     out.push(<rect key={k} x={X} y={Y} width={U + 0.5} height={U + 0.5} fill={g === 'road' ? '#e9d08f' : grass} />);
     if (g === 'road') out.push(<g key={`${k}r`} fill="#cfae63"><circle cx={X + 9 + ((x * 7) % 13)} cy={Y + 12 + ((y * 5) % 11)} r={1.8} /><circle cx={X + 27 - ((y * 3) % 9)} cy={Y + 29} r={1.4} /></g>);
-    if (g === 'grass' && (x * 3 + y * 5) % 4 === 0) out.push(<path key={`${k}t`} d={`M${X + 12} ${Y + 26} l2 -6 l2 6 M${X + 26} ${Y + 16} l2 -5 l2 5`} stroke="#4f9a44" strokeWidth={2} fill="none" strokeLinecap="round" />);
+    if (shown?.paved && g !== 'road') out.push(<g key={`${k}p`} fill="none" stroke="#bfb39a" strokeWidth={1.5}><path d={`M${X} ${Y + 13} H${X + U} M${X} ${Y + 27} H${X + U} M${X + 14} ${Y} V${Y + 13} M${X + 30} ${Y + 13} V${Y + 27} M${X + 10} ${Y + 27} V${Y + U}`} /></g>);
+    else if (g === 'grass' && (x * 3 + y * 5) % 4 === 0) out.push(<path key={`${k}t`} d={`M${X + 12} ${Y + 26} l2 -6 l2 6 M${X + 26} ${Y + 16} l2 -5 l2 5`} stroke="#4f9a44" strokeWidth={2} fill="none" strokeLinecap="round" />);
     if (g === 'flowers') out.push(<g key={`${k}f`}>{[[11, 13, '#ff6fb5'], [27, 18, '#ffd84a'], [17, 29, '#ffffff'], [31, 31, '#ff8a3c']].map(([a, b, c], i) => <g key={i}><circle cx={X + (a as number)} cy={Y + (b as number)} r={3.4} fill={c as string} stroke="#2d2a3e" strokeWidth={1} /><circle cx={X + (a as number)} cy={Y + (b as number)} r={1.2} fill="#ffb13d" /></g>)}</g>);
     if (g === 'tree') out.push(<Tree key={`${k}tr`} X={X} Y={Y} kind={treeKind(x, y)} />);
   }
   return <g>{out}</g>;
+}
+
+/** Name boards and signposts, drawn over the houses so a plank is never hidden behind a roof. */
+function Signs({ world }: { world: ReturnType<typeof buildWorld> }) {
+  const names = Object.fromEntries(world.districts.map((d) => [d.id, d.name]));
+  return (
+    <g>
+      {world.districts.map((d) => <DistrictBoard key={d.id} d={d} />)}
+      {world.signposts.map((s) => <SignpostArt key={`${s.x},${s.y}`} s={s} names={names} />)}
+    </g>
+  );
+}
+
+const WOOD = '#b77a3d';
+const WOOD_DARK = '#8a5a2b';
+
+/** A part of town's name board: a wide plank on two posts with its picture and name. */
+function DistrictBoard({ d }: { d: District }) {
+  const cx = d.board.x * U + U / 2, Y = d.board.y * U;
+  const w = Math.max(64, d.name.length * 10 + 34);
+  return (
+    <g className="district-board" pointerEvents="none" aria-label={d.name}>
+      <ellipse cx={cx} cy={Y + 37} rx={w / 2 - 6} ry={3.5} fill="rgba(0,0,0,0.2)" />
+      <rect x={cx - w / 2 + 8} y={Y + 18} width={5} height={20} fill={WOOD_DARK} stroke={INK} strokeWidth={1.5} />
+      <rect x={cx + w / 2 - 13} y={Y + 18} width={5} height={20} fill={WOOD_DARK} stroke={INK} strokeWidth={1.5} />
+      <rect x={cx - w / 2} y={Y - 2} width={w} height={24} rx={5} fill={WOOD} stroke={INK} strokeWidth={2.5} />
+      <rect x={cx - w / 2 + 3} y={Y + 1} width={w - 6} height={18} rx={3} fill="#fff6e0" />
+      <IconShapes name={d.icon} x={cx - w / 2 + 5} y={Y + 2} size={16} />
+      <text className="sign-text" x={cx - w / 2 + 25} y={Y + 15} fontSize={13} fontWeight={800} fill={INK}>{d.name}</text>
+    </g>
+  );
+}
+
+/** A plain wooden signpost: one plank per arm, pointing the way to a part of town. */
+function SignpostArt({ s, names }: { s: Signpost; names: Record<string, string> }) {
+  const cx = s.x * U + U / 2, Y = s.y * U;
+  return (
+    <g className="signpost" pointerEvents="none">
+      <ellipse cx={cx} cy={Y + 37} rx={8} ry={3} fill="rgba(0,0,0,0.22)" />
+      <rect x={cx - 3} y={Y - 14} width={6} height={52} rx={2} fill={WOOD_DARK} stroke={INK} strokeWidth={1.8} />
+      {s.arms.map((a, i) => {
+        const name = names[a.to] ?? a.to;
+        const w = name.length * 6.6 + 22;
+        const top = (s.arms.length >= 3 ? Y - 12 : Y - 2) + i * 15;
+        // left/right planks point that way; up/down planks sit centred with an arrow on them
+        const x0 = a.dir === 'left' ? cx - w + 6 : a.dir === 'right' ? cx - 6 : cx - w / 2;
+        const tip = 7;
+        const d = a.dir === 'left'
+          ? `M${x0} ${top + 6} l${tip} -6 h${w - tip} v12 h${-(w - tip)} z`
+          : a.dir === 'right'
+            ? `M${x0} ${top} h${w - tip} l${tip} 6 l${-tip} 6 h${-(w - tip)} z`
+            : `M${x0} ${top} h${w} v12 h${-w} z`;
+        const arrow = a.dir === 'up' ? '↑ ' : a.dir === 'down' ? '↓ ' : '';
+        const tx = a.dir === 'left' ? x0 + tip + (w - tip) / 2 : a.dir === 'right' ? x0 + (w - tip) / 2 : cx;
+        return (
+          <g key={a.to}>
+            <path d={d} fill={i % 2 ? '#c98b4b' : WOOD} stroke={INK} strokeWidth={1.8} strokeLinejoin="round" />
+            <text className="sign-text" x={tx} y={top + 9.5} fontSize={9.5} fontWeight={800} textAnchor="middle" fill="#fffaf0">{arrow}{name}</text>
+          </g>
+        );
+      })}
+    </g>
+  );
 }
 
 /** Which tree grows on a tile: mostly leafy oaks, some pines, a few with apples or blossom (same every time). */

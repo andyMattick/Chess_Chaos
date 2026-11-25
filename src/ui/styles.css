@@ -1102,3 +1102,5 @@ svg.world-card-emoji { width: 2.2rem; height: 2.2rem; flex: none; }
 .mode-group { margin: 6px 0 4px; }
 .mode-group h4 { margin: 0 0 3px; font-size: 0.95rem; color: var(--muted); font-weight: 700; }
 .profile-chip { white-space: nowrap; }
+.world-map .sign-text { font-family: var(--hand); }
+.place-group h4 { margin: 10px 0 4px; font-size: 1rem; }

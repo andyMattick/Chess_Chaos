@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { doorOf, PLACES, WORLD_H, WORLD_START, WORLD_W } from '../src/content/world';
+import { DISTRICTS, districtAt, doorOf, PLACES, SIGNPOSTS, WORLD_H, WORLD_START, WORLD_W } from '../src/content/world';
 import { buildWorld, doorPlace, groundAt, pathTo, placeOn, walkable } from '../src/systems/world';
 
 const HOME_SCREENS = ['bots', 'online', 'party', 'levelup', 'modes', 'battle', 'challenges', 'minis', 'train', 'openings', 'puzzles', 'wardrobe', 'cards', 'history', 'leaderboard', 'chesscom', 'daily'];
@@ -50,7 +50,9 @@ describe('World of C.H.A.O.S. map', () => {
     const fewer = PLACES.filter((p) => !['online', 'challenges', 'leaderboard', 'chesscom'].includes(p.go));
     const w2 = buildWorld(fewer);
     for (const p of fewer) expect(pathTo(w2, WORLD_START, doorOf(p)).length).toBeGreaterThan(0);
-    expect(placeOn(w2, { x: 12, y: 19 })).toBeNull();
+    expect(placeOn(w2, { x: 4, y: 19 })).toBeNull(); // the Harbour is hidden
+    expect(w2.districts.map((d) => d.id)).not.toContain('friends'); // nothing left there: no board, no signpost arm
+    expect(w2.signposts.flatMap((s) => s.arms.map((a) => a.to))).not.toContain('friends');
   });
 
   it('tapping water or a tree walks next to it; tapping where you stand does nothing', () => {
@@ -59,5 +61,29 @@ describe('World of C.H.A.O.S. map', () => {
     expect(sea.length).toBe(0); // far out at sea: no open tile next to it
     const shore = pathTo(w, WORLD_START, { x: 8, y: 22 });
     expect(shore[shore.length - 1]).toEqual({ x: 8, y: 21 });
+  });
+
+  it('groups the places into parts of town, each with a name board, and the signposts point the right way', () => {
+    // Owner, 2026-11-25: "organize the buildings into train, play, records, etc."
+    for (const p of PLACES) {
+      if (p.district === 'square') continue;
+      for (let y = p.y; y < p.y + p.h; y++) for (let x = p.x; x < p.x + p.w; x++) expect(districtAt(x, y)?.id, `${p.id} at ${x},${y}`).toBe(p.district);
+    }
+    for (const d of DISTRICTS) {
+      expect(PLACES.some((p) => p.district === d.id), d.id).toBe(true);
+      expect(groundAt(w, d.board), d.id).toBe('sign');
+      expect(SIGNPOSTS.some((s) => s.arms.some((a) => a.to === d.id)), `a signpost points to ${d.id}`).toBe(true);
+    }
+    for (const s of SIGNPOSTS) {
+      expect(groundAt(w, s)).toBe('sign');
+      for (const a of s.arms) {
+        const d = DISTRICTS.find((x) => x.id === a.to)!;
+        const cx = d.area.x + d.area.w / 2, cy = d.area.y + d.area.h / 2;
+        if (a.dir === 'up') expect(cy, a.to).toBeLessThan(s.y);
+        if (a.dir === 'down') expect(cy, a.to).toBeGreaterThan(s.y);
+        if (a.dir === 'left') expect(cx, a.to).toBeLessThan(s.x);
+        if (a.dir === 'right') expect(cx, a.to).toBeGreaterThan(s.x);
+      }
+    }
   });
 });

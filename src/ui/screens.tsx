@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { PLACES, type Place } from '../content/world';
+import { DISTRICTS, PLACES, type Place } from '../content/world';
 import { WorldMap } from './WorldMap';
 import { canTakePlacement } from '../systems/placement';
 import { type Bot } from '../content/bots';
@@ -93,9 +93,17 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
       <WorldMap places={places} badges={badges} enter={enter} />
       <details className="all-places">
         <summary>🗺️ All places</summary>
-        <div className="tiles">
-          {places.map((pl) => <Tile key={pl.id} id={pl.id} emoji={pl.emoji} title={pl.name} sub={badges[pl.id] && pl.id !== 'quests' ? `${pl.sub} (${badges[pl.id]})` : pl.sub} c={pl.roof} onClick={() => enter(pl)} disabled={!p} />)}
-        </div>
+        {[{ id: 'square', name: 'Town square' }, ...DISTRICTS].map((d) => {
+          const here = places.filter((pl) => pl.district === d.id);
+          return here.length ? (
+            <div key={d.id} className="place-group">
+              <h4>{d.name}</h4>
+              <div className="tiles">
+                {here.map((pl) => <Tile key={pl.id} id={pl.id} emoji={pl.emoji} title={pl.name} sub={badges[pl.id] && pl.id !== 'quests' ? `${pl.sub} (${badges[pl.id]})` : pl.sub} c={pl.roof} onClick={() => enter(pl)} disabled={!p} />)}
+              </div>
+            </div>
+          ) : null;
+        })}
       </details>
       {dailyOpen && p && (
         <div className="quest-modal" role="dialog" aria-label="Daily missions" onClick={(e) => { if (e.target === e.currentTarget) setDailyOpen(false); }}>

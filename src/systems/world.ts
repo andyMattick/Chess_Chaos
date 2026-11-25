@@ -3,9 +3,9 @@
  * roads from the town square to every door, trees and flowers, and finding
  * a path for a tap. Pure and deterministic, so the map is the same every visit.
  */
-import { doorOf, PLACES, WATER, WORLD_H, WORLD_START, WORLD_W, type Place } from '../content/world';
+import { DISTRICTS, doorOf, PLACES, SIGNPOSTS, WATER, WORLD_H, WORLD_START, WORLD_W, type District, type Place, type Signpost } from '../content/world';
 
-export type Ground = 'grass' | 'road' | 'tree' | 'flowers' | 'water' | 'building';
+export type Ground = 'grass' | 'road' | 'tree' | 'flowers' | 'water' | 'building' | 'sign';
 export interface Tile { x: number; y: number }
 
 const key = (t: Tile) => t.y * WORLD_W + t.x;
@@ -46,6 +46,10 @@ export interface World {
   /** Which place stands on each tile (index into the given places), or -1. */
   placeAt: number[];
   places: Place[];
+  /** Parts of town that have at least one of these places, with their name boards. */
+  districts: District[];
+  /** Signposts, with arms only for parts of town that are shown. */
+  signposts: Signpost[];
 }
 
 /** Lay out the world for these places (some places are hidden in Pet World or with Chess.com off). */
@@ -59,6 +63,11 @@ export function buildWorld(places: Place[] = PLACES): World {
   places.forEach((p, i) => {
     for (let y = p.y; y < p.y + p.h; y++) for (let x = p.x; x < p.x + p.w; x++) { ground[key({ x, y })] = 'building'; placeAt[key({ x, y })] = i; }
   });
+  // Name boards and signposts stand on their own tile, so roads go round them.
+  const districts = DISTRICTS.filter((d) => places.some((p) => p.district === d.id));
+  const signposts = SIGNPOSTS.map((s) => ({ ...s, arms: s.arms.filter((a) => districts.some((d) => d.id === a.to)) })).filter((s) => s.arms.length);
+  for (const d of districts) ground[key(d.board)] = 'sign';
+  for (const s of signposts) ground[key(s)] = 'sign';
   // Roads: the shortest way from the town square to every door.
   const walk = (t: Tile) => ground[key(t)] === 'grass' || ground[key(t)] === 'road';
   const prev = bfs(WORLD_START, walk);
@@ -67,12 +76,13 @@ export function buildWorld(places: Place[] = PLACES): World {
   const nearDoor = (t: Tile) => places.some((p) => { const d = doorOf(p); return Math.abs(d.x - t.x) + Math.abs(d.y - t.y) <= 1; });
   for (let y = 1; y < WORLD_H; y++) for (let x = 1; x < WORLD_W - 1; x++) {
     const t = { x, y };
-    if (ground[key(t)] !== 'grass' || nearDoor(t) || (Math.abs(x - WORLD_START.x) <= 1 && Math.abs(y - WORLD_START.y) <= 1)) continue;
+    const nearSign = [...signposts, ...districts.map((d) => d.board)].some((s) => Math.abs(s.x - x) <= 1 && Math.abs(s.y - y) <= 1);
+    if (ground[key(t)] !== 'grass' || nearDoor(t) || nearSign || (Math.abs(x - WORLD_START.x) <= 1 && Math.abs(y - WORLD_START.y) <= 1)) continue;
     const r = hash(x, y);
     if (r < 0.12) ground[key(t)] = 'tree';
     else if (r < 0.24) ground[key(t)] = 'flowers';
   }
-  return { ground, placeAt, places };
+  return { ground, placeAt, places, districts, signposts };
 }
 
 export function groundAt(w: World, t: Tile): Ground {
