@@ -2,7 +2,7 @@
  * First-time visitor walkthrough, for the weekly check.
  *
  * A brand-new player on a phone (no save): opens the app, makes a player,
- * looks at Home (the World of C.H.A.O.S. map), walks to the Bot Tower and
+ * looks at Home (the World of C.H.A.O.S. map), walks with the joystick, walks to the Bot Tower and
  * plays a few moves against the first bot, opens the Quest Board, Party Arena,
  * Puzzle Cave and Chaos Carnival, and comes back Home. Saves a screenshot of every
  * step and a report of anything that went wrong (page errors, blank screens,
@@ -70,6 +70,30 @@ await step('player number question (say not now)', async () => {
   if (await ask.waitFor({ timeout: 3000 }).then(() => true).catch(() => false)) await ask.getByRole('button', { name: 'Not now' }).click();
 });
 await step('home screen', async () => { await page.locator('svg.world-map').waitFor({ timeout: 5000 }); });
+await step('walk with the joystick', async () => {
+  // Owner, 2026-11-27: a joystick on the map. Hold it to one side and the hero keeps walking; let go and it stops.
+  const hero = () => page.locator('.world-hero').evaluate((g) => g.style.transform);
+  const joy = await page.locator('.joystick').boundingBox();
+  if (!joy) throw new Error('no joystick on the map');
+  const cx = joy.x + joy.width / 2, cy = joy.y + joy.height / 2;
+  const hold = async (dx, dy, ms) => {
+    await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.move(cx + dx, cy + dy, { steps: 4 });
+    await page.waitForTimeout(ms); await page.mouse.up();
+  };
+  const start = await hero();
+  let way = null;
+  for (const [dx, dy] of [[-40, 0], [40, 0], [0, 40], [0, -40]]) {
+    await hold(dx, dy, 500);
+    if ((await hero()) !== start) { way = [dx, dy]; break; }
+  }
+  const moved = await hero();
+  if (!way) throw new Error('the hero did not move with the joystick');
+  await page.waitForTimeout(400);
+  if ((await hero()) !== moved) throw new Error('the hero kept walking after letting go');
+  // Walk back the same way, so the next steps find the map where they expect it.
+  for (let i = 0; i < 12 && (await hero()) !== start; i++) { await hold(-way[0], -way[1], 60); await page.waitForTimeout(200); }
+  if ((await hero()) !== start) throw new Error('could not walk back with the joystick');
+});
 await step('walk to the quest board', async () => {
   // Owner, 2026-11-22: the main screen is a map to walk around. Tap the Quest Board (daily missions), then go in.
   await tapTile(11, 8);

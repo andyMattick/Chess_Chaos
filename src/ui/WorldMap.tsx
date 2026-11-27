@@ -6,11 +6,13 @@ import { lookOf } from '../storage/storage';
 import { Character } from './skins';
 import { useSave } from './store';
 import { IconShapes, PLACE_ICON, PlaceIcon } from './icons';
+import { joystickDir, knobAt, sameDir, type Dir } from './joystick';
 
 /**
  * The main screen as a little world to walk around (owner, 2026-11-22): tap
- * anywhere to walk there (tap a building to walk to its door), or use the arrow
- * pad / arrow keys. At a door, a card says where you are: "Go in".
+ * anywhere to walk there (tap a building to walk to its door), or drag the
+ * joystick (owner, 2026-11-27) / use the arrow keys. At a door, a card says
+ * where you are: "Go in". Pushing the joystick into a house from its door goes in.
  * Our own art, drawn in code: grass, roads, trees, flowers, the sea and houses.
  */
 const U = 40; // SVG units per tile
@@ -26,6 +28,7 @@ export function WorldMap({ places, badges, enter }: { places: Place[]; badges: R
   const [facing, setFacing] = useState<1 | -1>(1);
   const [route, setRoute] = useState<Tile[]>([]);
   const [target, setTarget] = useState<Place | null>(null);
+  const [steering, setSteering] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 360, h: 480 });
 
@@ -106,7 +109,7 @@ export function WorldMap({ places, badges, enter }: { places: Place[]; badges: R
   }
 
   const skin = skinFor(lookOf(save).skins, 'p1', 'king');
-  const walking = route.length > 0;
+  const walking = route.length > 0 || steering;
 
   return (
     <div className="world">
@@ -135,13 +138,58 @@ export function WorldMap({ places, badges, enter }: { places: Place[]; badges: R
             <button className="btn primary" onClick={() => enter(card)}>{here ? 'Go in' : 'Go'}</button>
           </div>
         )}
-        <div className="dpad" aria-label="Walk">
-          <button aria-label="Walk up" className="up" onClick={() => step(0, -1)}>▲</button>
-          <button aria-label="Walk left" className="left" onClick={() => step(-1, 0)}>◀</button>
-          <button aria-label="Walk right" className="right" onClick={() => step(1, 0)}>▶</button>
-          <button aria-label="Walk down" className="down" onClick={() => step(0, 1)}>▼</button>
-        </div>
+        <Joystick onStep={step} onActive={setSteering} />
       </div>
+    </div>
+  );
+}
+
+/** Drag the knob to walk; the hero keeps going while you hold it. */
+function Joystick({ onStep, onActive }: { onStep: (dx: number, dy: number) => void; onActive: (on: boolean) => void }) {
+  const stepRef = useRef(onStep);
+  stepRef.current = onStep;
+  const baseRef = useRef<HTMLDivElement>(null);
+  const dir = useRef<Dir | null>(null);
+  const timer = useRef<number | undefined>(undefined);
+  const [knob, setKnob] = useState({ x: 0, y: 0 });
+  const [held, setHeld] = useState(false);
+
+  const stopTimer = () => { window.clearInterval(timer.current); timer.current = undefined; };
+  useEffect(() => stopTimer, []);
+
+  function aim(e: PointerEvent<HTMLDivElement>) {
+    const r = baseRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    setKnob(knobAt(dx, dy));
+    const d = joystickDir(dx, dy);
+    if (sameDir(d, dir.current)) return;
+    dir.current = d;
+    stopTimer();
+    onActive(!!d);
+    if (!d) return;
+    stepRef.current(d[0], d[1]);
+    timer.current = window.setInterval(() => { if (dir.current) stepRef.current(dir.current[0], dir.current[1]); }, STEP_MS);
+  }
+  function release(e: PointerEvent<HTMLDivElement>) {
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    stopTimer();
+    dir.current = null;
+    setHeld(false);
+    setKnob({ x: 0, y: 0 });
+    onActive(false);
+  }
+
+  return (
+    <div
+      ref={baseRef} className={`joystick ${held ? 'held' : ''}`} role="img" aria-label="Joystick: drag to walk"
+      onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture?.(e.pointerId); setHeld(true); aim(e); }}
+      onPointerMove={(e) => { if (held) aim(e); }}
+      onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release}
+    >
+      <span className="joy-arrow up">▲</span><span className="joy-arrow down">▼</span>
+      <span className="joy-arrow left">◀</span><span className="joy-arrow right">▶</span>
+      <span className="joy-knob" style={{ transform: `translate(${knob.x}px, ${knob.y}px)` }} />
     </div>
   );
 }
