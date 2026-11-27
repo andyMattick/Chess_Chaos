@@ -1381,5 +1381,700 @@
     "win": 2
    }
   }
+ },
+ {
+  "date": "2026-11-26",
+  "ladder": [
+   {
+    "lower": "Pip ★400",
+    "higher": "Sam the Scholar ★500",
+    "score": 4
+   },
+   {
+    "lower": "Sam the Scholar ★500",
+    "higher": "Lola London ★600",
+    "score": 5.5
+   },
+   {
+    "lower": "Lola London ★600",
+    "higher": "Captain Fork ★700",
+    "score": 4
+   },
+   {
+    "lower": "Captain Fork ★700",
+    "higher": "Fred ★800",
+    "score": 6
+   },
+   {
+    "lower": "Fred ★800",
+    "higher": "Sven ★800",
+    "score": 3
+   },
+   {
+    "lower": "Sven ★800",
+    "higher": "Gus Gambit ★900",
+    "score": 4
+   },
+   {
+    "lower": "Gus Gambit ★900",
+    "higher": "Dana ★900",
+    "score": 3
+   },
+   {
+    "lower": "Dana ★900",
+    "higher": "Scotty ★900",
+    "score": 4
+   },
+   {
+    "lower": "Scotty ★900",
+    "higher": "Vi ★1000",
+    "score": 5.5
+   },
+   {
+    "lower": "Vi ★1000",
+    "higher": "Queenie ★1000",
+    "score": 3
+   },
+   {
+    "lower": "Queenie ★1000",
+    "higher": "Madame Baguette ★1000",
+    "score": 2
+   },
+   {
+    "lower": "Madame Baguette ★1000",
+    "higher": "Caro ★1100",
+    "score": 4
+   },
+   {
+    "lower": "Caro ★1100",
+    "higher": "Ruy ★1100",
+    "score": 2
+   },
+   {
+    "lower": "Ruy ★1100",
+    "higher": "Sal ★1200",
+    "score": 5
+   },
+   {
+    "lower": "Sal ★1200",
+    "higher": "Dutch ★1200",
+    "score": 2.5
+   },
+   {
+    "lower": "Dutch ★1200",
+    "higher": "Indy ★1300",
+    "score": 6
+   },
+   {
+    "lower": "Indy ★1300",
+    "higher": "Professor English ★1400",
+    "score": 4
+   }
+  ],
+  "modes": {
+   "atomic": {
+    "white": 4,
+    "black": 8,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 21
+   },
+   "boss": {
+    "white": 5,
+    "black": 7,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 21
+   },
+   "capture-race": {
+    "white": 3,
+    "black": 9,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 22
+   },
+   "capture-the-flag": {
+    "white": 5,
+    "black": 7,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 42
+   },
+   "card-chess": {
+    "white": 7,
+    "black": 3,
+    "draw": 2,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 49
+   },
+   "draft": {
+    "white": 5,
+    "black": 6,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 39
+   },
+   "drop-in": {
+    "white": 6,
+    "black": 6,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 40
+   },
+   "giveaway": {
+    "white": 7,
+    "black": 5,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 27
+   },
+   "hidden-queen": {
+    "white": 7,
+    "black": 5,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 60
+   },
+   "hill-wars": {
+    "white": 3,
+    "black": 9,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 17
+   },
+   "horde": {
+    "white": 5,
+    "black": 6,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 67
+   },
+   "koth": {
+    "white": 6,
+    "black": 6,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 33
+   },
+   "lava": {
+    "white": 8,
+    "black": 3,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 50
+   },
+   "mini": {
+    "white": 3,
+    "black": 7,
+    "draw": 2,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 17
+   },
+   "monster": {
+    "white": 5,
+    "black": 6,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 37
+   },
+   "mystery-army": {
+    "white": 3,
+    "black": 8,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 54
+   },
+   "paint": {
+    "white": 6,
+    "black": 5,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 30
+   },
+   "pawn-wars": {
+    "white": 3,
+    "black": 8,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 19
+   },
+   "progressive": {
+    "white": 7,
+    "black": 5,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 12
+   },
+   "racing-kings": {
+    "white": 7,
+    "black": 4,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 33
+   },
+   "random-piece": {
+    "white": 4,
+    "black": 7,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 45
+   },
+   "shrinking": {
+    "white": 3,
+    "black": 8,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 33
+   },
+   "shuffle": {
+    "white": 6,
+    "black": 4,
+    "draw": 2,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 55
+   },
+   "standard": {
+    "white": 3,
+    "black": 8,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 55
+   },
+   "three-check": {
+    "white": 5,
+    "black": 7,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 19
+   },
+   "truce": {
+    "white": 3,
+    "black": 6,
+    "draw": 3,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 53
+   },
+   "wrap": {
+    "white": 6,
+    "black": 5,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 41
+   }
+  },
+  "party": {
+   "atomic": {
+    "underdog": 3,
+    "favourite": 5,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 9,
+    "missions": {
+     "reveal": 0,
+     "off": 0,
+     "win": 0
+    }
+   },
+   "boss": {
+    "underdog": 7,
+    "favourite": 1,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 20,
+    "missions": {
+     "reveal": 1,
+     "off": 1,
+     "win": 0
+    }
+   },
+   "capture-race": {
+    "underdog": 0,
+    "favourite": 8,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 20,
+    "missions": {
+     "reveal": 1,
+     "off": 1,
+     "win": 0
+    }
+   },
+   "capture-the-flag": {
+    "underdog": 2,
+    "favourite": 5,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 38,
+    "missions": {
+     "reveal": 2,
+     "off": 1,
+     "win": 1
+    }
+   },
+   "card-chess": {
+    "underdog": 3,
+    "favourite": 5,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 39,
+    "missions": {
+     "reveal": 4,
+     "off": 0,
+     "win": 4
+    }
+   },
+   "drop-in": {
+    "underdog": 4,
+    "favourite": 4,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 33,
+    "missions": {
+     "reveal": 0,
+     "off": 0,
+     "win": 0
+    }
+   },
+   "giveaway": {
+    "underdog": 2,
+    "favourite": 6,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 29,
+    "missions": {
+     "reveal": 0,
+     "off": 0,
+     "win": 0
+    }
+   },
+   "hidden-queen": {
+    "underdog": 2,
+    "favourite": 6,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 41,
+    "missions": {
+     "reveal": 3,
+     "off": 2,
+     "win": 2
+    }
+   },
+   "hill-wars": {
+    "underdog": 6,
+    "favourite": 2,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 17,
+    "missions": {
+     "reveal": 0,
+     "off": 0,
+     "win": 0
+    }
+   },
+   "horde": {
+    "underdog": 3,
+    "favourite": 5,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 48,
+    "missions": {
+     "reveal": 4,
+     "off": 0,
+     "win": 4
+    }
+   },
+   "koth": {
+    "underdog": 6,
+    "favourite": 2,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 37,
+    "missions": {
+     "reveal": 4,
+     "off": 2,
+     "win": 2
+    }
+   },
+   "lava": {
+    "underdog": 1,
+    "favourite": 6,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 39,
+    "missions": {
+     "reveal": 0,
+     "off": 0,
+     "win": 0
+    }
+   },
+   "mini": {
+    "underdog": 2,
+    "favourite": 6,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 20,
+    "missions": {
+     "reveal": 2,
+     "off": 2,
+     "win": 0
+    }
+   },
+   "monster": {
+    "underdog": 4,
+    "favourite": 4,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 35,
+    "missions": {
+     "reveal": 4,
+     "off": 2,
+     "win": 3
+    }
+   },
+   "mystery-army": {
+    "underdog": 5,
+    "favourite": 3,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 38,
+    "missions": {
+     "reveal": 3,
+     "off": 1,
+     "win": 2
+    }
+   },
+   "paint": {
+    "underdog": 2,
+    "favourite": 5,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 29,
+    "missions": {
+     "reveal": 0,
+     "off": 0,
+     "win": 1
+    }
+   },
+   "pawn-wars": {
+    "underdog": 1,
+    "favourite": 5,
+    "draw": 2,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 14,
+    "missions": {
+     "reveal": 1,
+     "off": 0,
+     "win": 1
+    }
+   },
+   "progressive": {
+    "underdog": 6,
+    "favourite": 2,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 7,
+    "missions": {
+     "reveal": 0,
+     "off": 0,
+     "win": 0
+    }
+   },
+   "racing-kings": {
+    "underdog": 5,
+    "favourite": 2,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 32,
+    "missions": {
+     "reveal": 1,
+     "off": 0,
+     "win": 2
+    }
+   },
+   "random-piece": {
+    "underdog": 1,
+    "favourite": 7,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 37,
+    "missions": {
+     "reveal": 3,
+     "off": 2,
+     "win": 1
+    }
+   },
+   "shrinking": {
+    "underdog": 1,
+    "favourite": 5,
+    "draw": 2,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 27,
+    "missions": {
+     "reveal": 0,
+     "off": 0,
+     "win": 0
+    }
+   },
+   "shuffle": {
+    "underdog": 2,
+    "favourite": 4,
+    "draw": 2,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 27,
+    "missions": {
+     "reveal": 1,
+     "off": 0,
+     "win": 2
+    }
+   },
+   "standard": {
+    "underdog": 2,
+    "favourite": 5,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 47,
+    "missions": {
+     "reveal": 3,
+     "off": 1,
+     "win": 2
+    }
+   },
+   "three-check": {
+    "underdog": 4,
+    "favourite": 4,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 17,
+    "missions": {
+     "reveal": 1,
+     "off": 0,
+     "win": 0
+    }
+   },
+   "truce": {
+    "underdog": 3,
+    "favourite": 4,
+    "draw": 1,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 48,
+    "missions": {
+     "reveal": 2,
+     "off": 2,
+     "win": 1
+    }
+   },
+   "wrap": {
+    "underdog": 5,
+    "favourite": 3,
+    "draw": 0,
+    "stall": 0,
+    "crash": 0,
+    "avgMoves": 37,
+    "missions": {
+     "reveal": 2,
+     "off": 1,
+     "win": 1
+    }
+   }
+  },
+  "missions": {
+   "MISSION-15": {
+    "reveal": 12,
+    "off": 10,
+    "win": 2
+   },
+   "MISSION-04": {
+    "reveal": 13,
+    "off": 6,
+    "win": 7
+   },
+   "MISSION-17": {
+    "reveal": 12,
+    "off": 1,
+    "win": 11
+   },
+   "MISSION-05": {
+    "reveal": 0,
+    "off": 0,
+    "win": 1
+   },
+   "MISSION-16": {
+    "reveal": 2,
+    "off": 0,
+    "win": 2
+   },
+   "MISSION-14": {
+    "reveal": 3,
+    "off": 1,
+    "win": 1
+   },
+   "MISSION-21": {
+    "reveal": 0,
+    "off": 0,
+    "win": 2
+   },
+   "MISSION-11": {
+    "reveal": 0,
+    "off": 0,
+    "win": 1
+   },
+   "MISSION-07": {
+    "reveal": 0,
+    "off": 0,
+    "win": 2
+   }
+  }
  }
 ]
