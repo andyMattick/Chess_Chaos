@@ -79,7 +79,7 @@ export function Home({ go }: { go: (screen: 'online' | 'bots' | 'profiles' | 'hi
         </div>
         <ProfileChip onClick={() => go('profiles')} />
       </header>
-      <p className="home-hint">{p ? `Hi ${p.nickname}! Tap a place to walk there.` : 'Make a player to get started.'}</p>
+      <p className="home-hint">{p ? `Hi ${p.nickname}! Tap a place or use the joystick to walk there.` : 'Make a player to get started.'}</p>
       {p && !petWorld && luSession.savedCode() && (
         <button className="live-banner" onClick={() => go('levelup')}>⚡ Your live Level-Up room {luSession.savedCode()} is still open. Tap to go back.</button>
       )}
